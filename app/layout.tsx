@@ -35,7 +35,7 @@ export default function RootLayout({
               colorPrimary: "#22426b", // selected input field boarder will have this color as well
               borderRadius: 8,
               // follow global foreground color so text stays visible in both light/dark modes
-              colorText: "var(--foreground)",
+              colorText: "#ededed",
               fontSize: 16,
 
               // Alias Token
