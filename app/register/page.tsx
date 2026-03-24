@@ -8,9 +8,12 @@ import { User } from "@/types/user";
 import { Button, Checkbox, Form, Input } from "antd";
 import styles from "@/styles/auth.module.css";
 
-interface LoginFormValues {
+interface RegisterFormValues {
   username: string;
+  email: string;
   password: string;
+  confirmPassword: string;
+  acceptedTerms: boolean;
 }
 
 const isApplicationError = (error: unknown): error is ApplicationError => {
@@ -23,15 +26,15 @@ const isApplicationError = (error: unknown): error is ApplicationError => {
   );
 };
 
-const Login: React.FC = () => {
+const Register: React.FC = () => {
   const router = useRouter();
   const apiService = useApi();
-  const [form] = Form.useForm<LoginFormValues>();
+  const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useLocalStorage<string>("token", "");
 
-  const handleLogin = async (values: LoginFormValues): Promise<void> => {
+  const handleRegister = async (values: RegisterFormValues): Promise<void> => {
     try {
-      const response = await apiService.post<User>("/users/login", {
+      const response = await apiService.post<User>("/users/register", {
         username: values.username.trim(),
         password: values.password,
       });
@@ -43,19 +46,20 @@ const Login: React.FC = () => {
       router.push("/users");
     } catch (error) {
       if (isApplicationError(error)) {
-        if (error.status === 401) {
-          alert("Username or password is incorrect. Please try again.");
+        const message = error.message.toLowerCase();
+        if (error.status === 400 && message.includes("username")) {
+          alert("This username is already taken. Please choose another one.");
           return;
         }
         if (error.status >= 500) {
           alert("Server is currently unavailable. Please try again later.");
           return;
         }
-        alert(`Login failed:\n${error.message}`);
+        alert(`Registration failed:\n${error.message}`);
       } else if (error instanceof Error) {
         alert("Unable to connect. Please check your network and try again.");
       } else {
-        alert("An unknown error occurred during login.");
+        alert("An unknown error occurred during registration.");
       }
     }
   };
@@ -73,19 +77,20 @@ const Login: React.FC = () => {
             <article className={styles.featureCard}>
               <p className={styles.featureTitle}>Household Collaboration</p>
               <p className={styles.featureText}>
-                Share access with family members and sync your pantry in real time.
+                Share access with family members and sync your shopping list in
+                real time.
               </p>
             </article>
             <article className={styles.featureCard}>
               <p className={styles.featureTitle}>Smart Notifications</p>
               <p className={styles.featureText}>
-                Get gentle reminders before ingredients expire to reduce food waste.
+                Receive gentle nudges before ingredients expire to reduce waste.
               </p>
             </article>
             <article className={styles.featureCard}>
               <p className={styles.featureTitle}>Usage Analytics</p>
               <p className={styles.featureText}>
-                Track consumption patterns and optimize your grocery budget.
+                Monitor trends and optimize your household grocery budget.
               </p>
             </article>
           </div>
@@ -94,15 +99,17 @@ const Login: React.FC = () => {
 
         <section className={styles.rightPanel}>
           <div className={styles.authCard}>
-            <h2 className={styles.authTitle}>Welcome Back</h2>
-            <p className={styles.authSubtitle}>Sign in to continue to your pantry.</p>
+            <h2 className={styles.authTitle}>Create Account</h2>
+            <p className={styles.authSubtitle}>
+              Join our community of mindful curators.
+            </p>
 
-            <Form<LoginFormValues>
+            <Form<RegisterFormValues>
               form={form}
-              name="login"
+              name="register"
               size="large"
               variant="outlined"
-              onFinish={handleLogin}
+              onFinish={handleRegister}
               layout="vertical"
               autoComplete="off"
             >
@@ -111,33 +118,81 @@ const Login: React.FC = () => {
                 label="Username"
                 rules={[{ required: true, message: "Please input your username." }]}
               >
-                <Input placeholder="Your username" />
+                <Input placeholder="Your name" />
+              </Form.Item>
+              <Form.Item
+                name="email"
+                label="Email Address"
+                rules={[
+                  { required: true, message: "Please input your email." },
+                  { type: "email", message: "Please enter a valid email address." },
+                ]}
+              >
+                <Input placeholder="your.email@example.com" />
               </Form.Item>
               <Form.Item
                 name="password"
                 label="Password"
-                rules={[{ required: true, message: "Please input your password." }]}
+                rules={[
+                  { required: true, message: "Please input your password." },
+                  { min: 6, message: "Password must have at least 6 characters." },
+                ]}
               >
                 <Input.Password placeholder="••••••••" />
               </Form.Item>
-              <Form.Item name="rememberMe" valuePropName="checked">
-                <Checkbox className={styles.inlineAgreement}>Remember me</Checkbox>
+              <Form.Item
+                name="confirmPassword"
+                label="Confirm Password"
+                dependencies={["password"]}
+                rules={[
+                  { required: true, message: "Please confirm your password." },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value || getFieldValue("password") === value) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(new Error("Passwords do not match."));
+                    },
+                  }),
+                ]}
+              >
+                <Input.Password placeholder="••••••••" />
+              </Form.Item>
+              <Form.Item
+                name="acceptedTerms"
+                valuePropName="checked"
+                rules={[
+                  {
+                    validator: (_, value) =>
+                      value
+                        ? Promise.resolve()
+                        : Promise.reject(
+                            new Error("Please agree to the terms to continue."),
+                          ),
+                  },
+                ]}
+              >
+                <Checkbox className={styles.inlineAgreement}>
+                  <span className={styles.requiredSign}>*</span>{" "}
+                  I agree to the <a href="#terms">Terms of Service</a> and{" "}
+                  <a href="#privacy">Privacy Policy</a>.
+                </Checkbox>
               </Form.Item>
               <Form.Item>
                 <Button type="primary" htmlType="submit" className={styles.submitButton}>
-                  Sign In
+                  Create Account
                 </Button>
               </Form.Item>
             </Form>
 
             <p className={styles.switchRow}>
-              Don&apos;t have an account?{" "}
+              Already have an account?{" "}
               <Button
                 type="link"
                 className={styles.switchLink}
-                onClick={() => router.push("/register")}
+                onClick={() => router.push("/login")}
               >
-                Create account
+                Sign in
               </Button>
             </p>
           </div>
@@ -153,4 +208,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default Register;

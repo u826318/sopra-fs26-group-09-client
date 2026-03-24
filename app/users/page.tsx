@@ -39,15 +39,27 @@ const Dashboard: React.FC = () => {
   // The hook returns an object with the value and two functions
   // Simply choose what you need from the hook:
   const {
-    // value: token, // is commented out because we dont need to know the token value for logout
+    value: token,
     // set: setToken, // is commented out because we dont need to set or update the token value
     clear: clearToken, // all we need in this scenario is a method to clear the token
   } = useLocalStorage<string>("token", ""); // if you wanted to select a different token, i.e "lobby", useLocalStorage<string>("lobby", "");
 
-  const handleLogout = (): void => {
-    // Clear token using the returned function 'clear' from the hook
-    clearToken();
-    router.push("/login");
+  const handleLogout = async (): Promise<void> => {
+    try {
+      await apiService.post("/users/logout", {
+        token,
+      });
+
+      // Clear local auth state only after backend confirms logout.
+      clearToken();
+      router.push("/login");
+    } catch (error) {
+      if (error instanceof Error) {
+        alert(`Logout request failed:\n${error.message}`);
+      } else {
+        alert("Logout request failed due to an unknown error.");
+      }
+    }
   };
 
   useEffect(() => {
@@ -92,7 +104,7 @@ const Dashboard: React.FC = () => {
                 style: { cursor: "pointer" },
               })}
             />
-            <Button onClick={handleLogout} type="primary">
+            <Button onClick={() => void handleLogout()} type="primary">
               Logout
             </Button>
           </>
