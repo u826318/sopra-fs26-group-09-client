@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
-import { ApplicationError } from "@/types/error";
+import AuthLayout from "@/components/auth/AuthLayout";
+import { getLoginErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
 import { Button, Checkbox, Form, Input } from "antd";
 import styles from "@/styles/auth.module.css";
@@ -12,16 +13,6 @@ interface LoginFormValues {
   username: string;
   password: string;
 }
-
-const isApplicationError = (error: unknown): error is ApplicationError => {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    typeof (error as { status: unknown }).status === "number" &&
-    "message" in error
-  );
-};
 
 const Login: React.FC = () => {
   const router = useRouter();
@@ -42,114 +33,51 @@ const Login: React.FC = () => {
 
       router.push("/users");
     } catch (error) {
-      if (isApplicationError(error)) {
-        if (error.status === 401) {
-          alert("Username or password is incorrect. Please try again.");
-          return;
-        }
-        if (error.status >= 500) {
-          alert("Server is currently unavailable. Please try again later.");
-          return;
-        }
-        alert(`Login failed:\n${error.message}`);
-      } else if (error instanceof Error) {
-        alert("Unable to connect. Please check your network and try again.");
-      } else {
-        alert("An unknown error occurred during login.");
-      }
+      alert(getLoginErrorMessage(error));
     }
   };
 
   return (
-    <>
-      <div className={styles.authPage}>
-        <section className={styles.leftPanel}>
-          <p className={styles.brand}>Virtual Pantry</p>
-          <h1 className={styles.heroTitle}>
-            Manage Your <span className={styles.heroTitleAccent}>Pantry</span>{" "}
-            Like Never Before
-          </h1>
-          <div className={styles.featureList}>
-            <article className={styles.featureCard}>
-              <p className={styles.featureTitle}>Household Collaboration</p>
-              <p className={styles.featureText}>
-                Share access with family members and sync your pantry in real time.
-              </p>
-            </article>
-            <article className={styles.featureCard}>
-              <p className={styles.featureTitle}>Smart Notifications</p>
-              <p className={styles.featureText}>
-                Get gentle reminders before ingredients expire to reduce food waste.
-              </p>
-            </article>
-            <article className={styles.featureCard}>
-              <p className={styles.featureTitle}>Usage Analytics</p>
-              <p className={styles.featureText}>
-                Track consumption patterns and optimize your grocery budget.
-              </p>
-            </article>
-          </div>
-          <p className={styles.leftFooter}>THE DIGITAL CONSERVATORY © 2024</p>
-        </section>
-
-        <section className={styles.rightPanel}>
-          <div className={styles.authCard}>
-            <h2 className={styles.authTitle}>Welcome Back</h2>
-            <p className={styles.authSubtitle}>Sign in to continue to your pantry.</p>
-
-            <Form<LoginFormValues>
-              form={form}
-              name="login"
-              size="large"
-              variant="outlined"
-              onFinish={handleLogin}
-              layout="vertical"
-              autoComplete="off"
-            >
-              <Form.Item
-                name="username"
-                label="Username"
-                rules={[{ required: true, message: "Please input your username." }]}
-              >
-                <Input placeholder="Your username" />
-              </Form.Item>
-              <Form.Item
-                name="password"
-                label="Password"
-                rules={[{ required: true, message: "Please input your password." }]}
-              >
-                <Input.Password placeholder="••••••••" />
-              </Form.Item>
-              <Form.Item name="rememberMe" valuePropName="checked">
-                <Checkbox className={styles.inlineAgreement}>Remember me</Checkbox>
-              </Form.Item>
-              <Form.Item>
-                <Button type="primary" htmlType="submit" className={styles.submitButton}>
-                  Sign In
-                </Button>
-              </Form.Item>
-            </Form>
-
-            <p className={styles.switchRow}>
-              Don&apos;t have an account?{" "}
-              <Button
-                type="link"
-                className={styles.switchLink}
-                onClick={() => router.push("/register")}
-              >
-                Create account
-              </Button>
-            </p>
-          </div>
-        </section>
-      </div>
-
-      <footer className={styles.authFooter}>
-        <a href="#privacy">PRIVACY POLICY</a>
-        <a href="#terms">TERMS OF SERVICE</a>
-        <a href="#support">CONTACT SUPPORT</a>
-      </footer>
-    </>
+    <AuthLayout
+      title="Welcome Back"
+      subtitle="Sign in to continue to your pantry."
+      switchPrompt="Don't have an account?"
+      switchActionLabel="Create account"
+      onSwitchAction={() => router.push("/register")}
+    >
+      <Form<LoginFormValues>
+        form={form}
+        name="login"
+        size="large"
+        variant="outlined"
+        onFinish={handleLogin}
+        layout="vertical"
+        autoComplete="off"
+      >
+        <Form.Item
+          name="username"
+          label="Username"
+          rules={[{ required: true, message: "Please input your username." }]}
+        >
+          <Input placeholder="Your username" />
+        </Form.Item>
+        <Form.Item
+          name="password"
+          label="Password"
+          rules={[{ required: true, message: "Please input your password." }]}
+        >
+          <Input.Password placeholder="••••••••" />
+        </Form.Item>
+        <Form.Item name="rememberMe" valuePropName="checked">
+          <Checkbox className={styles.inlineAgreement}>Remember me</Checkbox>
+        </Form.Item>
+        <Form.Item>
+          <Button type="primary" htmlType="submit" className={styles.submitButton}>
+            Sign In
+          </Button>
+        </Form.Item>
+      </Form>
+    </AuthLayout>
   );
 };
 
