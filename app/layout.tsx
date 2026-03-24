@@ -32,7 +32,7 @@ export default function RootLayout({
             algorithm: theme.defaultAlgorithm,
             token: {
               // general theme options are set in token, meaning all primary elements (button, menu, ...) will have this color
-              colorPrimary: "#22426b", // selected input field boarder will have this color as well
+              colorPrimary: "#106832", // selected input field boarder will have this color as well
               borderRadius: 8,
               // follow global foreground color so text stays visible in both light/dark modes
               colorText: "#ededed",
@@ -44,7 +44,7 @@ export default function RootLayout({
             // if a component type needs special styling, setting here will override default options set in token
             components: {
               Button: {
-                colorPrimary: "#75bd9d", // this will color all buttons in #75bd9d, overriding the default primaryColor #22426b set in token line 35
+                colorPrimary: "#1f7a3f", // aligns primary button visuals with the pantry health-focused palette
                 algorithm: true, // enable algorithm (redundant with line 33 but here for demo purposes)
                 controlHeight: 38,
               },

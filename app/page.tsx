@@ -28,6 +28,10 @@ export default function Home() {
             <code>app/login/page.tsx</code> is the login page for users.
           </li>
           <li>
+            <code>app/register/page.tsx</code> is the registration page for new
+            users.
+          </li>
+          <li>
             <code>app/users/page.tsx</code>{" "}
             is the dashboard that shows an overview of all users, fetched from
             the server.
@@ -80,6 +84,13 @@ export default function Home() {
             onClick={() => router.push("/login")}
           >
             Go to login
+          </Button>
+          <Button
+            type="primary"
+            variant="outlined"
+            onClick={() => router.push("/register")}
+          >
+            Go to register
           </Button>
         </div>
       </main>
