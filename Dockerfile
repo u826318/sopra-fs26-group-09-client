@@ -6,8 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 # Set npm cache to a directory the non-root user can access
 RUN npm config set cache /app/.npm-cache --global
-# Install dependencies with npm ci (exact versions in the lockfile), suppressing warnings
-RUN npm ci --loglevel=error
+# Install dependencies with npm ci (exact versions in the lockfile), suppressing warnings.
+# Disable lifecycle scripts in CI/container builds to reduce supply-chain risk.
+RUN npm ci --ignore-scripts --loglevel=error
 # Copy app (useless stuff is ignored by .dockerignore)
 COPY . .
 # Build the app
