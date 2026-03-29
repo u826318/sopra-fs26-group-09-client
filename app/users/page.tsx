@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
 import { User } from "@/types/user";
-import { Button, Card, Table } from "antd";
+import { Button, Card, Space, Table } from "antd";
 import type { TableProps } from "antd"; // antd component library allows imports of types
 // Optionally, you can import a CSS module or file for additional styling:
 // import "@/styles/views/Dashboard.scss";
@@ -104,9 +104,17 @@ const Dashboard: React.FC = () => {
                 style: { cursor: "pointer" },
               })}
             />
-            <Button onClick={() => void handleLogout()} type="primary">
-              Logout
+            <Button onClick={() => router.push("/open-food-facts")}>
+              Open Food Facts portal
             </Button>
+            <Space>
+              <Button onClick={() => router.push("/open-food-facts")}>
+                OFF API portal
+              </Button>
+              <Button onClick={() => void handleLogout()} type="primary">
+                Logout
+              </Button>
+            </Space>
           </>
         )}
       </Card>
