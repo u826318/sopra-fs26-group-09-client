@@ -30,14 +30,14 @@ reason).
 
 ---
 
-## Contributions Week 1 - [Begin Date] to [End Date]
+## Contributions Week 1 - [23.03.2026] to [30.03.2026]
 
 | **Student**        | **Date** | **Link to Commit** | **Description**                 | **Relevance**                       |
 | ------------------ | -------- | ------------------ | ------------------------------- | ----------------------------------- |
 | **[tingting-xu824]** | 24.03.2026 | [client commit d6a46f9](https://github.com/u826318/sopra-fs26-group-09-client/commit/d6a46f9) | Implemented login/register frontend pages based on the approved prototype, including shared auth styling, route integration, validation UX, and refined error handling/messages. | Delivers core S1 onboarding UX and enables users to register/login through the designed interface, which is required for all authenticated user stories. |
 |                    | 24.03.2026 | [server commit 8d2be51](https://github.com/u826318/sopra-fs26-group-09-server/commit/8d2be51) | Implemented backend auth foundations: extended User model/repository, added `POST /users/register`, `POST /users/login`, `POST /users/logout`, and added password hashing with BCrypt plus related tests. | Provides secure authentication and session lifecycle support required by S1 acceptance criteria and enables the frontend auth flow to work end-to-end. |
 | **[u826318]**      | 29.03.2026 | [server commit 908f561](https://github.com/u826318/sopra-fs26-group-09-server/commit/908f561), [server commit 0ac67cf](https://github.com/u826318/sopra-fs26-group-09-server/commit/0ac67cf) | Implemented WebSocket infrastructure: added WebSocketConfig with STOMP endpoint /ws, AuthHandshakeInterceptor to validate token on handshake, and corresponding tests. | Enables real-time pantry sync by establishing the WebSocket connection layer required by #62. |
-|                    | 29.03.2026 | [server commit 79db1c5](https://github.com/u826318/sopra-fs26-group-09-server/commit/79db1c5), [server commit 88c1217](https://github.com/u826318/sopra-fs26-group-09-server/commit/88c1217) | Implemented PantryBroadcastService to push pantry update events to household-scoped STOMP topics, with PantryUpdateMessage payload model and tests. | Provides the broadcast infrastructure required by #63, enabling pantry changes to be pushed to all connected household members in real-time. |
+|Tingyuan Wang       | 29.03.2026 | [server commit 79db1c5](https://github.com/u826318/sopra-fs26-group-09-server/commit/79db1c5), [server commit 88c1217](https://github.com/u826318/sopra-fs26-group-09-server/commit/88c1217) | Implemented PantryBroadcastService to push pantry update events to household-scoped STOMP topics, with PantryUpdateMessage payload model and tests. | Provides the broadcast infrastructure required by #63, enabling pantry changes to be pushed to all connected household members in real-time. |
 | **[@githubUser3]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |
 |                    | [date]   | [Link to Commit 2] | [Brief description of the task] | [Why this contribution is relevant] |
 | **[@githubUser4]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |
