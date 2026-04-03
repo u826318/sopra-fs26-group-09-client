@@ -18,8 +18,13 @@ jest.mock("@/components/products/ProductResultCard", () =>
 );
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, loading, ...props }: any) => (
-    <button onClick={onClick} data-loading={loading ? "true" : "false"} {...props}>
+  const Button = ({ children, onClick, loading, htmlType, ...props }: any) => (
+    <button
+      type={htmlType ?? "button"}
+      onClick={onClick}
+      data-loading={loading ? "true" : "false"}
+      {...props}
+    >
       {children}
     </button>
   );
@@ -121,7 +126,7 @@ describe("Open Food Facts page", () => {
     });
 
     expect(screen.getByText("Top match")).toBeInTheDocument();
-    expect(screen.getByText("Search results")) .toBeInTheDocument();
+    expect(screen.getByText("All possible results returned for this search")).toBeInTheDocument();
     expect(screen.getByText(/1\. Plant Based Caprese — V-Love/)).toBeInTheDocument();
     expect(screen.getByText(/2\. Plant Based Mozzarella — V-Love/)).toBeInTheDocument();
   });

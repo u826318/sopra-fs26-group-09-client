@@ -6,6 +6,7 @@ const pushMock = jest.fn();
 const getMock = jest.fn();
 const postMock = jest.fn();
 const clearTokenMock = jest.fn();
+const apiMock = { get: getMock, post: postMock };
 
 jest.mock("antd", () => {
   const Card = ({ children, title, loading }: any) => (
@@ -49,7 +50,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock, post: postMock }),
+  useApi: () => apiMock,
 }));
 
 jest.mock("@/hooks/useLocalStorage", () => ({
