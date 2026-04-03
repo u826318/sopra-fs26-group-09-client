@@ -18,16 +18,19 @@ jest.mock("@/components/products/ProductResultCard", () =>
 );
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, loading, htmlType, ...props }: any) => (
-    <button
-      type={htmlType ?? "button"}
-      onClick={onClick}
-      data-loading={loading ? "true" : "false"}
-      {...props}
-    >
-      {children}
-    </button>
-  );
+  const Button = ({ children, onClick, loading, htmlType, type, ...props }: any) => {
+    const nativeType = htmlType ?? (type === "submit" || type === "reset" || type === "button" ? type : "button");
+    return (
+      <button
+        type={nativeType}
+        onClick={onClick}
+        data-loading={loading ? "true" : "false"}
+        {...props}
+      >
+        {children}
+      </button>
+    );
+  };
 
   const Card = ({ children }: any) => <div>{children}</div>;
   const Space = ({ children }: any) => <div>{children}</div>;

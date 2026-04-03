@@ -75,8 +75,9 @@ describe("Users page", () => {
     await waitFor(() => {
       expect(getMock).toHaveBeenCalledWith("/users");
     });
+    const secondUserRow = await screen.findByTestId("user-row-2");
 
-    fireEvent.click(screen.getByTestId("user-row-2"));
+    fireEvent.click(secondUserRow);
     expect(pushMock).toHaveBeenCalledWith("/users/2");
   });
 
