@@ -13,15 +13,51 @@ function safeValue(value: unknown): string {
   return JSON.stringify(value, null, 2);
 }
 
-function sanitizeFilePart(value: string): string {
+function isAllowedFileNameCharacter(character: string): boolean {
+  const code = character.charCodeAt(0);
+  const isUppercaseLetter = code >= 65 && code <= 90;
+  const isLowercaseLetter = code >= 97 && code <= 122;
+  const isDigit = code >= 48 && code <= 57;
+
   return (
-    value
-      .trim()
-      .replace(/[^a-zA-Z0-9._-]+/g, "_")
-      .replace(/^_+/, "")
-      .replace(/_+$/, "")
-      .slice(0, 80) || "product"
+    isUppercaseLetter ||
+    isLowercaseLetter ||
+    isDigit ||
+    character === "." ||
+    character === "_" ||
+    character === "-"
   );
+}
+
+function sanitizeFilePart(value: string): string {
+  const trimmedValue = value.trim();
+  const sanitizedCharacters: string[] = [];
+  let previousCharacterWasUnderscore = false;
+
+  for (const character of trimmedValue) {
+    if (isAllowedFileNameCharacter(character)) {
+      sanitizedCharacters.push(character);
+      previousCharacterWasUnderscore = false;
+      continue;
+    }
+
+    if (!previousCharacterWasUnderscore) {
+      sanitizedCharacters.push("_");
+      previousCharacterWasUnderscore = true;
+    }
+  }
+
+  let sanitizedValue = sanitizedCharacters.join("");
+
+  while (sanitizedValue.startsWith("_")) {
+    sanitizedValue = sanitizedValue.slice(1);
+  }
+
+  while (sanitizedValue.endsWith("_")) {
+    sanitizedValue = sanitizedValue.slice(0, -1);
+  }
+
+  return sanitizedValue.slice(0, 80) || "product";
 }
 
 export function buildProductExportText(product: Product, context: string): string {
