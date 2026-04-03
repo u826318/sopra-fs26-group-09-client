@@ -18,7 +18,8 @@ function sanitizeFilePart(value: string): string {
     value
       .trim()
       .replace(/[^a-zA-Z0-9._-]+/g, "_")
-      .replace(/^_+|_+$/g, "")
+      .replace(/^_+/, "")
+      .replace(/_+$/, "")
       .slice(0, 80) || "product"
   );
 }
