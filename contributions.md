@@ -56,8 +56,8 @@ reason).
 |                    | [date]   | [Link to Commit 2] | [Brief description of the task] | [Why this contribution is relevant] |
 | **[@githubUser3]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |
 |                    | [date]   | [Link to Commit 2] | [Brief description of the task] | [Why this contribution is relevant] |
-| **[@githubUser4]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |
-|                    | [date]   | [Link to Commit 2] | [Brief description of the task] | [Why this contribution is relevant] |
+| **Yifu Li [@y-f-li]** | Apr.3.26   | [server commit e25d4a9](https://github.com/u826318/sopra-fs26-group-09-server/commit/e25d4a94111c02d2cb735c68584d34c79da49754) | #34 Integrate OpenFoodFacts API client in backend | Implemented a open food facts API portal that allows the user to send a barcode or the item name to open food facts and return in the first panel the nutrition information, and in the second panel all of the data that the API is able to return. It also offers the functionality of exporting all of the information returned by Open Food Facts as a text file. This should allow for future implementation Of adding the calorie information to the pantry or all of the nutrition information that we care about. |
+|                    | Apr.3.26   | [client commit 50303a4](https://github.com/u826318/sopra-fs26-group-09-client/commit/50303a4f73551c8d3555489fe8ee9a1fad9891da) | #18 Connect barcode input to REST API and display results | Implemented the front end open food facts API portal that allows the user to send a barcode or the item name to open food facts and return in the first panel the nutrition information, and in the second panel all of the data that the API is able to return. It also offers the functionality of exporting all of the information returned by Open Food Facts as a text file. This should allow for future implementation Of adding the calorie information to the pantry or all of the nutrition information that we care about. |
 
 ---
 
