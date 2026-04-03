@@ -134,7 +134,7 @@ yarn-error.log*
 .pnp.*
 
 # zip
-.zip
+*.zip
 
 # misc
 .DS_Store
