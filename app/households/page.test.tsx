@@ -1,0 +1,211 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import HouseholdsPage from "@/households/page";
+
+const pushMock = jest.fn();
+const clearTokenMock = jest.fn();
+const clearUsernameMock = jest.fn();
+const successMock = jest.fn();
+const errorMock = jest.fn();
+const warningMock = jest.fn();
+
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof fetch;
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
+jest.mock("@/utils/domain", () => ({
+  getApiDomain: () => "http://localhost:8080",
+}));
+
+jest.mock("@/hooks/useLocalStorage", () => ({
+  __esModule: true,
+  default: (key: string) => {
+    if (key === "token") {
+      return { value: "stored-token", set: jest.fn(), clear: clearTokenMock };
+    }
+    if (key === "username") {
+      return { value: "tingting-xu824", set: jest.fn(), clear: clearUsernameMock };
+    }
+    return { value: "", set: jest.fn(), clear: jest.fn() };
+  },
+}));
+
+jest.mock("antd", () => {
+  const App = {
+    useApp: () => ({
+      message: { success: successMock, error: errorMock, warning: warningMock, info: jest.fn() },
+    }),
+  };
+
+  const ConfigProvider = ({ children }: any) => <>{children}</>;
+  const Avatar = ({ children }: any) => <span>{children}</span>;
+  const Space = ({ children }: any) => <div>{children}</div>;
+  const Row = ({ children }: any) => <div>{children}</div>;
+  const Col = ({ children }: any) => <div>{children}</div>;
+  const Card = ({ children }: any) => <div>{children}</div>;
+  const Tag = ({ children }: any) => <span>{children}</span>;
+  const Table = ({ dataSource }: any) => <div>rows:{dataSource?.length ?? 0}</div>;
+
+  const Input = ({ value, onChange, placeholder, onPressEnter }: any) => (
+    <input
+      aria-label={placeholder}
+      placeholder={placeholder}
+      value={value ?? ""}
+      onChange={onChange}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && onPressEnter) {
+          onPressEnter(e);
+        }
+      }}
+    />
+  );
+
+  const Button = ({ children, onClick, ...props }: any) => (
+    <button onClick={onClick} {...props}>
+      {children}
+    </button>
+  );
+
+  const Typography = {
+    Title: ({ children }: any) => <h1>{children}</h1>,
+    Paragraph: ({ children }: any) => <p>{children}</p>,
+  };
+
+  return {
+    App,
+    Avatar,
+    Button,
+    Card,
+    Col,
+    ConfigProvider,
+    Input,
+    Row,
+    Space,
+    Table,
+    Tag,
+    Typography,
+    theme: { defaultAlgorithm: {} },
+  };
+});
+
+jest.mock("@ant-design/icons", () => ({
+  DashboardOutlined: () => <span>icon</span>,
+  HomeOutlined: () => <span>icon</span>,
+  InboxOutlined: () => <span>icon</span>,
+  ReadOutlined: () => <span>icon</span>,
+  LogoutOutlined: () => <span>icon</span>,
+  PlusCircleOutlined: () => <span>icon</span>,
+}));
+
+const mockJsonResponse = (ok: boolean, body: unknown, status = 200, statusText = "OK") =>
+  Promise.resolve({
+    ok,
+    status,
+    statusText,
+    json: async () => body,
+  } as Response);
+
+describe("Households page", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("renders navigation and username from storage", () => {
+    render(<HouseholdsPage />);
+    expect(screen.getByText("Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Households")).toBeInTheDocument();
+    expect(screen.getByText("Pantry")).toBeInTheDocument();
+    expect(screen.getByText("Recipes")).toBeInTheDocument();
+    expect(screen.getByText("tingting-xu824")).toBeInTheDocument();
+  });
+
+  it("creates a household and regenerates invite code", async () => {
+    mockFetch
+      .mockImplementationOnce(() =>
+        mockJsonResponse(true, {
+          householdId: 10,
+          name: "Test House",
+          inviteCode: "ABC123",
+          ownerId: 1,
+        }))
+      .mockImplementationOnce(() =>
+        mockJsonResponse(true, {
+          householdId: 10,
+          inviteCode: "NEW999",
+          expiresAt: "2099-01-01T00:00:00Z",
+        }));
+
+    render(<HouseholdsPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter household name"), {
+      target: { value: "Test House" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "stored-token" }),
+        }),
+      );
+      expect(successMock).toHaveBeenCalledWith("Household created successfully.");
+      expect(screen.getByText("Invite code: ABC123")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Regenerate Invite Code" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/10/invite-code",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "stored-token" }),
+        }),
+      );
+      expect(successMock).toHaveBeenCalledWith("Invite code regenerated.");
+      expect(screen.getByText("Invite code: NEW999")).toBeInTheDocument();
+    });
+  });
+
+  it("joins a household by invite code", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(true, {
+        householdId: 22,
+        name: "Joined House",
+        inviteCode: "JOIN22",
+        ownerId: 1,
+      }));
+
+    render(<HouseholdsPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
+      target: { value: "JOIN22" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/join",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "stored-token" }),
+        }),
+      );
+      expect(successMock).toHaveBeenCalledWith("Joined household successfully.");
+      expect(screen.getByText("Joined House")).toBeInTheDocument();
+    });
+  });
+
+  it("shows warning for empty inputs", () => {
+    render(<HouseholdsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
+    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+    expect(warningMock).toHaveBeenCalledWith("Please enter a household name.");
+    expect(warningMock).toHaveBeenCalledWith("Please enter an invite code.");
+  });
+});
