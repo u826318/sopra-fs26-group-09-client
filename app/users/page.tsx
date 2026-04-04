@@ -43,6 +43,7 @@ const Dashboard: React.FC = () => {
     // set: setToken, // is commented out because we dont need to set or update the token value
     clear: clearToken, // all we need in this scenario is a method to clear the token
   } = useLocalStorage<string>("token", ""); // if you wanted to select a different token, i.e "lobby", useLocalStorage<string>("lobby", "");
+  const { clear: clearUsername } = useLocalStorage<string>("username", "");
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -52,6 +53,7 @@ const Dashboard: React.FC = () => {
 
       // Clear local auth state only after backend confirms logout.
       clearToken();
+      clearUsername();
       router.push("/login");
     } catch (error) {
       if (error instanceof Error) {
@@ -108,6 +110,9 @@ const Dashboard: React.FC = () => {
               Open Food Facts portal
             </Button>
             <Space>
+              <Button onClick={() => router.push("/households")}>
+                Households
+              </Button>
               <Button onClick={() => router.push("/open-food-facts")}>
                 OFF API portal
               </Button>

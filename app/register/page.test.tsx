@@ -92,7 +92,7 @@ describe("Register page", () => {
         password: "password123",
       });
       expect(setTokenMock).toHaveBeenCalledWith("register-token");
-      expect(pushMock).toHaveBeenCalledWith("/users");
+      expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });
 

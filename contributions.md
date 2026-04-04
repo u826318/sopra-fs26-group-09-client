@@ -50,6 +50,7 @@ reason).
 
 | **Student**        | **Date** | **Link to Commit** | **Description**                 | **Relevance**                       |
 | ------------------ | -------- | ------------------ | ------------------------------- | ----------------------------------- |
+| **Tingting Xu [tingting-xu824]** | 04.04.2026 | [server commit 9349243](https://github.com/u826318/sopra-fs26-group-09-server/commit/934924333319a313c7df30ff48a50ed6714828d0) | #29 + #30 Implemented household invitation flow: owner invite-code generation endpoint (`POST /households/{householdId}/invite-code`) and join-by-code endpoint (`POST /households/join`) with validation and conflict handling. | Enables collaborative virtual pantry membership management, allowing owners to invite and users to securely join shared households. |
 | **[@githubUser1]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |
 |                    | [date]   | [Link to Commit 2] | [Brief description of the task] | [Why this contribution is relevant] |
 | **[@githubUser2]** | [date]   | [Link to Commit 1] | [Brief description of the task] | [Why this contribution is relevant] |

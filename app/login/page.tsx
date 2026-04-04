@@ -19,6 +19,7 @@ const Login: React.FC = () => {
   const apiService = useApi();
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useLocalStorage<string>("token", "");
+  const { set: setUsername } = useLocalStorage<string>("username", "");
 
   const handleLogin = async (values: LoginFormValues): Promise<void> => {
     try {
@@ -30,8 +31,9 @@ const Login: React.FC = () => {
       if (response.token) {
         setToken(response.token);
       }
+      setUsername(response.username?.trim() || values.username.trim());
 
-      router.push("/users");
+      router.push("/households");
     } catch (error) {
       alert(getLoginErrorMessage(error));
     }

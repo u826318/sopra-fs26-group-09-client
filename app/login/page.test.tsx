@@ -86,7 +86,7 @@ describe("Login page", () => {
         password: "password123",
       });
       expect(setTokenMock).toHaveBeenCalledWith("abc-token");
-      expect(pushMock).toHaveBeenCalledWith("/users");
+      expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });
 
