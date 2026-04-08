@@ -66,9 +66,13 @@ reason).
 
 ---
 
-## Contributions Week 3 - [Begin Date] to [End Date]
+## Contributions Week 3 - [07.04.2026] to [13.04.2026]
 
-_Continue with the same table format as above._
+| **Student**        | **Date** | **Link to Commit** | **Description**                 | **Relevance**                       |
+| ------------------ | -------- | ------------------ | ------------------------------- | ----------------------------------- |
+| **Tingting Xu [tingting-xu824]** | 07.04.2026 | [server commit c6083e0](https://github.com/u826318/sopra-fs26-group-09-server/commit/c6083e0) | #35 Implemented `GET /products/barcode/{barcode}` endpoint in `ProductController` with test coverage and README updates. | Delivers direct barcode lookup required for product scanning flow and enables the frontend to fetch product details through a clean REST path. |
+| **Tingting Xu [tingting-xu824]** | 08.04.2026 | [server commit 032244b](https://github.com/u826318/sopra-fs26-group-09-server/commit/032244b), [server commit 1bbda11](https://github.com/u826318/sopra-fs26-group-09-server/commit/1bbda11) | #47 Implemented `GET /products/search` (name-based lookup), added controller tests/docs, and fixed CI deploy-version conflict in workflow. | Enables product discovery by name and keeps CI/CD stable so the feature can be merged and deployed reliably. |
+| **Tingting Xu [tingting-xu824]** | 08.04.2026 | [server commit e0ad953](https://github.com/u826318/sopra-fs26-group-09-server/commit/e0ad953), [server commit 7a349ae](https://github.com/u826318/sopra-fs26-group-09-server/commit/7a349ae), [server commit 3ec1814](https://github.com/u826318/sopra-fs26-group-09-server/commit/3ec1814), [server commit db05c95](https://github.com/u826318/sopra-fs26-group-09-server/commit/db05c95) | #67 Implemented `POST /products/barcode/extract` image-upload endpoint, added product-barcode format restriction (EAN-13, EAN-8, UPC-A, UPC-E), and included follow-up CI test fixes/stabilization. | Provides camera/image-based barcode extraction for faster pantry input, enforces valid retail barcode formats for data quality, and ensures the feature remains mergeable through stable CI. |
 
 ---
 
