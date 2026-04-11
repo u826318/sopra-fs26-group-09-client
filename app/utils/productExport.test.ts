@@ -70,13 +70,13 @@ describe("productExport", () => {
     expect(text).toContain("{}");
   });
 
-  it("creates and clicks a download link, then revokes the blob URL", () => {
+  it("creates and clicks a download link, then removes it and revokes the blob URL", () => {
     const createObjectURLMock = jest.fn(() => "blob:mock-url");
     const revokeObjectURLMock = jest.fn();
     const clickMock = jest.fn();
+    const removeMock = jest.fn();
 
     const appendChildSpy = jest.spyOn(document.body, "appendChild");
-    const removeChildSpy = jest.spyOn(document.body, "removeChild");
 
     const originalCreateObjectURL = URL.createObjectURL;
     const originalRevokeObjectURL = URL.revokeObjectURL;
@@ -91,6 +91,7 @@ describe("productExport", () => {
         if (tagName === "a") {
           const anchor = originalCreateElement("a") as HTMLAnchorElement;
           anchor.click = clickMock;
+          anchor.remove = removeMock;
           return anchor;
         }
         return originalCreateElement(tagName);
@@ -102,7 +103,7 @@ describe("productExport", () => {
       expect(createObjectURLMock).toHaveBeenCalledTimes(1);
       expect(clickMock).toHaveBeenCalledTimes(1);
       expect(appendChildSpy).toHaveBeenCalledTimes(1);
-      expect(removeChildSpy).toHaveBeenCalledTimes(1);
+      expect(removeMock).toHaveBeenCalledTimes(1);
       expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:mock-url");
 
       const appendedAnchor = appendChildSpy.mock.calls[0][0] as HTMLAnchorElement;
@@ -115,7 +116,6 @@ describe("productExport", () => {
       URL.revokeObjectURL = originalRevokeObjectURL;
       createElementSpy.mockRestore();
       appendChildSpy.mockRestore();
-      removeChildSpy.mockRestore();
     }
   });
 });
