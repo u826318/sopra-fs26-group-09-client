@@ -103,6 +103,6 @@ export function exportProductAsText(product: Product, context: string): void {
   anchor.download = `${fileBase}.txt`;
   document.body.appendChild(anchor);
   anchor.click();
-  document.body.removeChild(anchor);
+  anchor.remove();
   URL.revokeObjectURL(url);
 }

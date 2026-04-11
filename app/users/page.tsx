@@ -106,15 +106,12 @@ const Dashboard: React.FC = () => {
                 style: { cursor: "pointer" },
               })}
             />
-            <Button onClick={() => router.push("/open-food-facts")}>
-              Open Food Facts portal
-            </Button>
             <Space>
               <Button onClick={() => router.push("/households")}>
                 Households
               </Button>
               <Button onClick={() => router.push("/open-food-facts")}>
-                OFF API portal
+                Open Food Facts portal
               </Button>
               <Button onClick={() => void handleLogout()} type="primary">
                 Logout
