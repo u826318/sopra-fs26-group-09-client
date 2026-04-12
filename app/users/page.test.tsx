@@ -81,6 +81,18 @@ describe("Users page", () => {
     expect(pushMock).toHaveBeenCalledWith("/users/2");
   });
 
+
+  it("renders only one Open Food Facts navigation button", async () => {
+    getMock.mockResolvedValueOnce([{ id: 1, username: "tingting", name: "Ting Ting" }]);
+
+    render(<UsersPage />);
+
+    await screen.findByTestId("user-row-1");
+
+    expect(screen.getByRole("button", { name: "Open Food Facts portal" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OFF API portal" })).not.toBeInTheDocument();
+  });
+
   it("logs out through the API, clears the token, and redirects to login", async () => {
     getMock.mockResolvedValueOnce([{ id: 1, username: "tingting", name: "Ting Ting" }]);
     postMock.mockResolvedValueOnce({});
