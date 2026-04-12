@@ -3,43 +3,25 @@ import { ApplicationError } from "@/types/error";
 
 export class ApiService {
   private baseURL: string;
-  private defaultHeaders: HeadersInit;
 
   constructor() {
     this.baseURL = getApiDomain();
-    this.defaultHeaders = {
-      "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
-    };
   }
 
-  private getStoredToken(): string | null {
-    if (typeof window === "undefined") {
-      return null;
-    }
-
-    try {
-      const rawToken = globalThis.localStorage.getItem("token");
-      if (!rawToken) {
-        return null;
+  private getHeaders(): HeadersInit {
+    let token: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        token = JSON.parse(localStorage.getItem("token") ?? "null") as string | null;
+      } catch {
+        token = null;
       }
-
-      const parsedToken = JSON.parse(rawToken) as string | null;
-      return typeof parsedToken === "string" && parsedToken.trim()
-        ? parsedToken.trim()
-        : null;
-    } catch {
-      return null;
     }
-  }
-
-  private buildHeaders(): HeadersInit {
-    const token = this.getStoredToken();
-
-    return {
-      ...this.defaultHeaders,
-      ...(token ? { Authorization: token } : {}),
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
     };
+    if (token) headers["Authorization"] = token;
+    return headers;
   }
 
   /**
@@ -93,7 +75,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "GET",
-      headers: this.buildHeaders(),
+      headers: this.getHeaders(),
     });
     return this.processResponse<T>(
       res,
@@ -107,12 +89,12 @@ export class ApiService {
    * @param data - The payload to post.
    * @returns JSON data of type T.
    */
-  public async post<T>(endpoint: string, data?: unknown): Promise<T> {
+  public async post<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: this.buildHeaders(),
-      body: data === undefined ? undefined : JSON.stringify(data),
+      headers: this.getHeaders(),
+      body: JSON.stringify(data),
     });
     return this.processResponse<T>(
       res,
@@ -130,7 +112,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "PUT",
-      headers: this.buildHeaders(),
+      headers: this.getHeaders(),
       body: JSON.stringify(data),
     });
     return this.processResponse<T>(
@@ -148,7 +130,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "DELETE",
-      headers: this.buildHeaders(),
+      headers: this.getHeaders(),
     });
     return this.processResponse<T>(
       res,
