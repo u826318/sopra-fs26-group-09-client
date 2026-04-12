@@ -69,8 +69,9 @@ jest.mock("antd", () => {
     />
   );
 
-  const Button = ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>
+  const Button = ({ children, onClick, loading, icon, type, ...props }: any) => (
+    <button onClick={onClick} data-loading={loading ? "true" : undefined} data-variant={type} {...props}>
+      {icon}
       {children}
     </button>
   );
@@ -117,6 +118,7 @@ const mockJsonResponse = (ok: boolean, body: unknown, status = 200, statusText =
 describe("Households page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
     mockStoredHouseholds = [];
   });
 
@@ -130,27 +132,21 @@ describe("Households page", () => {
   });
 
   it("creates a household and stores it in local storage", async () => {
-    mockFetch
-      .mockImplementationOnce(() =>
-        mockJsonResponse(true, {
-          householdId: 10,
-          name: "Test House",
-          inviteCode: "ABC123",
-          ownerId: 1,
-        }))
-      .mockImplementationOnce(() =>
-        mockJsonResponse(true, {
-          householdId: 10,
-          inviteCode: "NEW999",
-          expiresAt: "2099-01-01T00:00:00Z",
-        }));
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(true, {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+      }),
+    );
 
     render(<HouseholdsPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Enter household name"), {
       target: { value: "Test House" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -180,14 +176,15 @@ describe("Households page", () => {
         name: "Joined House",
         inviteCode: "JOIN22",
         ownerId: 1,
-      }));
+      }),
+    );
 
     render(<HouseholdsPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
       target: { value: "JOIN22" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -223,14 +220,14 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "View Pantry" }));
+    fireEvent.click(screen.getByRole("button", { name: /View Pantry/i }));
     expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
   });
 
   it("shows warning for empty inputs", () => {
     render(<HouseholdsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
-    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
     expect(warningMock).toHaveBeenCalledWith("Please enter a household name.");
     expect(warningMock).toHaveBeenCalledWith("Please enter an invite code.");
   });
