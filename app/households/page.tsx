@@ -3,6 +3,11 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import type {
+  Household,
+  HouseholdInviteCodeResponse,
+  HouseholdWithRole,
+} from "@/types/household";
 import { getApiDomain } from "@/utils/domain";
 import styles from "@/styles/households.module.css";
 import {
@@ -31,29 +36,21 @@ import {
 
 const { Title, Paragraph } = Typography;
 
-type Household = {
-  householdId: number;
-  name: string;
-  inviteCode: string;
-  ownerId: number;
-};
-
-type HouseholdWithRole = Household & {
-  role: "owner" | "member";
-};
-
 export default function HouseholdsPage() {
   const router = useRouter();
   const { message } = App.useApp();
   const { value: token, clear: clearToken } = useLocalStorage<string>("token", "");
   const { value: username, clear: clearUsername } = useLocalStorage<string>("username", "");
+  const {
+    value: households,
+    set: setHouseholds,
+  } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
-  const [households, setHouseholds] = useState<HouseholdWithRole[]>([]);
   const [lastGeneratedCode, setLastGeneratedCode] = useState<string | null>(null);
 
   const ownedHouseholds = useMemo(
@@ -85,6 +82,12 @@ export default function HouseholdsPage() {
     return response.json() as Promise<T>;
   };
 
+  const updateHouseholds = (
+    updater: (currentHouseholds: HouseholdWithRole[]) => HouseholdWithRole[],
+  ) => {
+    setHouseholds(updater(households));
+  };
+
   const handleCreateHousehold = async () => {
     if (!createName.trim()) {
       message.warning("Please enter a household name.");
@@ -94,9 +97,9 @@ export default function HouseholdsPage() {
     setCreating(true);
     try {
       const created = await authPost<Household>("/households", { name: createName.trim() });
-      setHouseholds((prev) => [
+      updateHouseholds((currentHouseholds) => [
         { ...created, role: "owner" },
-        ...prev.filter((item) => item.householdId !== created.householdId),
+        ...currentHouseholds.filter((item) => item.householdId !== created.householdId),
       ]);
       setLastGeneratedCode(created.inviteCode);
       setCreateName("");
@@ -111,14 +114,14 @@ export default function HouseholdsPage() {
   const handleRegenerateInviteCode = async (householdId: number) => {
     setRegeneratingId(householdId);
     try {
-      const updated = await authPost<{ householdId: number; inviteCode: string }>(
+      const updated = await authPost<HouseholdInviteCodeResponse>(
         `/households/${householdId}/invite-code`,
       );
-      setHouseholds((prev) =>
-        prev.map((household) =>
+      updateHouseholds((currentHouseholds) =>
+        currentHouseholds.map((household) =>
           household.householdId === updated.householdId
             ? { ...household, inviteCode: updated.inviteCode }
-            : household
+            : household,
         ),
       );
       setLastGeneratedCode(updated.inviteCode);
@@ -141,11 +144,11 @@ export default function HouseholdsPage() {
       const joined = await authPost<Household>("/households/join", {
         inviteCode: joinCode.trim(),
       });
-      setHouseholds((prev) => {
-        if (prev.some((household) => household.householdId === joined.householdId)) {
-          return prev;
+      updateHouseholds((currentHouseholds) => {
+        if (currentHouseholds.some((household) => household.householdId === joined.householdId)) {
+          return currentHouseholds;
         }
-        return [...prev, { ...joined, role: "member" }];
+        return [...currentHouseholds, { ...joined, role: "member" }];
       });
       setJoinCode("");
       message.success("Joined household successfully.");
@@ -154,6 +157,10 @@ export default function HouseholdsPage() {
     } finally {
       setJoining(false);
     }
+  };
+
+  const handleOpenPantry = (household: HouseholdWithRole) => {
+    router.push(`/households/${household.householdId}?name=${encodeURIComponent(household.name)}`);
   };
 
   const handleLogout = () => {
@@ -218,7 +225,7 @@ export default function HouseholdsPage() {
             <button
               type="button"
               className={styles.menuItem}
-              onClick={() => message.info("Pantry page is coming soon.")}
+              onClick={() => message.info("Open a household first, then view its pantry.")}
             >
               <InboxOutlined className={styles.menuIcon} />
               <span className={styles.menuText}>Pantry</span>
@@ -293,8 +300,8 @@ export default function HouseholdsPage() {
             </Col>
             <Col xs={24} sm={12} lg={6}>
               <Card className={styles.statCard}>
-                <div className={styles.statLabel}>Pantry items</div>
-                <div className={styles.statValue}>{Math.max(households.length * 4, 0)}</div>
+                <div className={styles.statLabel}>Pantry routes ready</div>
+                <div className={styles.statValue}>{households.length}</div>
               </Card>
             </Col>
             <Col xs={24} sm={12} lg={6}>
@@ -338,7 +345,7 @@ export default function HouseholdsPage() {
                           )}
                           <Button
                             className={styles.outlineButton}
-                            onClick={() => message.info("Pantry detail page is not connected yet.")}
+                            onClick={() => handleOpenPantry(household)}
                           >
                             View Pantry
                           </Button>

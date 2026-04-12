@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductResultCard from "@/components/products/ProductResultCard";
 
 const exportProductAsTextMock = jest.fn();
+const postMock = jest.fn();
+
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({ post: postMock }),
+}));
 
 jest.mock("@/utils/productExport", () => ({
   exportProductAsText: (...args: any[]) => exportProductAsTextMock(...args),
@@ -151,5 +156,87 @@ describe("ProductResultCard", () => {
 
     expect(screen.getByText("No nutrition fields were returned for this item.")).toBeInTheDocument();
     expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+  });
+
+  it("posts a pantry item successfully when the pantry form is submitted", async () => {
+    const onPantryItemAdded = jest.fn();
+    postMock.mockResolvedValueOnce({
+      id: 7,
+      householdId: 10,
+      barcode: "123456789",
+      name: "Plant Based Caprese",
+      kcalPerPackage: 396,
+      count: 2,
+      addedAt: "2026-04-12T10:00:00Z",
+    });
+
+    render(
+      <ProductResultCard
+        product={product}
+        rawTitle="Raw fields"
+        exportContext="Pantry export"
+        pantryContext={{ householdId: 10, householdName: "Test House" }}
+        onPantryItemAdded={onPantryItemAdded}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("396")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Package count"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/10/pantry", {
+        barcode: "123456789",
+        name: "Plant Based Caprese",
+        quantity: 2,
+        kcalPerPackage: 396,
+      });
+    });
+
+    expect(onPantryItemAdded).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 7, householdId: 10 }),
+    );
+    expect(screen.getByText("Plant Based Caprese was added to Test House.")).toBeInTheDocument();
+  });
+
+  it("shows a validation error and does not submit when package count is invalid", async () => {
+    render(
+      <ProductResultCard
+        product={product}
+        rawTitle="Raw fields"
+        exportContext="Pantry export"
+        pantryContext={{ householdId: 10, householdName: "Test House" }}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Package count"), {
+      target: { value: "0" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    expect(postMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Package count must be at least 1.")).toBeInTheDocument();
+  });
+
+  it("shows the API error when adding the pantry item fails", async () => {
+    postMock.mockRejectedValueOnce(new Error("backend exploded"));
+
+    render(
+      <ProductResultCard
+        product={product}
+        rawTitle="Raw fields"
+        exportContext="Pantry export"
+        pantryContext={{ householdId: 10, householdName: "Test House" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("backend exploded")).toBeInTheDocument();
+    });
   });
 });

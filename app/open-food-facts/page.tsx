@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
@@ -30,6 +30,23 @@ export default function OpenFoodFactsPortalPage() {
   const [searchResults, setSearchResults] = useState<Product[]>([]);
 
   const priorityResult = searchResults.length > 0 ? searchResults[0] : null;
+
+  const pantryTarget = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const params = new URLSearchParams(globalThis.location.search);
+    const householdId = Number(params.get("householdId"));
+    if (!Number.isFinite(householdId) || householdId <= 0) {
+      return null;
+    }
+
+    return {
+      householdId,
+      householdName: params.get("householdName") ?? undefined,
+    };
+  }, []);
 
   const lookupBarcode = async () => {
     setLoading(true);
@@ -74,10 +91,28 @@ export default function OpenFoodFactsPortalPage() {
                 Look up a product by barcode or full product name. Nutrition and store-related
                 fields are surfaced first, and the raw API payload is still available below.
               </Paragraph>
+              {pantryTarget ? (
+                <Paragraph style={{ marginBottom: 0 }}>
+                  Pantry target: <strong>{pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}</strong>
+                </Paragraph>
+              ) : null}
             </div>
             <Space wrap>
               <Button onClick={() => router.push("/")}>Home</Button>
-                            <Button type="primary" onClick={() => router.push("/users")}>Users</Button>
+              <Button type="primary" onClick={() => router.push("/users")}>Users</Button>
+              {pantryTarget ? (
+                <Button
+                  onClick={() =>
+                    router.push(
+                      `/households/${pantryTarget.householdId}?name=${encodeURIComponent(
+                        pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`,
+                      )}`,
+                    )
+                  }
+                >
+                  Back to pantry
+                </Button>
+              ) : null}
             </Space>
           </Space>
 
@@ -108,6 +143,7 @@ export default function OpenFoodFactsPortalPage() {
                         label="Barcode result"
                         rawTitle="All raw product fields returned by the API"
                         exportContext="Open Food Facts API barcode lookup"
+                        pantryContext={pantryTarget ?? undefined}
                       />
                     ) : (
                       <Empty description="No barcode result yet." />
@@ -143,6 +179,7 @@ export default function OpenFoodFactsPortalPage() {
                           label="Top match"
                           rawTitle="All raw product fields returned by the API"
                           exportContext="Open Food Facts API full-name search priority result"
+                          pantryContext={pantryTarget ?? undefined}
                         />
 
                         <Title level={4} style={{ marginBottom: 0 }}>
@@ -158,6 +195,7 @@ export default function OpenFoodFactsPortalPage() {
                                 label={index === 0 ? "Priority result" : `Result ${index + 1}`}
                                 rawTitle="All raw product fields returned by the API"
                                 exportContext={`Open Food Facts API full-name search result ${index + 1}`}
+                                pantryContext={pantryTarget ?? undefined}
                               />
                             ),
                           }))}

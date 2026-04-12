@@ -13,6 +13,35 @@ export class ApiService {
     };
   }
 
+  private getStoredToken(): string | null {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    try {
+      const rawToken = globalThis.localStorage.getItem("token");
+      if (!rawToken) {
+        return null;
+      }
+
+      const parsedToken = JSON.parse(rawToken) as string | null;
+      return typeof parsedToken === "string" && parsedToken.trim()
+        ? parsedToken.trim()
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildHeaders(): HeadersInit {
+    const token = this.getStoredToken();
+
+    return {
+      ...this.defaultHeaders,
+      ...(token ? { Authorization: token } : {}),
+    };
+  }
+
   /**
    * Helper function to check the response, parse JSON,
    * and throw an error if the response is not OK.
@@ -64,7 +93,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "GET",
-      headers: this.defaultHeaders,
+      headers: this.buildHeaders(),
     });
     return this.processResponse<T>(
       res,
@@ -78,12 +107,12 @@ export class ApiService {
    * @param data - The payload to post.
    * @returns JSON data of type T.
    */
-  public async post<T>(endpoint: string, data: unknown): Promise<T> {
+  public async post<T>(endpoint: string, data?: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: this.defaultHeaders,
-      body: JSON.stringify(data),
+      headers: this.buildHeaders(),
+      body: data === undefined ? undefined : JSON.stringify(data),
     });
     return this.processResponse<T>(
       res,
@@ -101,7 +130,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "PUT",
-      headers: this.defaultHeaders,
+      headers: this.buildHeaders(),
       body: JSON.stringify(data),
     });
     return this.processResponse<T>(
@@ -119,7 +148,7 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "DELETE",
-      headers: this.defaultHeaders,
+      headers: this.buildHeaders(),
     });
     return this.processResponse<T>(
       res,

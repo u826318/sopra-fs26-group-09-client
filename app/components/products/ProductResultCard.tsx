@@ -1,7 +1,10 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useApi } from "@/hooks/useApi";
+import type { PantryItem } from "@/types/pantry";
 import type { Product } from "@/types/product";
+import { buildPantryItemPayload, estimateKcalPerPackage } from "@/utils/pantry";
 import { exportProductAsText } from "@/utils/productExport";
 import {
   Button,
@@ -37,6 +40,11 @@ type TableRow = {
   key: string;
   name: string;
   value: string;
+};
+
+type PantryContext = {
+  householdId: number;
+  householdName?: string;
 };
 
 function normalizeObject(value: unknown): Record<string, unknown> {
@@ -89,16 +97,34 @@ export default function ProductResultCard({
   label,
   rawTitle,
   exportContext,
+  pantryContext,
+  onPantryItemAdded,
 }: {
   product: Product;
   label?: string;
   rawTitle: string;
   exportContext: string;
+  pantryContext?: PantryContext;
+  onPantryItemAdded?: (item: PantryItem) => void;
 }) {
+  const api = useApi();
   const nutritionRows = useMemo(() => buildNutritionRows(product), [product]);
+  const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
   const stores = product.stores ?? [];
   const storeTags = product.storeTags ?? [];
   const purchasePlaces = product.purchasePlaces ?? [];
+
+  const [packageCount, setPackageCount] = useState(1);
+  const [kcalPerPackageInput, setKcalPerPackageInput] = useState(
+    estimatedKcal !== null ? String(estimatedKcal) : "",
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionFeedback, setSubmissionFeedback] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setKcalPerPackageInput(estimatedKcal !== null ? String(estimatedKcal) : "");
+  }, [estimatedKcal]);
 
   const columns: ColumnsType<TableRow> = [
     {
@@ -113,6 +139,62 @@ export default function ProductResultCard({
       key: "value",
     },
   ];
+
+  const handleAddToPantry = async (): Promise<void> => {
+    if (!pantryContext) {
+      return;
+    }
+
+    if (!product.barcode?.trim()) {
+      setSubmissionFeedback(null);
+      setSubmissionError("This product does not have a usable barcode.");
+      return;
+    }
+
+    if (!product.name?.trim()) {
+      setSubmissionFeedback(null);
+      setSubmissionError("This product does not have a usable name.");
+      return;
+    }
+
+    if (!Number.isInteger(packageCount) || packageCount <= 0) {
+      setSubmissionFeedback(null);
+      setSubmissionError("Package count must be at least 1.");
+      return;
+    }
+
+    const numericKcalPerPackage = Number(kcalPerPackageInput);
+    if (!Number.isFinite(numericKcalPerPackage) || numericKcalPerPackage < 0) {
+      setSubmissionFeedback(null);
+      setSubmissionError("Calories per package must be zero or greater.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSubmissionFeedback(null);
+    setSubmissionError(null);
+
+    try {
+      const payload = buildPantryItemPayload(product, packageCount, numericKcalPerPackage);
+      const createdItem = await api.post<PantryItem>(
+        `/households/${pantryContext.householdId}/pantry`,
+        payload,
+      );
+
+      setSubmissionFeedback(
+        `${createdItem.name} was added to ${pantryContext.householdName ?? `household ${pantryContext.householdId}`}.`,
+      );
+      setSubmissionError(null);
+      onPantryItemAdded?.(createdItem);
+    } catch (error) {
+      setSubmissionFeedback(null);
+      setSubmissionError(
+        error instanceof Error ? error.message : "Failed to add the product to the pantry.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Card
@@ -170,6 +252,63 @@ export default function ProductResultCard({
             />
           ) : null}
         </Space>
+
+        {pantryContext ? (
+          <Card size="small" title={`Add to ${pantryContext.householdName ?? `household ${pantryContext.householdId}`}`}>
+            <div style={{ display: "grid", gap: 12 }}>
+              <p style={{ margin: 0 }}>
+                Use the product metadata as a starting point, then adjust the package count or the
+                calories-per-package value before saving.
+              </p>
+
+              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span>Package count</span>
+                  <input
+                    aria-label="Package count"
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={packageCount}
+                    onChange={(event) => setPackageCount(Number(event.target.value))}
+                    style={{ padding: 8 }}
+                  />
+                </label>
+
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span>Calories per package</span>
+                  <input
+                    aria-label="Calories per package"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={kcalPerPackageInput}
+                    onChange={(event) => setKcalPerPackageInput(event.target.value)}
+                    style={{ padding: 8 }}
+                  />
+                </label>
+              </div>
+
+              <div style={{ display: "grid", gap: 4 }}>
+                <small>
+                  Estimated from Open Food Facts: {estimatedKcal !== null ? `${estimatedKcal} kcal/package` : "no reliable estimate available"}
+                </small>
+                {submissionFeedback ? (
+                  <small style={{ color: "green" }}>{submissionFeedback}</small>
+                ) : null}
+                {submissionError ? (
+                  <small style={{ color: "crimson" }}>{submissionError}</small>
+                ) : null}
+              </div>
+
+              <div>
+                <Button type="primary" loading={isSubmitting} onClick={() => void handleAddToPantry()}>
+                  Add to pantry
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
         <Card size="small" title="Where it is sold / purchase place priority">
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
