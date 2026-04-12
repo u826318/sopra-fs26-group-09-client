@@ -9,13 +9,16 @@ export class ApiService {
   }
 
   private getHeaders(): HeadersInit {
-    const token =
-      typeof window !== "undefined"
-        ? (JSON.parse(localStorage.getItem("token") ?? "null") as string | null)
-        : null;
+    let token: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        token = JSON.parse(localStorage.getItem("token") ?? "null") as string | null;
+      } catch {
+        token = null;
+      }
+    }
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
     };
     if (token) headers["Authorization"] = token;
     return headers;
