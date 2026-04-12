@@ -85,8 +85,8 @@ describe("Household pantry page", () => {
     });
 
     expect(screen.getByText("Test House")).toBeInTheDocument();
-    expect(screen.getByText("Chocolate Bar")).toBeInTheDocument();
-    expect(screen.getByText("750.00")).toBeInTheDocument();
+    expect(await screen.findByText("Chocolate Bar")).toBeInTheDocument();
+    expect(await screen.findByText("750.00")).toBeInTheDocument();
   });
 
   it("navigates to the OFF portal with the active household context", async () => {
