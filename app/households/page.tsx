@@ -167,7 +167,10 @@ export default function HouseholdsPage() {
   };
 
   const handleOpenPantry = (household: HouseholdWithRole) => {
+    setSelectedHouseholdId(household.householdId);
     router.push(`/households/${household.householdId}?name=${encodeURIComponent(household.name)}`);
+  };
+
   const handleViewStats = (householdId: number) => {
     setSelectedHouseholdId(householdId);
     router.push("/stats");
@@ -246,7 +249,7 @@ export default function HouseholdsPage() {
               onClick={() => router.push("/stats")}
             >
               <ReadOutlined className={styles.menuIcon} />
-              <span className={styles.menuText}>Stats</span>
+              <span className={styles.menuText}>Recipes</span>
             </button>
           </nav>
 
@@ -355,6 +358,12 @@ export default function HouseholdsPage() {
                               Regenerate Invite Code
                             </Button>
                           )}
+                          <Button
+                            className={styles.outlineButton}
+                            onClick={() => handleOpenPantry(household)}
+                          >
+                            View Pantry
+                          </Button>
                           <Button
                             className={styles.outlineButton}
                             onClick={() => handleViewStats(household.householdId)}
