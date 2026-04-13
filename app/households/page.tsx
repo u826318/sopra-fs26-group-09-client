@@ -45,8 +45,13 @@ type HouseholdWithRole = Household & {
 export default function HouseholdsPage() {
   const router = useRouter();
   const { message } = App.useApp();
+
   const { value: token, clear: clearToken } = useLocalStorage<string>("token", "");
   const { value: username, clear: clearUsername } = useLocalStorage<string>("username", "");
+  const { set: setSelectedHouseholdId } = useLocalStorage<number | null>(
+    "selectedHouseholdId",
+    null,
+  );
 
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -98,6 +103,7 @@ export default function HouseholdsPage() {
         { ...created, role: "owner" },
         ...prev.filter((item) => item.householdId !== created.householdId),
       ]);
+      setSelectedHouseholdId(created.householdId);
       setLastGeneratedCode(created.inviteCode);
       setCreateName("");
       message.success("Household created successfully.");
@@ -118,7 +124,7 @@ export default function HouseholdsPage() {
         prev.map((household) =>
           household.householdId === updated.householdId
             ? { ...household, inviteCode: updated.inviteCode }
-            : household
+            : household,
         ),
       );
       setLastGeneratedCode(updated.inviteCode);
@@ -147,6 +153,7 @@ export default function HouseholdsPage() {
         }
         return [...prev, { ...joined, role: "member" }];
       });
+      setSelectedHouseholdId(joined.householdId);
       setJoinCode("");
       message.success("Joined household successfully.");
     } catch (error) {
@@ -154,6 +161,11 @@ export default function HouseholdsPage() {
     } finally {
       setJoining(false);
     }
+  };
+
+  const handleViewStats = (householdId: number) => {
+    setSelectedHouseholdId(householdId);
+    router.push("/stats");
   };
 
   const handleLogout = () => {
@@ -226,10 +238,10 @@ export default function HouseholdsPage() {
             <button
               type="button"
               className={styles.menuItem}
-              onClick={() => message.info("Recipes page is coming soon.")}
+              onClick={() => router.push("/stats")}
             >
               <ReadOutlined className={styles.menuIcon} />
-              <span className={styles.menuText}>Recipes</span>
+              <span className={styles.menuText}>Stats</span>
             </button>
           </nav>
 
@@ -244,7 +256,9 @@ export default function HouseholdsPage() {
         <main className={styles.main}>
           <div className={styles.topUserBar}>
             <span className={styles.userName}>{userLabel}</span>
-            <Avatar size={64} className={styles.userAvatar}>{userInitial}</Avatar>
+            <Avatar size={64} className={styles.userAvatar}>
+              {userInitial}
+            </Avatar>
           </div>
 
           <div className={styles.header}>
@@ -338,9 +352,9 @@ export default function HouseholdsPage() {
                           )}
                           <Button
                             className={styles.outlineButton}
-                            onClick={() => message.info("Pantry detail page is not connected yet.")}
+                            onClick={() => handleViewStats(household.householdId)}
                           >
-                            View Pantry
+                            View Stats
                           </Button>
                         </Space>
                       </Card>
