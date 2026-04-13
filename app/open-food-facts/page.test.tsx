@@ -6,12 +6,13 @@ const pushMock = jest.fn();
 const getMock = jest.fn();
 
 jest.mock("@/components/products/ProductResultCard", () =>
-  function MockProductResultCard({ product, label, exportContext }: any) {
+  function MockProductResultCard({ product, label, exportContext, pantryContext }: any) {
     return (
       <div data-testid="product-result-card">
         <span>{label}</span>
         <span>{product.name}</span>
         <span>{exportContext}</span>
+        <span>{pantryContext ? `pantry:${pantryContext.householdId}:${pantryContext.householdName}` : "pantry:none"}</span>
       </div>
     );
   },
@@ -89,6 +90,7 @@ describe("Open Food Facts page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     globalThis.alert = jest.fn();
+    window.history.pushState({}, "", "/open-food-facts");
   });
 
   it("looks up a barcode and renders the returned product card", async () => {
@@ -132,6 +134,28 @@ describe("Open Food Facts page", () => {
     expect(screen.getByText("All possible results returned for this search")).toBeInTheDocument();
     expect(screen.getByText(/1\. Plant Based Caprese — V-Love/)).toBeInTheDocument();
     expect(screen.getByText(/2\. Plant Based Mozzarella — V-Love/)).toBeInTheDocument();
+  });
+
+  it("passes household context into the result cards and enables pantry back navigation", async () => {
+    window.history.pushState({}, "", "/open-food-facts?householdId=10&householdName=Test%20House");
+    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
+
+    render(<OpenFoodFactsPage />);
+
+    expect(screen.getByText(/Pantry target:/)).toBeInTheDocument();
+    expect(screen.getByText("Test House")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("e.g. 3017624010701"), {
+      target: { value: "90331701" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Look up barcode" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("pantry:10:Test House")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to pantry" }));
+    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
   });
 
   it("alerts and clears the barcode result when barcode lookup fails", async () => {

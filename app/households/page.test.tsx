@@ -8,6 +8,9 @@ const clearUsernameMock = jest.fn();
 const successMock = jest.fn();
 const errorMock = jest.fn();
 const warningMock = jest.fn();
+const infoMock = jest.fn();
+const setHouseholdsMock = jest.fn();
+let mockStoredHouseholds: any[] = [];
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
@@ -29,6 +32,9 @@ jest.mock("@/hooks/useLocalStorage", () => ({
     if (key === "username") {
       return { value: "tingting-xu824", set: jest.fn(), clear: clearUsernameMock };
     }
+    if (key === "households") {
+      return { value: mockStoredHouseholds, set: setHouseholdsMock, clear: jest.fn() };
+    }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
 }));
@@ -36,7 +42,7 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 jest.mock("antd", () => {
   const App = {
     useApp: () => ({
-      message: { success: successMock, error: errorMock, warning: warningMock, info: jest.fn() },
+      message: { success: successMock, error: errorMock, warning: warningMock, info: infoMock },
     }),
   };
 
@@ -63,8 +69,9 @@ jest.mock("antd", () => {
     />
   );
 
-  const Button = ({ children, onClick, ...props }: any) => (
-    <button onClick={onClick} {...props}>
+  const Button = ({ children, onClick, loading, icon, type, ...props }: any) => (
+    <button onClick={onClick} data-loading={loading ? "true" : undefined} data-variant={type} {...props}>
+      {icon}
       {children}
     </button>
   );
@@ -111,6 +118,8 @@ const mockJsonResponse = (ok: boolean, body: unknown, status = 200, statusText =
 describe("Households page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockReset();
+    mockStoredHouseholds = [];
   });
 
   it("renders navigation and username from storage", () => {
@@ -122,28 +131,22 @@ describe("Households page", () => {
     expect(screen.getByText("tingting-xu824")).toBeInTheDocument();
   });
 
-  it("creates a household and regenerates invite code", async () => {
-    mockFetch
-      .mockImplementationOnce(() =>
-        mockJsonResponse(true, {
-          householdId: 10,
-          name: "Test House",
-          inviteCode: "ABC123",
-          ownerId: 1,
-        }))
-      .mockImplementationOnce(() =>
-        mockJsonResponse(true, {
-          householdId: 10,
-          inviteCode: "NEW999",
-          expiresAt: "2099-01-01T00:00:00Z",
-        }));
+  it("creates a household and stores it in local storage", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(true, {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+      }),
+    );
 
     render(<HouseholdsPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Enter household name"), {
       target: { value: "Test House" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -154,21 +157,15 @@ describe("Households page", () => {
         }),
       );
       expect(successMock).toHaveBeenCalledWith("Household created successfully.");
-      expect(screen.getByText("Invite code: ABC123")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Regenerate Invite Code" }));
-
-    await waitFor(() => {
-      expect(mockFetch).toHaveBeenCalledWith(
-        "http://localhost:8080/households/10/invite-code",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({ Authorization: "stored-token" }),
-        }),
-      );
-      expect(successMock).toHaveBeenCalledWith("Invite code regenerated.");
-      expect(screen.getByText("Invite code: NEW999")).toBeInTheDocument();
+      expect(setHouseholdsMock).toHaveBeenCalledWith([
+        {
+          householdId: 10,
+          name: "Test House",
+          inviteCode: "ABC123",
+          ownerId: 1,
+          role: "owner",
+        },
+      ]);
     });
   });
 
@@ -179,14 +176,15 @@ describe("Households page", () => {
         name: "Joined House",
         inviteCode: "JOIN22",
         ownerId: 1,
-      }));
+      }),
+    );
 
     render(<HouseholdsPage />);
 
     fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
       target: { value: "JOIN22" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -197,14 +195,39 @@ describe("Households page", () => {
         }),
       );
       expect(successMock).toHaveBeenCalledWith("Joined household successfully.");
-      expect(screen.getByText("Joined House")).toBeInTheDocument();
+      expect(setHouseholdsMock).toHaveBeenCalledWith([
+        {
+          householdId: 22,
+          name: "Joined House",
+          inviteCode: "JOIN22",
+          ownerId: 1,
+          role: "member",
+        },
+      ]);
     });
+  });
+
+  it("opens the pantry detail route for a stored household", () => {
+    mockStoredHouseholds = [
+      {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+        role: "owner",
+      },
+    ];
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /View Pantry/i }));
+    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
   });
 
   it("shows warning for empty inputs", () => {
     render(<HouseholdsPage />);
-    fireEvent.click(screen.getByRole("button", { name: "Create Household" }));
-    fireEvent.click(screen.getByRole("button", { name: "Join Household" }));
+    fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
     expect(warningMock).toHaveBeenCalledWith("Please enter a household name.");
     expect(warningMock).toHaveBeenCalledWith("Please enter an invite code.");
   });
