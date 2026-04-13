@@ -61,27 +61,16 @@ jest.mock("antd", () => {
 });
 
 describe("PantryScanPage", () => {
-  const originalLocation = globalThis.location;
   const originalCreateObjectURL = URL.createObjectURL;
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    Object.defineProperty(globalThis, "location", {
-      configurable: true,
-      value: {
-        search: "?householdId=7&householdName=Test%20Household",
-      },
-    });
-
+    window.history.pushState({}, "", "/pantry/add/scan?householdId=7&householdName=Test%20Household");
     URL.createObjectURL = jest.fn(() => "blob:test-preview");
   });
 
   afterEach(() => {
-    Object.defineProperty(globalThis, "location", {
-      configurable: true,
-      value: originalLocation,
-    });
+    window.history.pushState({}, "", "/");
     URL.createObjectURL = originalCreateObjectURL;
   });
 
