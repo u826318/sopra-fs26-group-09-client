@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
@@ -30,23 +30,15 @@ export default function HouseholdPantryPage() {
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
+  const [household, setHousehold] = useState<HouseholdWithRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const householdName = useMemo(() => {
-    if (typeof globalThis.window !== "undefined") {
-      const params = new URLSearchParams(globalThis.location.search);
-      const queryName = params.get("name");
-      if (queryName?.trim()) {
-        return queryName.trim();
-      }
-    }
+  const householdName = household?.name
+    ?? cachedHouseholds.find((item) => item.householdId === householdId)?.name
+    ?? `Household ${householdId}`;
 
-    return cachedHouseholds.find((household) => household.householdId === householdId)?.name
-      ?? `Household ${householdId}`;
-  }, [cachedHouseholds, householdId]);
-
-  const fetchPantry = async () => {
+  const fetchHouseholdData = async () => {
     if (!Number.isFinite(householdId) || householdId <= 0) {
       setErrorMessage("Invalid household id.");
       setIsLoading(false);
@@ -57,9 +49,14 @@ export default function HouseholdPantryPage() {
     setErrorMessage(null);
 
     try {
-      const pantryOverview = await api.get<PantryOverview>(`/households/${householdId}/pantry`);
+      const [loadedHousehold, pantryOverview] = await Promise.all([
+        api.get<HouseholdWithRole>(`/households/${householdId}`),
+        api.get<PantryOverview>(`/households/${householdId}/pantry`),
+      ]);
+      setHousehold(loadedHousehold);
       setOverview(pantryOverview);
     } catch (error) {
+      setHousehold(null);
       setOverview(null);
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to load the household pantry.",
@@ -70,7 +67,7 @@ export default function HouseholdPantryPage() {
   };
 
   useEffect(() => {
-    void fetchPantry();
+    void fetchHouseholdData();
   }, [householdId]);
 
   const columns: TableProps<PantryItem>["columns"] = [
@@ -116,20 +113,17 @@ export default function HouseholdPantryPage() {
             <div>
               <Title level={2} style={{ marginBottom: 0 }}>{householdName}</Title>
               <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                Pantry overview for {username?.trim() || "the current user"}. This page is wired to
-                <code> GET /households/{householdId}/pantry</code> and gives you the route anchor for
-                the item creation flow.
+                Pantry overview for {username?.trim() || "the current user"}. This page now resolves the
+                household name from the backend instead of trusting the URL query string.
               </Paragraph>
             </div>
             <Space wrap>
               <Button onClick={() => router.push("/households")}>Back to households</Button>
-              <Button onClick={() => void fetchPantry()}>Refresh pantry</Button>
+              <Button onClick={() => void fetchHouseholdData()}>Refresh pantry</Button>
               <Button
                 type="primary"
                 onClick={() =>
-                  router.push(
-                    `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
-                  )
+                  router.push(`/open-food-facts?householdId=${householdId}`)
                 }
               >
                 Add item from OFF portal

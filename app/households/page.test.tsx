@@ -10,10 +10,12 @@ const errorMock = jest.fn();
 const warningMock = jest.fn();
 const infoMock = jest.fn();
 const setHouseholdsMock = jest.fn();
+const confirmMock = jest.fn(() => true);
 let mockStoredHouseholds: any[] = [];
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
+Object.defineProperty(window, "confirm", { value: confirmMock, writable: true });
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -69,8 +71,14 @@ jest.mock("antd", () => {
     />
   );
 
-  const Button = ({ children, onClick, loading, icon, type, ...props }: any) => (
-    <button onClick={onClick} data-loading={loading ? "true" : undefined} data-variant={type} {...props}>
+  const Button = ({ children, onClick, loading, icon, type, htmlType, disabled }: any) => (
+    <button
+      type={htmlType ?? "button"}
+      onClick={onClick}
+      disabled={disabled}
+      data-loading={loading ? "true" : undefined}
+      data-variant={type}
+    >
       {icon}
       {children}
     </button>
@@ -120,26 +128,54 @@ describe("Households page", () => {
     jest.clearAllMocks();
     mockFetch.mockReset();
     mockStoredHouseholds = [];
+    confirmMock.mockReturnValue(true);
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === "GET" && url === "http://localhost:8080/households") {
+        return mockJsonResponse(true, mockStoredHouseholds);
+      }
+      return mockJsonResponse(true, {});
+    });
   });
 
-  it("renders navigation and username from storage", () => {
+  it("renders navigation and username from storage", async () => {
     render(<HouseholdsPage />);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
     expect(screen.getByText("Households")).toBeInTheDocument();
     expect(screen.getByText("Pantry")).toBeInTheDocument();
     expect(screen.getByText("Recipes")).toBeInTheDocument();
     expect(screen.getByText("tingting-xu824")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households",
+        expect.objectContaining({ method: "GET" }),
+      );
+    });
   });
 
-  it("creates a household and stores it in local storage", async () => {
-    mockFetch.mockImplementationOnce(() =>
-      mockJsonResponse(true, {
-        householdId: 10,
-        name: "Test House",
-        inviteCode: "ABC123",
-        ownerId: 1,
-      }),
-    );
+  it("creates a household and reloads the households list", async () => {
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === "GET" && url === "http://localhost:8080/households") {
+        return mockJsonResponse(true, [
+          {
+            householdId: 10,
+            name: "Test House",
+            inviteCode: "ABC123",
+            ownerId: 1,
+            role: "owner",
+          },
+        ]);
+      }
+      if (options?.method === "POST" && url === "http://localhost:8080/households") {
+        return mockJsonResponse(true, {
+          householdId: 10,
+          name: "Test House",
+          inviteCode: "ABC123",
+          ownerId: 1,
+          role: "owner",
+        });
+      }
+      return mockJsonResponse(true, {});
+    });
 
     render(<HouseholdsPage />);
 
@@ -156,7 +192,6 @@ describe("Households page", () => {
           headers: expect.objectContaining({ Authorization: "stored-token" }),
         }),
       );
-      expect(successMock).toHaveBeenCalledWith("Household created successfully.");
       expect(setHouseholdsMock).toHaveBeenCalledWith([
         {
           householdId: 10,
@@ -166,18 +201,34 @@ describe("Households page", () => {
           role: "owner",
         },
       ]);
+      expect(successMock).toHaveBeenCalledWith("Household created successfully.");
     });
   });
 
-  it("joins a household by invite code", async () => {
-    mockFetch.mockImplementationOnce(() =>
-      mockJsonResponse(true, {
-        householdId: 22,
-        name: "Joined House",
-        inviteCode: "JOIN22",
-        ownerId: 1,
-      }),
-    );
+  it("joins a household by invite code and reloads the households list", async () => {
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === "GET" && url === "http://localhost:8080/households") {
+        return mockJsonResponse(true, [
+          {
+            householdId: 22,
+            name: "Joined House",
+            inviteCode: "JOIN22",
+            ownerId: 1,
+            role: "member",
+          },
+        ]);
+      }
+      if (options?.method === "POST" && url === "http://localhost:8080/households/join") {
+        return mockJsonResponse(true, {
+          householdId: 22,
+          name: "Joined House",
+          inviteCode: "JOIN22",
+          ownerId: 1,
+          role: "member",
+        });
+      }
+      return mockJsonResponse(true, {});
+    });
 
     render(<HouseholdsPage />);
 
@@ -194,7 +245,6 @@ describe("Households page", () => {
           headers: expect.objectContaining({ Authorization: "stored-token" }),
         }),
       );
-      expect(successMock).toHaveBeenCalledWith("Joined household successfully.");
       expect(setHouseholdsMock).toHaveBeenCalledWith([
         {
           householdId: 22,
@@ -204,10 +254,11 @@ describe("Households page", () => {
           role: "member",
         },
       ]);
+      expect(successMock).toHaveBeenCalledWith("Joined household successfully.");
     });
   });
 
-  it("opens the pantry detail route for a stored household", () => {
+  it("opens the pantry detail route without trusting the name query string", async () => {
     mockStoredHouseholds = [
       {
         householdId: 10,
@@ -220,11 +271,60 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households",
+        expect.objectContaining({ method: "GET" }),
+      );
+    });
+
     fireEvent.click(screen.getByRole("button", { name: /View Pantry/i }));
-    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
+    expect(pushMock).toHaveBeenCalledWith("/households/10");
   });
 
-  it("shows warning for empty inputs", () => {
+  it("deletes an owned household", async () => {
+    mockStoredHouseholds = [
+      {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+        role: "owner",
+      },
+    ];
+
+    mockFetch.mockImplementation((url: string, options?: RequestInit) => {
+      if (options?.method === "GET" && url === "http://localhost:8080/households") {
+        return mockJsonResponse(true, []);
+      }
+      if (options?.method === "DELETE" && url === "http://localhost:8080/households/10") {
+        return mockJsonResponse(true, undefined, 204, "No Content");
+      }
+      return mockJsonResponse(true, {});
+    });
+
+    render(<HouseholdsPage />);
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households",
+        expect.objectContaining({ method: "GET" }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+
+    await waitFor(() => {
+      expect(confirmMock).toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/10",
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(successMock).toHaveBeenCalledWith("Household deleted successfully.");
+    });
+  });
+
+  it("shows warning for empty inputs", async () => {
     render(<HouseholdsPage />);
     fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
     fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));

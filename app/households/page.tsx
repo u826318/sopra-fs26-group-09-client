@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useLocalStorage from "@/hooks/useLocalStorage";
 import type {
@@ -56,6 +56,7 @@ export default function HouseholdsPage() {
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [lastGeneratedCode, setLastGeneratedCode] = useState<string | null>(null);
 
   const ownedHouseholds = useMemo(
@@ -63,16 +64,7 @@ export default function HouseholdsPage() {
     [households],
   );
 
-  const authPost = async <T,>(endpoint: string, payload?: unknown): Promise<T> => {
-    const response = await fetch(`${getApiDomain()}${endpoint}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token,
-      },
-      body: payload === undefined ? undefined : JSON.stringify(payload),
-    });
-
+  const handleResponse = async <T,>(response: Response): Promise<T> => {
     if (!response.ok) {
       let reason = response.statusText;
       try {
@@ -84,14 +76,60 @@ export default function HouseholdsPage() {
       throw new Error(`${response.status}: ${reason}`);
     }
 
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
     return response.json() as Promise<T>;
   };
 
-  const updateHouseholds = (
-    updater: (currentHouseholds: HouseholdWithRole[]) => HouseholdWithRole[],
-  ) => {
-    setHouseholds(updater(households));
+  const authGet = async <T,>(endpoint: string): Promise<T> => {
+    const response = await fetch(`${getApiDomain()}${endpoint}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+    });
+
+    return handleResponse<T>(response);
   };
+
+  const authPost = async <T,>(endpoint: string, payload?: unknown): Promise<T> => {
+    const response = await fetch(`${getApiDomain()}${endpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+
+    return handleResponse<T>(response);
+  };
+
+  const authDelete = async (endpoint: string): Promise<void> => {
+    const response = await fetch(`${getApiDomain()}${endpoint}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: token,
+      },
+    });
+
+    await handleResponse<void>(response);
+  };
+
+  const loadHouseholds = async () => {
+    const loadedHouseholds = await authGet<HouseholdWithRole[]>("/households");
+    setHouseholds(loadedHouseholds);
+  };
+
+  useEffect(() => {
+    void loadHouseholds().catch((error: unknown) => {
+      message.error(error instanceof Error ? error.message : "Failed to load households.");
+    });
+  }, []);
 
   const handleCreateHousehold = async () => {
     if (!createName.trim()) {
@@ -102,10 +140,7 @@ export default function HouseholdsPage() {
     setCreating(true);
     try {
       const created = await authPost<Household>("/households", { name: createName.trim() });
-      updateHouseholds((currentHouseholds) => [
-        { ...created, role: "owner" },
-        ...currentHouseholds.filter((item) => item.householdId !== created.householdId),
-      ]);
+      await loadHouseholds();
       setSelectedHouseholdId(created.householdId);
       setLastGeneratedCode(created.inviteCode);
       setCreateName("");
@@ -123,13 +158,7 @@ export default function HouseholdsPage() {
       const updated = await authPost<HouseholdInviteCodeResponse>(
         `/households/${householdId}/invite-code`,
       );
-      updateHouseholds((currentHouseholds) =>
-        currentHouseholds.map((household) =>
-          household.householdId === updated.householdId
-            ? { ...household, inviteCode: updated.inviteCode }
-            : household,
-        ),
-      );
+      await loadHouseholds();
       setLastGeneratedCode(updated.inviteCode);
       message.success("Invite code regenerated.");
     } catch (error) {
@@ -150,12 +179,7 @@ export default function HouseholdsPage() {
       const joined = await authPost<Household>("/households/join", {
         inviteCode: joinCode.trim(),
       });
-      updateHouseholds((currentHouseholds) => {
-        if (currentHouseholds.some((household) => household.householdId === joined.householdId)) {
-          return currentHouseholds;
-        }
-        return [...currentHouseholds, { ...joined, role: "member" }];
-      });
+      await loadHouseholds();
       setSelectedHouseholdId(joined.householdId);
       setJoinCode("");
       message.success("Joined household successfully.");
@@ -168,7 +192,32 @@ export default function HouseholdsPage() {
 
   const handleOpenPantry = (household: HouseholdWithRole) => {
     setSelectedHouseholdId(household.householdId);
-    router.push(`/households/${household.householdId}?name=${encodeURIComponent(household.name)}`);
+    router.push(`/households/${household.householdId}`);
+  };
+
+  const handleDeleteHousehold = async (household: HouseholdWithRole) => {
+    if (household.role !== "owner") {
+      return;
+    }
+
+    const shouldDelete = typeof globalThis.window === "undefined"
+      ? true
+      : globalThis.window.confirm(`Delete household "${household.name}"? This cannot be undone.`);
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setDeletingId(household.householdId);
+    try {
+      await authDelete(`/households/${household.householdId}`);
+      await loadHouseholds();
+      message.success("Household deleted successfully.");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Failed to delete household.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleViewStats = (householdId: number) => {
@@ -351,12 +400,21 @@ export default function HouseholdsPage() {
                         </p>
                         <Space direction="vertical" style={{ width: "100%" }}>
                           {household.role === "owner" && (
-                            <Button
-                              onClick={() => void handleRegenerateInviteCode(household.householdId)}
-                              loading={regeneratingId === household.householdId}
-                            >
-                              Regenerate Invite Code
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => void handleRegenerateInviteCode(household.householdId)}
+                                loading={regeneratingId === household.householdId}
+                              >
+                                Regenerate Invite Code
+                              </Button>
+                              <Button
+                                danger
+                                onClick={() => void handleDeleteHousehold(household)}
+                                loading={deletingId === household.householdId}
+                              >
+                                Delete Household
+                              </Button>
+                            </>
                           )}
                           <Button
                             className={styles.outlineButton}

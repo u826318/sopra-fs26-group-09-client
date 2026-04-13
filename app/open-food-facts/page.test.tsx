@@ -136,11 +136,29 @@ describe("Open Food Facts page", () => {
     expect(screen.getByText(/2\. Plant Based Mozzarella — V-Love/)).toBeInTheDocument();
   });
 
-  it("passes household context into the result cards and enables pantry back navigation", async () => {
-    window.history.pushState({}, "", "/open-food-facts?householdId=10&householdName=Test%20House");
-    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
+  it("resolves the pantry target from householdId and enables pantry back navigation", async () => {
+    window.history.pushState({}, "", "/open-food-facts?householdId=10");
+    getMock.mockImplementation((endpoint: string) => {
+      if (endpoint === "/households/10") {
+        return Promise.resolve({
+          householdId: 10,
+          name: "Test House",
+          inviteCode: "ABC123",
+          ownerId: 1,
+          role: "owner",
+        });
+      }
+      if (endpoint === "/products/lookup?barcode=90331701") {
+        return Promise.resolve({ name: "Fanta Zero", barcode: "90331701" });
+      }
+      return Promise.reject(new Error("unexpected endpoint"));
+    });
 
     render(<OpenFoodFactsPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households/10");
+    });
 
     expect(screen.getByText(/Pantry target:/)).toBeInTheDocument();
     expect(screen.getByText("Test House")).toBeInTheDocument();
@@ -151,11 +169,12 @@ describe("Open Food Facts page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Look up barcode" }));
 
     await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=90331701");
       expect(screen.getByText("pantry:10:Test House")).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Back to pantry" }));
-    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
+    expect(pushMock).toHaveBeenCalledWith("/households/10");
   });
 
   it("alerts and clears the barcode result when barcode lookup fails", async () => {

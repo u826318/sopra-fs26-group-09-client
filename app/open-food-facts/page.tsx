@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
@@ -19,8 +19,15 @@ import {
 
 const { Title, Paragraph } = Typography;
 
+type HouseholdSummary = {
+  householdId?: number;
+  id?: number;
+  name?: string | null;
+};
+
 export default function OpenFoodFactsPortalPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const api = useApi();
 
   const [barcode, setBarcode] = useState("");
@@ -28,25 +35,58 @@ export default function OpenFoodFactsPortalPage() {
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const [resolvedHouseholdName, setResolvedHouseholdName] = useState<string | undefined>(undefined);
 
   const priorityResult = searchResults.length > 0 ? searchResults[0] : null;
 
-  const pantryTarget = useMemo(() => {
-    if (typeof globalThis.window === "undefined") {
-      return null;
-    }
+  const householdIdParam = searchParams.get("householdId");
 
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
+  const pantryTarget = useMemo(() => {
+    const householdId = Number(householdIdParam);
     if (!Number.isFinite(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: resolvedHouseholdName,
     };
-  }, []);
+  }, [householdIdParam, resolvedHouseholdName]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function resolveHouseholdName() {
+      const householdId = Number(householdIdParam);
+      if (!Number.isFinite(householdId) || householdId <= 0) {
+        setResolvedHouseholdName(undefined);
+        return;
+      }
+
+      try {
+        const household = await api.get<HouseholdSummary>(`/households/${householdId}`);
+        const nextName =
+          typeof household.name === "string" && household.name.trim() !== ""
+            ? household.name.trim()
+            : undefined;
+
+        if (!ignore) {
+          setResolvedHouseholdName(nextName);
+        }
+      } catch (error) {
+        console.error("Failed to resolve pantry context:", error);
+        if (!ignore) {
+          setResolvedHouseholdName(undefined);
+        }
+      }
+    }
+
+    void resolveHouseholdName();
+
+    return () => {
+      ignore = true;
+    };
+  }, [api, householdIdParam]);
 
   const lookupBarcode = async () => {
     setLoading(true);
@@ -93,23 +133,20 @@ export default function OpenFoodFactsPortalPage() {
               </Paragraph>
               {pantryTarget ? (
                 <Paragraph style={{ marginBottom: 0 }}>
-                  Pantry target: <strong>{pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}</strong>
+                  Pantry target:{" "}
+                  <strong>
+                    {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
+                  </strong>
                 </Paragraph>
               ) : null}
             </div>
             <Space wrap>
               <Button onClick={() => router.push("/")}>Home</Button>
-              <Button type="primary" onClick={() => router.push("/users")}>Users</Button>
+              <Button type="primary" onClick={() => router.push("/users")}>
+                Users
+              </Button>
               {pantryTarget ? (
-                <Button
-                  onClick={() =>
-                    router.push(
-                      `/households/${pantryTarget.householdId}?name=${encodeURIComponent(
-                        pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`,
-                      )}`,
-                    )
-                  }
-                >
+                <Button onClick={() => router.push(`/households/${pantryTarget.householdId}`)}>
                   Back to pantry
                 </Button>
               ) : null}
