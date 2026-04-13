@@ -1,13 +1,27 @@
 import type { PantryItemCreateRequest } from "@/types/pantry";
 import type { Product } from "@/types/product";
 
+type QuantityUnit = "kg" | "g" | "l" | "ml";
+
+type ParsedPackageAmount = {
+  amount: number;
+  basis: "100g" | "100ml";
+};
+
+type ParsedUnitAmount = {
+  amount: number;
+  unit: QuantityUnit;
+};
+
+const UNIT_SUFFIXES: QuantityUnit[] = ["kg", "ml", "g", "l"];
+
 function parseNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
   }
 
   if (typeof value === "string") {
-    const normalizedValue = value.replace(",", ".").trim();
+    const normalizedValue = value.replaceAll(",", ".").trim();
     if (!normalizedValue) {
       return null;
     }
@@ -19,58 +33,66 @@ function parseNumber(value: unknown): number | null {
   return null;
 }
 
-function parsePackageAmount(quantity: string | null):
-  | { amount: number; basis: "100g" | "100ml" }
-  | null {
+function parseUnitAmount(value: string): ParsedUnitAmount | null {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const detectedUnit = UNIT_SUFFIXES.find((unit) => trimmedValue.endsWith(unit));
+  if (!detectedUnit) {
+    return null;
+  }
+
+  const numericText = trimmedValue.slice(0, -detectedUnit.length).trim();
+  const amount = parseNumber(numericText);
+  if (amount === null) {
+    return null;
+  }
+
+  return {
+    amount,
+    unit: detectedUnit,
+  };
+}
+
+function toAmountBasis(amount: number, unit: QuantityUnit): ParsedPackageAmount {
+  switch (unit) {
+    case "kg":
+      return { amount: amount * 1000, basis: "100g" };
+    case "g":
+      return { amount, basis: "100g" };
+    case "l":
+      return { amount: amount * 1000, basis: "100ml" };
+    case "ml":
+      return { amount, basis: "100ml" };
+  }
+}
+
+function parsePackageAmount(quantity: string | null): ParsedPackageAmount | null {
   if (!quantity) {
     return null;
   }
 
-  const normalizedQuantity = quantity.toLowerCase().replace(/,/g, ".").trim();
-
-  const multiMatch = normalizedQuantity.match(
-    /(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(kg|g|l|ml)\b/,
+  const normalizedQuantity = quantity.toLowerCase().replaceAll(",", ".").trim();
+  const multiSeparatorIndex = Math.max(
+    normalizedQuantity.indexOf("x"),
+    normalizedQuantity.indexOf("×"),
   );
 
-  if (multiMatch) {
-    const packageCount = Number(multiMatch[1]);
-    const unitAmount = Number(multiMatch[2]);
-    const unit = multiMatch[3];
-    const totalAmount = packageCount * unitAmount;
+  if (multiSeparatorIndex > 0) {
+    const packageCountText = normalizedQuantity.slice(0, multiSeparatorIndex).trim();
+    const remainingText = normalizedQuantity.slice(multiSeparatorIndex + 1).trim();
+    const packageCount = parseNumber(packageCountText);
+    const unitAmount = parseUnitAmount(remainingText);
 
-    if (unit === "kg") {
-      return { amount: totalAmount * 1000, basis: "100g" };
-    }
-    if (unit === "g") {
-      return { amount: totalAmount, basis: "100g" };
-    }
-    if (unit === "l") {
-      return { amount: totalAmount * 1000, basis: "100ml" };
-    }
-    if (unit === "ml") {
-      return { amount: totalAmount, basis: "100ml" };
+    if (packageCount !== null && unitAmount) {
+      return toAmountBasis(packageCount * unitAmount.amount, unitAmount.unit);
     }
   }
 
-  const singleMatch = normalizedQuantity.match(/(\d+(?:\.\d+)?)\s*(kg|g|l|ml)\b/);
-  if (!singleMatch) {
-    return null;
-  }
-
-  const amount = Number(singleMatch[1]);
-  const unit = singleMatch[2];
-
-  if (unit === "kg") {
-    return { amount: amount * 1000, basis: "100g" };
-  }
-  if (unit === "g") {
-    return { amount, basis: "100g" };
-  }
-  if (unit === "l") {
-    return { amount: amount * 1000, basis: "100ml" };
-  }
-
-  return { amount, basis: "100ml" };
+  const singleAmount = parseUnitAmount(normalizedQuantity);
+  return singleAmount ? toAmountBasis(singleAmount.amount, singleAmount.unit) : null;
 }
 
 export function estimateKcalPerPackage(product: Product): number | null {

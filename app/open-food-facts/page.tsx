@@ -32,7 +32,7 @@ export default function OpenFoodFactsPortalPage() {
   const priorityResult = searchResults.length > 0 ? searchResults[0] : null;
 
   const pantryTarget = useMemo(() => {
-    if (typeof window === "undefined") {
+    if (typeof globalThis.window === "undefined") {
       return null;
     }
 

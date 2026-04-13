@@ -34,7 +34,7 @@ export default function HouseholdPantryPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const householdName = useMemo(() => {
-    if (typeof window !== "undefined") {
+    if (typeof globalThis.window !== "undefined") {
       const params = new URLSearchParams(globalThis.location.search);
       const queryName = params.get("name");
       if (queryName?.trim()) {
@@ -111,7 +111,7 @@ export default function HouseholdPantryPage() {
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card loading={isLoading} style={{ width: "100%", maxWidth: 1200 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <div style={{ display: "grid", gap: 24, width: "100%" }}>
           <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div>
               <Title level={2} style={{ marginBottom: 0 }}>{householdName}</Title>
@@ -164,7 +164,7 @@ export default function HouseholdPantryPage() {
           ) : (
             <Empty description="No pantry items yet. Add one from the Open Food Facts portal." />
           )}
-        </Space>
+        </div>
       </Card>
     </div>
   );

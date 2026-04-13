@@ -47,6 +47,12 @@ type PantryContext = {
   householdName?: string;
 };
 
+type PantryValidationResult = {
+  numericKcalPerPackage: number;
+} | {
+  errorMessage: string;
+};
+
 function normalizeObject(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
@@ -92,6 +98,58 @@ function buildNutritionRows(product: Product): TableRow[] {
   return [...priorityRows, ...remainingRows];
 }
 
+function getPantryTargetLabel(pantryContext: PantryContext): string {
+  return pantryContext.householdName?.trim() || `household ${pantryContext.householdId}`;
+}
+
+function getEstimatedKcalInputValue(estimatedKcal: number | null): string {
+  return estimatedKcal === null ? "" : String(estimatedKcal);
+}
+
+function getEstimatedKcalLabel(estimatedKcal: number | null): string {
+  if (estimatedKcal === null) {
+    return "no reliable estimate available";
+  }
+
+  return `${estimatedKcal} kcal/package`;
+}
+
+function validatePantrySubmission(
+  product: Product,
+  packageCount: number,
+  kcalPerPackageInput: string,
+): PantryValidationResult {
+  const barcode = product.barcode?.trim() ?? "";
+  if (barcode === "") {
+    return { errorMessage: "This product does not have a usable barcode." };
+  }
+
+  const productName = product.name?.trim() ?? "";
+  if (productName === "") {
+    return { errorMessage: "This product does not have a usable name." };
+  }
+
+  if (Number.isInteger(packageCount) && packageCount > 0) {
+    const numericKcalPerPackage = Number(kcalPerPackageInput);
+    if (Number.isFinite(numericKcalPerPackage) && numericKcalPerPackage >= 0) {
+      return { numericKcalPerPackage };
+    }
+
+    return { errorMessage: "Calories per package must be zero or greater." };
+  }
+
+  return { errorMessage: "Package count must be at least 1." };
+}
+
+function setSubmissionProblem(
+  setSubmissionFeedback: React.Dispatch<React.SetStateAction<string | null>>,
+  setSubmissionError: React.Dispatch<React.SetStateAction<string | null>>,
+  errorMessage: string,
+): void {
+  setSubmissionFeedback(null);
+  setSubmissionError(errorMessage);
+}
+
 export default function ProductResultCard({
   product,
   label,
@@ -116,14 +174,14 @@ export default function ProductResultCard({
 
   const [packageCount, setPackageCount] = useState(1);
   const [kcalPerPackageInput, setKcalPerPackageInput] = useState(
-    estimatedKcal !== null ? String(estimatedKcal) : "",
+    getEstimatedKcalInputValue(estimatedKcal),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionFeedback, setSubmissionFeedback] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   useEffect(() => {
-    setKcalPerPackageInput(estimatedKcal !== null ? String(estimatedKcal) : "");
+    setKcalPerPackageInput(getEstimatedKcalInputValue(estimatedKcal));
   }, [estimatedKcal]);
 
   const columns: ColumnsType<TableRow> = [
@@ -145,28 +203,9 @@ export default function ProductResultCard({
       return;
     }
 
-    if (!product.barcode?.trim()) {
-      setSubmissionFeedback(null);
-      setSubmissionError("This product does not have a usable barcode.");
-      return;
-    }
-
-    if (!product.name?.trim()) {
-      setSubmissionFeedback(null);
-      setSubmissionError("This product does not have a usable name.");
-      return;
-    }
-
-    if (!Number.isInteger(packageCount) || packageCount <= 0) {
-      setSubmissionFeedback(null);
-      setSubmissionError("Package count must be at least 1.");
-      return;
-    }
-
-    const numericKcalPerPackage = Number(kcalPerPackageInput);
-    if (!Number.isFinite(numericKcalPerPackage) || numericKcalPerPackage < 0) {
-      setSubmissionFeedback(null);
-      setSubmissionError("Calories per package must be zero or greater.");
+    const validationResult = validatePantrySubmission(product, packageCount, kcalPerPackageInput);
+    if ("errorMessage" in validationResult) {
+      setSubmissionProblem(setSubmissionFeedback, setSubmissionError, validationResult.errorMessage);
       return;
     }
 
@@ -175,22 +214,24 @@ export default function ProductResultCard({
     setSubmissionError(null);
 
     try {
-      const payload = buildPantryItemPayload(product, packageCount, numericKcalPerPackage);
+      const payload = buildPantryItemPayload(
+        product,
+        packageCount,
+        validationResult.numericKcalPerPackage,
+      );
       const createdItem = await api.post<PantryItem>(
         `/households/${pantryContext.householdId}/pantry`,
         payload,
       );
+      const pantryTargetLabel = getPantryTargetLabel(pantryContext);
 
-      setSubmissionFeedback(
-        `${createdItem.name} was added to ${pantryContext.householdName ?? `household ${pantryContext.householdId}`}.`,
-      );
+      setSubmissionFeedback(`${createdItem.name} was added to ${pantryTargetLabel}.`);
       setSubmissionError(null);
       onPantryItemAdded?.(createdItem);
     } catch (error) {
-      setSubmissionFeedback(null);
-      setSubmissionError(
-        error instanceof Error ? error.message : "Failed to add the product to the pantry.",
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to add the product to the pantry.";
+      setSubmissionProblem(setSubmissionFeedback, setSubmissionError, errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -254,14 +295,20 @@ export default function ProductResultCard({
         </Space>
 
         {pantryContext ? (
-          <Card size="small" title={`Add to ${pantryContext.householdName ?? `household ${pantryContext.householdId}`}`}>
+          <Card size="small" title={`Add to ${getPantryTargetLabel(pantryContext)}`}>
             <div style={{ display: "grid", gap: 12 }}>
               <p style={{ margin: 0 }}>
                 Use the product metadata as a starting point, then adjust the package count or the
                 calories-per-package value before saving.
               </p>
 
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+              <div
+                style={{
+                  display: "grid",
+                  gap: 12,
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                }}
+              >
                 <label style={{ display: "grid", gap: 6 }}>
                   <span>Package count</span>
                   <input
@@ -290,9 +337,7 @@ export default function ProductResultCard({
               </div>
 
               <div style={{ display: "grid", gap: 4 }}>
-                <small>
-                  Estimated from Open Food Facts: {estimatedKcal !== null ? `${estimatedKcal} kcal/package` : "no reliable estimate available"}
-                </small>
+                <small>Estimated from Open Food Facts: {getEstimatedKcalLabel(estimatedKcal)}</small>
                 {submissionFeedback ? (
                   <small style={{ color: "green" }}>{submissionFeedback}</small>
                 ) : null}
