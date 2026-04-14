@@ -51,23 +51,22 @@ export default function PantryScanPage() {
     };
   }, []);
 
-  const updateSelectedFile = (file?: File) => {
+    const updateSelectedFile = (file?: File) => {
     if (!file) {
-      setFileList([]);
-      setPreviewUrl(null);
-      return;
+        setFileList([]);
+        setPreviewUrl(null);
+        return;
     }
 
     const uploadFile: UploadFile = {
-      uid: `${Date.now()}`,
-      name: file.name,
-      status: "done",
-      originFileObj: file,
+        uid: `${Date.now()}`,
+        name: file.name,
+        status: "done",
     };
 
     setFileList([uploadFile]);
     setPreviewUrl(URL.createObjectURL(file));
-  };
+    };
 
   const uploadProps: UploadProps = {
     multiple: false,
@@ -230,4 +229,6 @@ export default function PantryScanPage() {
       </Card>
     </div>
   );
+
+
 }
