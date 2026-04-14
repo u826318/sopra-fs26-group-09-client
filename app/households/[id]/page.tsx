@@ -136,6 +136,16 @@ export default function HouseholdPantryPage() {
               </Button>
             </Space>
           </Space>
+          
+          <Button
+            onClick={() =>
+              router.push(
+                `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+              )
+            }
+          >
+            Scan product image
+          </Button>
 
           {errorMessage ? (
             <Card>
