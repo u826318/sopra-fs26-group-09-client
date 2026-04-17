@@ -16,3 +16,10 @@ export interface PantryOverview {
   items: PantryItem[];
   totalCalories: number;
 }
+
+export interface ConsumePantryItemResponse {
+  itemId: number;
+  remainingCount: number;
+  consumedCalories: number;
+  removed: boolean;
+}
