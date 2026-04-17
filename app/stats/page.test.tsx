@@ -15,6 +15,12 @@ jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
+
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock, put: putMock }),
 }));
@@ -47,6 +53,9 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 jest.mock("@ant-design/icons", () => ({
   EditOutlined: () => <span data-testid="edit-icon" />,
   WarningOutlined: () => <span data-testid="warn-icon" />,
+  RestOutlined: () => <span data-testid="rest-icon" />,
+  MinusCircleOutlined: () => <span data-testid="minus-icon" />,
+  ShoppingOutlined: () => <span data-testid="shop-icon" />,
 }));
 
 jest.mock("antd", () => {
@@ -66,19 +75,20 @@ jest.mock("antd", () => {
   const Space = ({ children }: any) => <div>{children}</div>;
   const Spin = () => <div>Loading...</div>;
   const Empty = ({ description }: any) => <div>{description}</div>;
+  Empty.PRESENTED_IMAGE_SIMPLE = "simple";
   const Tag = ({ children }: any) => <span>{children}</span>;
-  const Table = ({ dataSource }: any) => (
+  const Table = ({ dataSource, rowKey }: any) => (
     <table>
       <tbody>
-        {dataSource?.map((row: any) => (
-          <tr key={row.date}>
-            <td>{row.date}</td>
-            <td>{row.caloriesConsumed.toFixed(1)}</td>
+        {dataSource?.map((row: any, i: number) => (
+          <tr key={row[rowKey] ?? row.date ?? i}>
+            <td>{row.date ?? row.name ?? ""}</td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+  const Select = () => <div data-testid="select" />;
   const DatePicker = ({ onChange, value }: any) => (
     <input
       aria-label="start-date"
@@ -111,6 +121,7 @@ jest.mock("antd", () => {
           validateFields: async () => ({ dailyCalorieTarget: 2000 }),
         },
       ],
+      useWatch: () => undefined,
       Item: FormItem,
     },
   );
@@ -132,6 +143,7 @@ jest.mock("antd", () => {
     Empty,
     Tag,
     Table,
+    Select,
     DatePicker,
     Typography,
     App,
@@ -174,6 +186,9 @@ describe("StatsPage", () => {
           dailyCalorieTarget: 2200,
         });
       }
+      if (url.includes("/consumption-logs")) {
+        return Promise.resolve([]);
+      }
       return Promise.reject(new Error(`unexpected ${url}`));
     });
   });
@@ -187,10 +202,11 @@ describe("StatsPage", () => {
         expect.stringMatching(/^\/households\/1\/stats\?startDate=\d{4}-\d{2}-\d{2}&endDate=\d{4}-\d{2}-\d{2}$/),
       );
       expect(getMock).toHaveBeenCalledWith("/households/1/budget");
+      expect(getMock).toHaveBeenCalledWith("/households/1/consumption-logs?limit=30");
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Calorie Management/i)).toBeInTheDocument();
+      expect(screen.getByText(/Pantry Overview/i)).toBeInTheDocument();
       expect(screen.getByText(/142,500 kcal/i)).toBeInTheDocument();
       expect(screen.getByText(/2,450 kcal \/ day/i)).toBeInTheDocument();
     });

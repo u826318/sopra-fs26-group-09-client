@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   App,
   Button,
@@ -14,26 +13,56 @@ import {
   Modal,
   Progress,
   Row,
+  Select,
   Space,
   Spin,
   Table,
   Tag,
   Typography,
 } from "antd";
-import { EditOutlined, WarningOutlined } from "@ant-design/icons";
+import type { TableProps } from "antd";
+import {
+  EditOutlined,
+  MinusCircleOutlined,
+  RestOutlined,
+  ShoppingOutlined,
+  WarningOutlined,
+} from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
 import type { HouseholdWithRole } from "@/types/household";
-import type { PantryOverview } from "@/types/pantry";
+import type { ConsumptionLogEntry } from "@/types/consumption";
+import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
 import type { HouseholdStats } from "@/types/stats";
+import statsStyles from "@/styles/stats.module.css";
 
 const { Title, Paragraph, Text } = Typography;
 
-const ACCENT = "#16a34a";
-const DANGER = "#dc2626";
+const FOREST = "#1b5e20";
+const DANGER = "#c62828";
+const MUTED = "#5d6a5d";
+
+type ActivityEntry = {
+  id: string;
+  at: string;
+  productName: string;
+  deltaKcal: number;
+  consumedQuantity: number;
+};
+
+function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
+  return logs.map((log) => ({
+    id: `log-${log.logId}`,
+    at: log.consumedAt,
+    productName: log.productName,
+    deltaKcal: -log.consumedCalories,
+    consumedQuantity: log.consumedQuantity,
+  }));
+}
 
 function isNotFound(error: unknown): boolean {
   return (
@@ -61,8 +90,18 @@ function comparisonTagColor(status: string): string {
   }
 }
 
+function inferCategory(name: string): { label: string; color: string } {
+  const n = name.trim();
+  if (/milk|cheese|yogurt|cream|butter|dairy/i.test(n)) {
+    return { label: "DAIRY", color: "gold" };
+  }
+  if (/fruit|berry|vegetable|lettuce|tomato|produce|apple|orange/i.test(n)) {
+    return { label: "PRODUCE", color: "green" };
+  }
+  return { label: "PANTRY", color: "cyan" };
+}
+
 export default function StatsPage() {
-  const router = useRouter();
   const api = useApi();
   const { message } = App.useApp();
 
@@ -84,6 +123,16 @@ export default function StatsPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
+  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
+  const [consuming, setConsuming] = useState(false);
+  const [consumeForm] = Form.useForm<{ itemId: number; quantity: number }>();
+  const selectedConsumeItemId = Form.useWatch("itemId", consumeForm);
+  const selectedConsumeItem = useMemo(
+    () => pantry?.items.find((i) => i.id === selectedConsumeItemId),
+    [pantry?.items, selectedConsumeItemId],
+  );
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+
   const loadDashboard = useCallback(async () => {
     if (!selectedHouseholdId || !startDate) {
       return;
@@ -94,14 +143,18 @@ export default function StatsPage() {
 
     setLoading(true);
     try {
-      const [pantryRes, statsRes] = await Promise.all([
+      const [pantryRes, statsRes, logsRes] = await Promise.all([
         api.get<PantryOverview>(`/households/${selectedHouseholdId}/pantry`),
         api.get<HouseholdStats>(
           `/households/${selectedHouseholdId}/stats?startDate=${startStr}&endDate=${endStr}`,
         ),
+        api.get<ConsumptionLogEntry[]>(
+          `/households/${selectedHouseholdId}/consumption-logs?limit=30`,
+        ),
       ]);
       setPantry(pantryRes);
       setStats(statsRes);
+      setActivity(logsToActivity(logsRes));
 
       try {
         const b = await api.get<HouseholdBudget>(`/households/${selectedHouseholdId}/budget`);
@@ -117,6 +170,7 @@ export default function StatsPage() {
       setPantry(null);
       setStats(null);
       setBudgetRecord(null);
+      setActivity([]);
       message.error(error instanceof Error ? error.message : "Failed to load dashboard.");
     } finally {
       setLoading(false);
@@ -149,6 +203,11 @@ export default function StatsPage() {
     return `+${pct}% OVER BUDGET (today)`;
   }, [actualToday, dailyGoal]);
 
+  const estimatedCoverageDays = useMemo(() => {
+    if (!pantry || !stats || stats.averageDailyCalories <= 0) return null;
+    return Math.max(0, Math.floor(pantry.totalCalories / stats.averageDailyCalories));
+  }, [pantry, stats]);
+
   const openBudgetModal = () => {
     const initial = dailyGoal ?? 2200;
     budgetForm.setFieldsValue({ dailyCalorieTarget: initial });
@@ -174,52 +233,146 @@ export default function StatsPage() {
     }
   };
 
-  return (
-    <div style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
-        <Row justify="space-between" align="middle" gutter={[16, 16]}>
-          <Col flex="auto">
-            <Title level={2} style={{ marginBottom: 4 }}>
-              Calorie Management
-            </Title>
-            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              Monitor pantry energy, average consumption since a start date, and budget vs actuals for
-              your household.
-            </Paragraph>
-          </Col>
-          <Col>
-            <Button onClick={() => router.push("/households")}>Back to households</Button>
-          </Col>
-        </Row>
+  const openConsumeModal = () => {
+    if (!pantry?.items.length) {
+      message.info("Add items to your pantry before recording consumption.");
+      return;
+    }
+    const first = pantry.items[0];
+    consumeForm.setFieldsValue({ itemId: first.id, quantity: 1 });
+    setConsumeModalOpen(true);
+  };
 
+  const submitConsumption = async () => {
+    if (!selectedHouseholdId) return;
+    const values = await consumeForm.validateFields();
+    const item = pantry?.items.find((i) => i.id === values.itemId);
+    if (!item) {
+      message.error("Selected item is no longer in the pantry.");
+      return;
+    }
+    if (values.quantity > item.count) {
+      message.error("Quantity cannot exceed available units.");
+      return;
+    }
+    setConsuming(true);
+    try {
+      const res = await api.post<ConsumePantryItemResponse>(
+        `/households/${selectedHouseholdId}/pantry/${values.itemId}/consume`,
+        { quantity: values.quantity },
+      );
+      message.success(
+        res.removed
+          ? "Item fully consumed and removed from pantry."
+          : "Consumption recorded.",
+      );
+      setConsumeModalOpen(false);
+
+      await loadDashboard();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Could not record consumption.");
+    } finally {
+      setConsuming(false);
+    }
+  };
+
+  const inventoryColumns: TableProps<PantryItem>["columns"] = useMemo(
+    () => [
+      {
+        title: "Product",
+        dataIndex: "name",
+        key: "name",
+        render: (name: string) => (
+          <Text strong style={{ color: "#1b2a1b" }}>
+            {name}
+          </Text>
+        ),
+      },
+      {
+        title: "Category",
+        key: "category",
+        width: 120,
+        render: (_: unknown, record: PantryItem) => {
+          const { label, color } = inferCategory(record.name);
+          return (
+            <Tag className={statsStyles.categoryTag} color={color}>
+              {label}
+            </Tag>
+          );
+        },
+      },
+      {
+        title: "Quantity",
+        key: "count",
+        width: 110,
+        render: (_: unknown, record: PantryItem) => (
+          <span>
+            {record.count} × unit
+          </span>
+        ),
+      },
+      {
+        title: "Calories",
+        key: "cals",
+        width: 120,
+        render: (_: unknown, record: PantryItem) => (
+          <Text strong>{Math.round(record.kcalPerPackage * record.count).toLocaleString()} kcal</Text>
+        ),
+      },
+      {
+        title: "Status",
+        key: "status",
+        width: 120,
+        render: (_: unknown, record: PantryItem) =>
+          record.count <= 2 ? (
+            <Tag color="orange">Low stock</Tag>
+          ) : (
+            <Tag color="success">In stock</Tag>
+          ),
+      },
+    ],
+    [],
+  );
+
+  return (
+    <VirtualPantryAppShell activeNav="pantry">
+      <div className={statsStyles.pageHeader}>
+        <Title level={2} className={statsStyles.pageTitle}>
+          Pantry Overview
+        </Title>
+        <Paragraph className={statsStyles.pageSubtitle}>
+          Energy reservoir, consumption flow, and budget control — with current inventory and a record of
+          what you use from the pantry.
+        </Paragraph>
+      </div>
+
+      <Space direction="vertical" size="large" style={{ width: "100%" }}>
         {!selectedHouseholdId ? (
-          <Empty description="No household selected. Open Households and pick one first." />
+          <div className={statsStyles.emptyWrap}>
+            <Empty description="No household selected. Open Households and pick one first." />
+          </div>
         ) : loading && !stats ? (
-          <Card>
+          <Card className={statsStyles.spinCard}>
             <Spin size="large" />
           </Card>
         ) : (
           <>
-            <Row gutter={[16, 16]}>
+            <Row gutter={[20, 20]} className={statsStyles.metricGrid}>
               <Col xs={24} md={8}>
                 <Card
-                  title={
-                    <span style={{ color: ACCENT, fontWeight: 600 }}>Energy Reservoir</span>
-                  }
+                  className={statsStyles.metricCard}
+                  title={<span className={statsStyles.cardTitle}>Energy reservoir</span>}
                   variant="borderless"
-                  style={{
-                    borderRadius: 12,
-                    border: `1px solid ${ACCENT}33`,
-                    minHeight: 200,
-                  }}
                 >
                   <Space direction="vertical" size="small" style={{ width: "100%" }}>
-                    <Text type="secondary">Total calories stored in pantry</Text>
-                    <Title level={3} style={{ margin: 0 }}>
+                    <div className={statsStyles.metricLead}>Total nutritional value in your pantry</div>
+                    <Title level={3} className={statsStyles.metricValue}>
                       {pantry ? formatKcal(pantry.totalCalories) : "—"}
                     </Title>
-                    <Text type="secondary">
-                      {pantry ? `${pantry.items.length} item(s)` : ""}
+                    <Text className={statsStyles.metricFootnote}>
+                      {pantry
+                        ? `${pantry.items.length} item(s) currently in your digital atelier.`
+                        : ""}
                     </Text>
                   </Space>
                 </Card>
@@ -227,9 +380,8 @@ export default function StatsPage() {
 
               <Col xs={24} md={8}>
                 <Card
-                  title={
-                    <span style={{ color: ACCENT, fontWeight: 600 }}>Daily Average</span>
-                  }
+                  className={statsStyles.metricCard}
+                  title={<span className={statsStyles.cardTitle}>Consumption flow</span>}
                   extra={
                     <DatePicker
                       value={startDate}
@@ -239,21 +391,17 @@ export default function StatsPage() {
                     />
                   }
                   variant="borderless"
-                  style={{
-                    borderRadius: 12,
-                    border: `1px solid ${ACCENT}33`,
-                    minHeight: 200,
-                  }}
                 >
                   <Space direction="vertical" size="small" style={{ width: "100%" }}>
-                    <Text type="secondary">Average consumed per day</Text>
-                    <Title level={3} style={{ margin: 0 }}>
-                      {stats ? `${Math.round(stats.averageDailyCalories).toLocaleString()} kcal / day` : "—"}
+                    <div className={statsStyles.metricLead}>Daily average since start date</div>
+                    <Title level={3} className={statsStyles.metricValue}>
+                      {stats
+                        ? `${Math.round(stats.averageDailyCalories).toLocaleString()} kcal / day`
+                        : "—"}
                     </Title>
                     {stats && startDate ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        Calculated from {startDate.format("MMM D, YYYY")} to present (
-                        {dayjs(stats.endDate).format("MMM D, YYYY")})
+                      <Text className={statsStyles.metricFootnote}>
+                        From {startDate.format("MMM D, YYYY")} to {dayjs(stats.endDate).format("MMM D, YYYY")}
                       </Text>
                     ) : null}
                   </Space>
@@ -262,9 +410,8 @@ export default function StatsPage() {
 
               <Col xs={24} md={8}>
                 <Card
-                  title={
-                    <span style={{ color: ACCENT, fontWeight: 600 }}>Budget Control</span>
-                  }
+                  className={statsStyles.metricCard}
+                  title={<span className={statsStyles.cardTitle}>Budget control</span>}
                   extra={
                     isOwner ? (
                       <Button
@@ -273,31 +420,33 @@ export default function StatsPage() {
                         icon={<EditOutlined />}
                         onClick={openBudgetModal}
                         aria-label="Edit daily calorie budget"
+                        style={{ color: FOREST, fontWeight: 600 }}
                       >
                         Edit
                       </Button>
                     ) : null
                   }
                   variant="borderless"
-                  style={{
-                    borderRadius: 12,
-                    border: `1px solid ${ACCENT}33`,
-                    minHeight: 200,
-                  }}
                 >
                   <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                     <div>
-                      <Text type="secondary">Daily goal</Text>
+                      <Text style={{ color: MUTED }}>Daily goal</Text>
                       <div>
-                        <Text strong>
+                        <Text strong style={{ fontSize: 16, color: "#1b2a1b" }}>
                           {dailyGoal !== null ? formatKcal(dailyGoal) : "Not set"}
                         </Text>
                       </div>
                     </div>
                     <div>
-                      <Text type="secondary">Actual today</Text>
+                      <Text style={{ color: MUTED }}>Actual today</Text>
                       <div>
-                        <Text strong style={{ color: todayVsGoalPercent > 100 ? DANGER : undefined }}>
+                        <Text
+                          strong
+                          style={{
+                            fontSize: 16,
+                            color: todayVsGoalPercent > 100 ? DANGER : FOREST,
+                          }}
+                        >
                           {stats ? formatKcal(actualToday) : "—"}
                         </Text>
                       </div>
@@ -308,7 +457,8 @@ export default function StatsPage() {
                         <Progress
                           percent={Math.min(Math.round(todayVsGoalPercent), 100)}
                           status={todayVsGoalPercent > 100 ? "exception" : "active"}
-                          strokeColor={todayVsGoalPercent > 100 ? DANGER : ACCENT}
+                          strokeColor={todayVsGoalPercent > 100 ? DANGER : FOREST}
+                          trailColor="#e8efe4"
                           showInfo
                           format={(p) => `${p ?? 0}% of daily goal (today)`}
                         />
@@ -319,19 +469,19 @@ export default function StatsPage() {
                         ) : null}
                       </>
                     ) : (
-                      <Text type="secondary">Set a daily calorie budget to enable comparisons.</Text>
+                      <Text style={{ color: MUTED }}>
+                        Set a daily calorie budget to enable comparisons.
+                      </Text>
                     )}
 
                     {stats?.comparisonToBudget ? (
                       <div>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          Period average vs budget:
-                        </Text>
-                        <div>
+                        <Text style={{ fontSize: 12, color: MUTED }}>Period average vs budget:</Text>
+                        <div style={{ marginTop: 6 }}>
                           <Tag color={comparisonTagColor(stats.comparisonToBudget.status)}>
                             {stats.comparisonToBudget.status.replace(/_/g, " ")}
                           </Tag>
-                          <Text style={{ marginLeft: 8 }}>
+                          <Text style={{ marginLeft: 8, color: "#3d4f3d" }}>
                             Avg {stats.averageDailyCalories.toFixed(0)} vs target{" "}
                             {stats.dailyCalorieTarget?.toFixed(0) ?? "—"} kcal/day
                           </Text>
@@ -343,8 +493,100 @@ export default function StatsPage() {
               </Col>
             </Row>
 
+            <Row gutter={[20, 20]} className={statsStyles.lowerSection}>
+              <Col xs={24} lg={15}>
+                <Card
+                  className={statsStyles.panelCard}
+                  title="Current inventory"
+                  variant="borderless"
+                >
+                  {pantry && pantry.items.length > 0 ? (
+                    <Table<PantryItem>
+                      rowKey="id"
+                      pagination={{ pageSize: 8, showSizeChanger: false }}
+                      size="small"
+                      dataSource={pantry.items}
+                      columns={inventoryColumns}
+                    />
+                  ) : (
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="No pantry items yet. Add products from Open Food Facts or your scan flow."
+                    />
+                  )}
+                </Card>
+              </Col>
+              <Col xs={24} lg={9}>
+                <div className={statsStyles.rightStack}>
+                  <Button
+                    type="primary"
+                    className={statsStyles.recordConsumptionBtn}
+                    icon={<RestOutlined />}
+                    onClick={openConsumeModal}
+                  >
+                    Record consumption
+                  </Button>
+
+                  <Card className={`${statsStyles.panelCard} ${statsStyles.activityCard}`} title="Recent activity" variant="borderless">
+                    {activity.length === 0 ? (
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        No consumption recorded yet, or logs are still loading.
+                      </Text>
+                    ) : (
+                      <div className={statsStyles.activityList}>
+                        {activity.map((a) => (
+                          <div key={a.id} className={statsStyles.activityItem}>
+                            <div>
+                              <Space size={8}>
+                                <MinusCircleOutlined style={{ color: DANGER }} />
+                                <Text strong style={{ color: "#1b2a1b" }}>
+                                  Consumed {a.consumedQuantity}× {a.productName}
+                                </Text>
+                              </Space>
+                              <div className={statsStyles.activityMeta}>
+                                {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                              </div>
+                            </div>
+                            <span className={`${statsStyles.activityDelta} ${statsStyles.deltaNeg}`}>
+                              {Math.round(a.deltaKcal).toLocaleString()} kcal
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+
+                  <Card className={statsStyles.insightsCard} variant="borderless">
+                    <div className={statsStyles.insightsTitle}>Inventory insights</div>
+                    <p className={statsStyles.insightsText}>
+                      {estimatedCoverageDays !== null && estimatedCoverageDays > 0 ? (
+                        <>
+                          At your current average consumption rate, pantry calories could last roughly{" "}
+                          <strong>{estimatedCoverageDays}</strong> days before high-calorie staples run low.
+                        </>
+                      ) : (
+                        <>
+                          Add items and keep logging usage to see coverage estimates based on your household
+                          stats.
+                        </>
+                      )}
+                    </p>
+                    <Button
+                      className={statsStyles.insightsBtn}
+                      icon={<ShoppingOutlined />}
+                      onClick={() =>
+                        message.info("Shopping list generation will connect to your inventory in a future iteration.")
+                      }
+                    >
+                      Generate shopping list
+                    </Button>
+                  </Card>
+                </div>
+              </Col>
+            </Row>
+
             {stats ? (
-              <Card title="Daily breakdown" style={{ borderRadius: 12 }}>
+              <Card title="Daily breakdown" className={statsStyles.breakdownCard}>
                 <Table
                   rowKey="date"
                   pagination={false}
@@ -376,8 +618,8 @@ export default function StatsPage() {
         destroyOnClose
       >
         <Paragraph type="secondary">
-          Set the ideal total calories your household aims to consume per day. Only the household
-          owner can change this.
+          Set the ideal total calories your household aims to consume per day. Only the household owner can
+          change this.
         </Paragraph>
         <Form form={budgetForm} layout="vertical">
           <Form.Item
@@ -393,15 +635,59 @@ export default function StatsPage() {
               },
             ]}
           >
+            <InputNumber min={1} max={50000} style={{ width: "100%" }} addonAfter="kcal / day" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Record consumption"
+        open={consumeModalOpen}
+        onCancel={() => setConsumeModalOpen(false)}
+        onOk={() => void submitConsumption()}
+        confirmLoading={consuming}
+        okText="Log consumption"
+        destroyOnClose
+      >
+        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          Select an item and how many units you used. Calories are calculated from each item&apos;s
+          kcal per package.
+        </Paragraph>
+        <Form form={consumeForm} layout="vertical">
+          <Form.Item
+            label="Pantry item"
+            name="itemId"
+            rules={[{ required: true, message: "Select an item" }]}
+          >
+            <Select
+              placeholder="Choose item"
+              options={pantry?.items.map((i) => ({
+                value: i.id,
+                label: `${i.name} (${i.count} available)`,
+              }))}
+              onChange={() => consumeForm.setFieldValue("quantity", 1)}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Quantity consumed"
+            name="quantity"
+            rules={[
+              { required: true, message: "Enter quantity" },
+              {
+                type: "number",
+                min: 1,
+                message: "At least 1",
+              },
+            ]}
+          >
             <InputNumber
               min={1}
-              max={50000}
+              max={selectedConsumeItem?.count ?? undefined}
               style={{ width: "100%" }}
-              addonAfter="kcal / day"
             />
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </VirtualPantryAppShell>
   );
 }
