@@ -55,7 +55,6 @@ jest.mock("@ant-design/icons", () => ({
   WarningOutlined: () => <span data-testid="warn-icon" />,
   RestOutlined: () => <span data-testid="rest-icon" />,
   MinusCircleOutlined: () => <span data-testid="minus-icon" />,
-  ShoppingOutlined: () => <span data-testid="shop-icon" />,
 }));
 
 jest.mock("antd", () => {

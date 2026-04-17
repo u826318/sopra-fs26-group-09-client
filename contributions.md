@@ -79,9 +79,14 @@ reason).
 | **Maxim Emelianov [maxim451]** | 13.04.2026 | [6ea4602](https://github.com/u826318/sopra-fs26-group-09-client/commit/6ea460247bb7c893e8161a4fb7399934aef31dae) | #7 Connected stats UI to REST API: implemented data fetching, household context handling, and rendering of consumption statistics. | Enables end-to-end functionality of the stats feature by integrating frontend UI with backend analytics, allowing users to view real-time calorie consumption and budget comparison. |
 ---
 
-## Contributions Week 4 - [Begin Date] to [End Date]
+## Contributions Week 4 - [14.04.2026] to [20.04.2026]
 
-_Continue with the same table format as above._
+| **Student**        | **Date** | **Link to Commit** | **Description**                 | **Relevance**                       |
+| ------------------ | -------- | ------------------ | ------------------------------- | ----------------------------------- |
+| **Tingting Xu [tingting-xu824]** | 17.04.2026 | [client commit cebe289](https://github.com/u826318/sopra-fs26-group-09-client/commit/cebe289) | #9–#12 Implemented **Calorie Management / Pantry Overview** on `/stats`: energy reservoir, consumption flow with date range, budget control, daily breakdown table, and integration with existing household stats/budget APIs. | Delivers the dashboard slice for calorie visibility and budgeting aligned with the prototype, using backend stats/budget endpoints from parallel work. |
+| **Tingting Xu [tingting-xu824]** | 17.04.2026 | [client commit 203d1ef](https://github.com/u826318/sopra-fs26-group-09-client/commit/203d1ef) | #104 Extended the overview with **VirtualPantryAppShell** (shared sidebar), **Current inventory** table, **Record consumption** flow (consume modal), **Recent activity** fed from the new consumption-logs API, households navigation fixes (e.g. View Pantry → `/stats`), and styling aligned to the light “organic” UI. | Completes the client side of #104 and ties the pantry UX to persisted consumption history instead of browser-only state. |
+| **Tingting Xu [tingting-xu824]** | 17.04.2026 | [server commit 922a665](https://github.com/u826318/sopra-fs26-group-09-server/commit/922a665) | #104 Implemented `GET /households/{householdId}/consumption-logs` (paged, newest first), `ConsumptionLogGetDTO`, repository query `findByHouseholdIdOrderByConsumedAtDesc`, member-only access, and product name resolution (or “Removed item” if the pantry row was deleted). | Exposes server-backed activity required by the dashboard and keeps Recent activity consistent across sessions/devices. |
+| **Tingting Xu [tingting-xu824]** | 17.04.2026 | [server commit a1656e4](https://github.com/u826318/sopra-fs26-group-09-server/commit/a1656e4) | Addressed **Sonar** quality findings in `HouseholdService`: replaced redundant null-check lambda with `Objects::nonNull`, introduced `MSG_HOUSEHOLD_NOT_FOUND` constant for repeated error strings. | Improves maintainability and clears the Sonar quality gate for merged household/stats code paths. |
 
 ---
 
