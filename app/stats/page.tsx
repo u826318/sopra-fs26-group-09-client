@@ -25,7 +25,6 @@ import {
   EditOutlined,
   MinusCircleOutlined,
   RestOutlined,
-  ShoppingOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
@@ -202,11 +201,6 @@ export default function StatsPage() {
     const pct = ((actualToday / dailyGoal) * 100 - 100).toFixed(0);
     return `+${pct}% OVER BUDGET (today)`;
   }, [actualToday, dailyGoal]);
-
-  const estimatedCoverageDays = useMemo(() => {
-    if (!pantry || !stats || stats.averageDailyCalories <= 0) return null;
-    return Math.max(0, Math.floor(pantry.totalCalories / stats.averageDailyCalories));
-  }, [pantry, stats]);
 
   const openBudgetModal = () => {
     const initial = dailyGoal ?? 2200;
@@ -554,32 +548,6 @@ export default function StatsPage() {
                         ))}
                       </div>
                     )}
-                  </Card>
-
-                  <Card className={statsStyles.insightsCard} variant="borderless">
-                    <div className={statsStyles.insightsTitle}>Inventory insights</div>
-                    <p className={statsStyles.insightsText}>
-                      {estimatedCoverageDays !== null && estimatedCoverageDays > 0 ? (
-                        <>
-                          At your current average consumption rate, pantry calories could last roughly{" "}
-                          <strong>{estimatedCoverageDays}</strong> days before high-calorie staples run low.
-                        </>
-                      ) : (
-                        <>
-                          Add items and keep logging usage to see coverage estimates based on your household
-                          stats.
-                        </>
-                      )}
-                    </p>
-                    <Button
-                      className={statsStyles.insightsBtn}
-                      icon={<ShoppingOutlined />}
-                      onClick={() =>
-                        message.info("Shopping list generation will connect to your inventory in a future iteration.")
-                      }
-                    >
-                      Generate shopping list
-                    </Button>
                   </Card>
                 </div>
               </Col>
