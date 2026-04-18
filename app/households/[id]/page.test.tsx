@@ -62,7 +62,7 @@ describe("Household pantry page", () => {
     jest.clearAllMocks();
   });
 
-  it("loads pantry data for the household and renders returned items", async () => {
+  it("shows the pantry item total as the sum of row counts, not the number of entries", async () => {
     getMock.mockResolvedValueOnce({
       items: [
         {
@@ -71,8 +71,17 @@ describe("Household pantry page", () => {
           barcode: "7613035974685",
           name: "Chocolate Bar",
           kcalPerPackage: 250,
-          count: 3,
+          count: 2,
           addedAt: "2026-04-12T10:00:00Z",
+        },
+        {
+          id: 2,
+          householdId: 10,
+          barcode: "7613031234567",
+          name: "Granola",
+          kcalPerPackage: 250,
+          count: 1,
+          addedAt: "2026-04-13T10:00:00Z",
         },
       ],
       totalCalories: 750,
@@ -86,7 +95,9 @@ describe("Household pantry page", () => {
 
     expect(screen.getByText("Test House")).toBeInTheDocument();
     expect(await screen.findByText("Chocolate Bar")).toBeInTheDocument();
+    expect(await screen.findByText("Granola")).toBeInTheDocument();
     expect(await screen.findByText("750.00")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
   });
 
   it("navigates to the OFF portal with the active household context", async () => {
