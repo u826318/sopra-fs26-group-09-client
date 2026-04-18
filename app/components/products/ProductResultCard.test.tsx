@@ -108,7 +108,9 @@ describe("ProductResultCard", () => {
 
     expect(screen.getByText("Plant Based Caprese")).toBeInTheDocument();
     expect(screen.getByText("Top match")).toBeInTheDocument();
-    expect(screen.getByText("Open product page")).toBeInTheDocument();
+    const productLink = screen.getByRole("link", { name: "https://example.com/product" });
+    expect(productLink).toBeInTheDocument();
+    expect(productLink).toHaveAttribute("href", "https://example.com/product");
     expect(screen.getByText("Migros")).toBeInTheDocument();
     expect(screen.getByText("energy-kcal_100g")).toBeInTheDocument();
     expect(screen.getByText("220")).toBeInTheDocument();
