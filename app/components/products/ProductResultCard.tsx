@@ -262,25 +262,36 @@ export default function ProductResultCard({
           style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}
         >
           <Descriptions bordered size="small" column={1} style={{ flex: 1, minWidth: 300 }}>
-            <Descriptions.Item label="Barcode">
-              {product.barcode ?? "—"}
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Barcode</span>}>
+              <span style={{ color: "#ffffff" }}>{product.barcode ?? "—"}</span>
             </Descriptions.Item>
-            <Descriptions.Item label="Brand">{product.brand ?? "—"}</Descriptions.Item>
-            <Descriptions.Item label="Quantity">{product.quantity ?? "—"}</Descriptions.Item>
-            <Descriptions.Item label="Serving size">
-              {product.servingSize ?? "—"}
+
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Brand</span>}>
+              <span style={{ color: "#ffffff" }}>{product.brand ?? "—"}</span>
             </Descriptions.Item>
-            <Descriptions.Item label="Nutri-Score">
-              {product.nutriScore ? product.nutriScore.toUpperCase() : "—"}
+
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Quantity</span>}>
+              <span style={{ color: "#ffffff" }}>{product.quantity ?? "—"}</span>
             </Descriptions.Item>
-            <Descriptions.Item label="Product URL">
-              {product.productUrl ? (
-                <a href={product.productUrl} target="_blank" rel="noopener noreferrer">
-                  Open product page
-                </a>
-              ) : (
-                "—"
-              )}
+
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Serving size</span>}>
+              <span style={{ color: "#ffffff" }}>{product.servingSize ?? "—"}</span>
+            </Descriptions.Item>
+
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Nutri-Score</span>}>
+              <span style={{ color: "#ffffff" }}>{product.nutriScore ?? "—"}</span>
+            </Descriptions.Item>
+
+            <Descriptions.Item label={<span style={{ color: "#bfbfbf" }}>Product URL</span>}>
+              <span style={{ color: "#ffffff" }}>
+                {product.productUrl ? (
+                  <a href={product.productUrl} target="_blank" rel="noreferrer">
+                    {product.productUrl}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </span>
             </Descriptions.Item>
           </Descriptions>
 

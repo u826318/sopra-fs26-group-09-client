@@ -73,6 +73,17 @@ export default function HouseholdPantryPage() {
     void fetchPantry();
   }, [householdId]);
 
+  const totalItemCount = useMemo(() => {
+    if (!overview) {
+      return 0;
+    }
+
+    return overview.items.reduce((sum, item) => {
+      const count = Number(item.count);
+      return sum + (Number.isFinite(count) && count > 0 ? count : 0);
+    }, 0);
+  }, [overview]);
+
   const columns: TableProps<PantryItem>["columns"] = [
     {
       title: "Product",
@@ -155,7 +166,7 @@ export default function HouseholdPantryPage() {
 
           <Space size="large" wrap>
             <Card size="small" title="Items currently stored" style={{ minWidth: 220 }}>
-              <Title level={3} style={{ margin: 0 }}>{overview?.items.length ?? 0}</Title>
+              <Title level={3} style={{ margin: 0 }}>{totalItemCount}</Title>
             </Card>
             <Card size="small" title="Total calories in pantry" style={{ minWidth: 220 }}>
               <Title level={3} style={{ margin: 0 }}>
