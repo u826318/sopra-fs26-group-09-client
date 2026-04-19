@@ -95,7 +95,7 @@ export default function HouseholdPantryPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId]);
 
-  const { connected: wsConnected } = usePantryWebSocket({
+  const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
     householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
     onMessage: () => {
@@ -122,7 +122,12 @@ export default function HouseholdPantryPage() {
 
   const submitConsumption = async () => {
     if (!consumeTarget) return;
-    const values = await consumeForm.validateFields();
+    let values: { quantity: number };
+    try {
+      values = await consumeForm.validateFields();
+    } catch {
+      return;
+    }
     if (values.quantity > consumeTarget.count) {
       message.error("Quantity cannot exceed available units.");
       return;
@@ -199,7 +204,7 @@ export default function HouseholdPantryPage() {
     <div className="card-container" style={{ padding: 24 }}>
       <Card loading={isLoading} style={{ width: "100%", maxWidth: 1200 }}>
         <div style={{ display: "grid", gap: 24, width: "100%" }}>
-          {!wsConnected && !isLoading && (
+          {hasConnectedOnce && !wsConnected && !isLoading && (
             <Alert
               type="warning"
               showIcon

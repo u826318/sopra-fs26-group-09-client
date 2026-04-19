@@ -11,6 +11,7 @@ interface UsePantryWebSocketOptions {
 
 interface UsePantryWebSocketResult {
   connected: boolean;
+  hasConnectedOnce: boolean;
 }
 
 export function usePantryWebSocket({
@@ -19,6 +20,7 @@ export function usePantryWebSocket({
   onMessage,
 }: UsePantryWebSocketOptions): UsePantryWebSocketResult {
   const [connected, setConnected] = useState(false);
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
   const clientRef = useRef<Client | null>(null);
   const onMessageRef = useRef(onMessage);
   onMessageRef.current = onMessage;
@@ -35,6 +37,7 @@ export function usePantryWebSocket({
       reconnectDelay: 5000,
       onConnect: () => {
         setConnected(true);
+        setHasConnectedOnce(true);
         client.subscribe(
           `/topic/household/${householdId}/pantry`,
           (frame) => {
@@ -56,6 +59,9 @@ export function usePantryWebSocket({
       onWebSocketError: () => {
         setConnected(false);
       },
+      onWebSocketClose: () => {
+        setConnected(false);
+      },
     });
 
     clientRef.current = client;
@@ -68,5 +74,5 @@ export function usePantryWebSocket({
     };
   }, [householdId, token]);
 
-  return { connected };
+  return { connected, hasConnectedOnce };
 }

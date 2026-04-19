@@ -43,7 +43,8 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 jest.mock("@/hooks/usePantryWebSocket", () => ({
   usePantryWebSocket: ({ onMessage }: { onMessage: (msg: unknown) => void }) => {
     (global as any).__wsOnMessage = onMessage;
-    return { connected: (global as any).__wsConnected ?? true };
+    const connected = (global as any).__wsConnected ?? true;
+    return { connected, hasConnectedOnce: (global as any).__wsHasConnectedOnce ?? connected };
   },
 }));
 
@@ -157,6 +158,7 @@ describe("Household pantry page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (global as any).__wsConnected = true;
+    (global as any).__wsHasConnectedOnce = true;
     (global as any).__wsOnMessage = undefined;
   });
 

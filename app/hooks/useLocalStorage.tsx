@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const SYNC_EVENT = "localstorage-sync";
 
@@ -31,6 +31,8 @@ export default function useLocalStorage<T>(
   defaultValue: T,
 ): LocalStorage<T> {
   const [value, setValue] = useState<T>(defaultValue);
+  const defaultValueRef = useRef(defaultValue);
+  defaultValueRef.current = defaultValue;
 
   // On mount, try to read the stored value
   useEffect(() => {
@@ -53,18 +55,18 @@ export default function useLocalStorage<T>(
       const detail = (event as CustomEvent<{ key: string; value: string | null }>).detail;
       if (detail.key !== key) return;
       try {
-        setValue(detail.value !== null ? (JSON.parse(detail.value) as T) : defaultValue);
+        setValue(detail.value !== null ? (JSON.parse(detail.value) as T) : defaultValueRef.current);
       } catch {
-        setValue(defaultValue);
+        setValue(defaultValueRef.current);
       }
     };
 
     const handleStorage = (event: StorageEvent) => {
       if (event.key !== key) return;
       try {
-        setValue(event.newValue !== null ? (JSON.parse(event.newValue) as T) : defaultValue);
+        setValue(event.newValue !== null ? (JSON.parse(event.newValue) as T) : defaultValueRef.current);
       } catch {
-        setValue(defaultValue);
+        setValue(defaultValueRef.current);
       }
     };
 
@@ -74,7 +76,7 @@ export default function useLocalStorage<T>(
       window.removeEventListener(SYNC_EVENT, handleSync);
       window.removeEventListener("storage", handleStorage);
     };
-  }, [key, defaultValue]);
+  }, [key]);
 
   // Simple setter that updates both state and localStorage, then notifies other instances
   const set = (newVal: T) => {
@@ -90,7 +92,7 @@ export default function useLocalStorage<T>(
 
   // Removes the key from localStorage and resets the state
   const clear = () => {
-    setValue(defaultValue);
+    setValue(defaultValueRef.current);
     if (typeof window !== "undefined") {
       globalThis.localStorage.removeItem(key);
       window.dispatchEvent(
