@@ -4,10 +4,24 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
-import type { PantryItem, PantryOverview } from "@/types/pantry";
-import { Button, Card, Empty, Space, Table, Typography } from "antd";
+import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Empty,
+  Form,
+  InputNumber,
+  Modal,
+  Space,
+  Table,
+  Typography,
+} from "antd";
 import type { TableProps } from "antd";
+import { MinusCircleOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -24,14 +38,21 @@ export default function HouseholdPantryPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const api = useApi();
+  const { message } = App.useApp();
 
   const { value: username } = useLocalStorage<string>("username", "");
+  const { value: token } = useLocalStorage<string>("token", "");
   const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
+  const [consumeTarget, setConsumeTarget] = useState<PantryItem | null>(null);
+  const [consuming, setConsuming] = useState(false);
+  const [consumeForm] = Form.useForm<{ quantity: number }>();
 
   const householdName = useMemo(() => {
     if (typeof globalThis.window !== "undefined") {
@@ -71,7 +92,16 @@ export default function HouseholdPantryPage() {
 
   useEffect(() => {
     void fetchPantry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId]);
+
+  const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
+    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    token,
+    onMessage: () => {
+      void fetchPantry();
+    },
+  });
 
   const totalItemCount = useMemo(() => {
     if (!overview) {
@@ -83,6 +113,44 @@ export default function HouseholdPantryPage() {
       return sum + (Number.isFinite(count) && count > 0 ? count : 0);
     }, 0);
   }, [overview]);
+
+  const openConsumeModal = (item: PantryItem) => {
+    setConsumeTarget(item);
+    consumeForm.setFieldsValue({ quantity: 1 });
+    setConsumeModalOpen(true);
+  };
+
+  const submitConsumption = async () => {
+    if (!consumeTarget) return;
+    let values: { quantity: number };
+    try {
+      values = await consumeForm.validateFields();
+    } catch {
+      return;
+    }
+    if (values.quantity > consumeTarget.count) {
+      message.error("Quantity cannot exceed available units.");
+      return;
+    }
+    setConsuming(true);
+    try {
+      const res = await api.post<ConsumePantryItemResponse>(
+        `/households/${householdId}/pantry/${consumeTarget.id}/consume`,
+        { quantity: values.quantity },
+      );
+      message.success(
+        res.removed
+          ? "Item fully consumed and removed from pantry."
+          : "Consumption recorded.",
+      );
+      setConsumeModalOpen(false);
+      await fetchPantry();
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Could not record consumption.");
+    } finally {
+      setConsuming(false);
+    }
+  };
 
   const columns: TableProps<PantryItem>["columns"] = [
     {
@@ -117,12 +185,35 @@ export default function HouseholdPantryPage() {
       key: "addedAt",
       render: (value: string) => formatDate(value),
     },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_value, record) => (
+        <Button
+          size="small"
+          icon={<MinusCircleOutlined />}
+          onClick={() => openConsumeModal(record)}
+        >
+          Consume
+        </Button>
+      ),
+    },
   ];
 
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card loading={isLoading} style={{ width: "100%", maxWidth: 1200 }}>
         <div style={{ display: "grid", gap: 24, width: "100%" }}>
+          {hasConnectedOnce && !wsConnected && !isLoading && (
+            <Alert
+              type="warning"
+              showIcon
+              message="Connection lost"
+              description="Real-time updates are paused. Reconnecting automatically — pantry will refresh once the connection is restored."
+              banner
+            />
+          )}
+
           <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div>
               <Title level={2} style={{ marginBottom: 0 }}>{householdName}</Title>
@@ -147,7 +238,7 @@ export default function HouseholdPantryPage() {
               </Button>
             </Space>
           </Space>
-          
+
           <Button
             onClick={() =>
               router.push(
@@ -187,6 +278,38 @@ export default function HouseholdPantryPage() {
           )}
         </div>
       </Card>
+
+      <Modal
+        title={consumeTarget ? `Consume — ${consumeTarget.name}` : "Consume item"}
+        open={consumeModalOpen}
+        onCancel={() => setConsumeModalOpen(false)}
+        onOk={() => void submitConsumption()}
+        confirmLoading={consuming}
+        okText="Log consumption"
+      >
+        {consumeTarget && (
+          <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+            Available: <strong>{consumeTarget.count}</strong> unit(s) ·{" "}
+            {consumeTarget.kcalPerPackage.toFixed(0)} kcal each. Enter how many you consumed.
+          </Paragraph>
+        )}
+        <Form form={consumeForm} layout="vertical">
+          <Form.Item
+            label="Quantity consumed"
+            name="quantity"
+            rules={[
+              { required: true, message: "Enter quantity" },
+              { type: "number", min: 1, message: "At least 1" },
+            ]}
+          >
+            <InputNumber
+              min={1}
+              max={consumeTarget?.count ?? undefined}
+              style={{ width: "100%" }}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
