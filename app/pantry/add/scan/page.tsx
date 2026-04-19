@@ -115,7 +115,7 @@ export default function PantryScanPage() {
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card style={{ width: "100%", maxWidth: 1000 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <Space
             style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}
           >
@@ -155,7 +155,7 @@ export default function PantryScanPage() {
           />
 
           <Card title="Choose an image" size="small">
-            <Space direction="vertical" size="large" style={{ width: "100%" }}>
+            <Space orientation="vertical" size="large" style={{ width: "100%" }}>
               <Space wrap>
                 <Upload {...uploadProps}>
                   <Button icon={<UploadOutlined />}>Choose image file</Button>
@@ -185,7 +185,7 @@ export default function PantryScanPage() {
 
           <Card title="Preview" size="small">
             {previewUrl ? (
-              <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+              <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                 <Image
                   src={previewUrl}
                   alt="Selected product image"
@@ -210,7 +210,7 @@ export default function PantryScanPage() {
           </Card>
 
           <Card title="Next step" size="small">
-            <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
               <Text>
                 After API integration, this page will send the selected image to the
                 barcode detection endpoint and continue the add-to-pantry flow.

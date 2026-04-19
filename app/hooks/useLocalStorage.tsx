@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+const SYNC_EVENT = "localstorage-sync";
+
 interface LocalStorage<T> {
   value: T;
   set: (newVal: T) => void;
@@ -13,6 +15,9 @@ interface LocalStorage<T> {
  * When initializing the state with a default value,
  * clearing will revert to this default value for the state and
  * the corresponding token gets deleted in the localStorage.
+ *
+ * All instances with the same key are kept in sync within the same tab
+ * via a custom "localstorage-sync" event.
  *
  * @param key - The key from localStorage, generic type T.
  * @param defaultValue - The default value if nothing is in localStorage yet.
@@ -29,7 +34,7 @@ export default function useLocalStorage<T>(
 
   // On mount, try to read the stored value
   useEffect(() => {
-    if (typeof window === "undefined") return; // SSR safeguard
+    if (typeof window === "undefined") return;
     try {
       const stored = globalThis.localStorage.getItem(key);
       if (stored) {
@@ -40,11 +45,46 @@ export default function useLocalStorage<T>(
     }
   }, [key]);
 
-  // Simple setter that updates both state and localStorage
+  // Listen for same-tab and cross-tab sync events
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleSync = (event: Event) => {
+      const detail = (event as CustomEvent<{ key: string; value: string | null }>).detail;
+      if (detail.key !== key) return;
+      try {
+        setValue(detail.value !== null ? (JSON.parse(detail.value) as T) : defaultValue);
+      } catch {
+        setValue(defaultValue);
+      }
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== key) return;
+      try {
+        setValue(event.newValue !== null ? (JSON.parse(event.newValue) as T) : defaultValue);
+      } catch {
+        setValue(defaultValue);
+      }
+    };
+
+    window.addEventListener(SYNC_EVENT, handleSync);
+    window.addEventListener("storage", handleStorage);
+    return () => {
+      window.removeEventListener(SYNC_EVENT, handleSync);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [key, defaultValue]);
+
+  // Simple setter that updates both state and localStorage, then notifies other instances
   const set = (newVal: T) => {
     setValue(newVal);
     if (typeof window !== "undefined") {
-      globalThis.localStorage.setItem(key, JSON.stringify(newVal));
+      const serialized = JSON.stringify(newVal);
+      globalThis.localStorage.setItem(key, serialized);
+      window.dispatchEvent(
+        new CustomEvent(SYNC_EVENT, { detail: { key, value: serialized } }),
+      );
     }
   };
 
@@ -53,6 +93,9 @@ export default function useLocalStorage<T>(
     setValue(defaultValue);
     if (typeof window !== "undefined") {
       globalThis.localStorage.removeItem(key);
+      window.dispatchEvent(
+        new CustomEvent(SYNC_EVENT, { detail: { key, value: null } }),
+      );
     }
   };
 
