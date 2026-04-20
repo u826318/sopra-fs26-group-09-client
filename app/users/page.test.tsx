@@ -53,7 +53,7 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => apiMock,
 }));
 
-jest.mock("@/hooks/useLocalStorage", () => ({
+jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
   default: () => ({ value: "stored-token", clear: clearTokenMock }),
 }));
@@ -89,8 +89,8 @@ describe("Users page", () => {
 
     await screen.findByTestId("user-row-1");
 
-    expect(screen.getByRole("button", { name: "Open Food Facts portal" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "OFF API portal" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Debug portal" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Food Facts portal" })).not.toBeInTheDocument();
   });
 
   it("logs out through the API, clears the token, and redirects to login", async () => {

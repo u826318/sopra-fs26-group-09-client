@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
@@ -51,11 +52,9 @@ export default function HouseholdPantryPage() {
   const api = useApi();
   const { message } = App.useApp();
 
-  const { value: username } = useLocalStorage<string>("username", "");
-  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>(
-    "households",
-    [],
-  );
+  const { value: username } = useSessionStorage<string>("username", "");
+  const { value: token } = useSessionStorage<string>("token", "");
+  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);

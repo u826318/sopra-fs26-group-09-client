@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getRegisterErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
@@ -21,8 +21,8 @@ const Register: React.FC = () => {
   const router = useRouter();
   const apiService = useApi();
   const [form] = Form.useForm<RegisterFormValues>();
-  const { set: setToken } = useLocalStorage<string>("token", "");
-  const { set: setUsername } = useLocalStorage<string>("username", "");
+  const { set: setToken } = useSessionStorage<string>("token", "");
+  const { set: setUsername } = useSessionStorage<string>("username", "");
 
   const handleRegister = async (values: RegisterFormValues): Promise<void> => {
     try {

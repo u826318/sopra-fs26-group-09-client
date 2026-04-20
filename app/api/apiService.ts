@@ -8,18 +8,19 @@ export class ApiService {
     this.baseURL = getApiDomain();
   }
 
-  private getHeaders(): HeadersInit {
+  private getHeaders(includeJsonContentType = true): HeadersInit {
     let token: string | null = null;
     if (typeof window !== "undefined") {
       try {
-        token = JSON.parse(localStorage.getItem("token") ?? "null") as string | null;
+        token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
       } catch {
         token = null;
       }
     }
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const headers: Record<string, string> = {};
+    if (includeJsonContentType) {
+      headers["Content-Type"] = "application/json";
+    }
     if (token) headers["Authorization"] = token;
     return headers;
   }
@@ -110,15 +111,21 @@ export class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
       method: "POST",
-      headers: this.getAuthHeadersWithoutContentType(),
+      headers: this.getHeaders(false),
       body: data,
     });
     return this.processResponse<T>(
       res,
-      "An error occurred while uploading the file.\n",
+      "An error occurred while uploading the form data.\n",
     );
   }
 
+  /**
+   * PUT request.
+   * @param endpoint - The API endpoint (e.g. "/users/123").
+   * @param data - The payload to update.
+   * @returns JSON data of type T.
+   */
   public async put<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
