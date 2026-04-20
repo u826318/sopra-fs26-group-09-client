@@ -23,18 +23,27 @@ jest.mock("@/hooks/useApi", () => ({
 jest.mock("@/hooks/useLocalStorage", () => ({
   __esModule: true,
   default: (key: string) => {
-    if (key === "username") {
-      return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
-    }
-    if (key === "token") {
-      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
-    }
     if (key === "households") {
       return {
         value: [{ householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" }],
         set: jest.fn(),
         clear: jest.fn(),
       };
+    }
+    return { value: "", set: jest.fn(), clear: jest.fn() };
+  },
+}));
+
+
+
+jest.mock("@/hooks/useSessionStorage", () => ({
+  __esModule: true,
+  default: (key: string) => {
+    if (key === "username") {
+      return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
+    }
+    if (key === "token") {
+      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },

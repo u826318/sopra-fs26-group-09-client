@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import type {
   Household,
   HouseholdInviteCodeResponse,
@@ -31,7 +32,7 @@ export default function HouseholdsPage() {
   const router = useRouter();
   const { message } = App.useApp();
 
-  const { value: token } = useLocalStorage<string>("token", "");
+  const { value: token } = useSessionStorage<string>("token", "");
   const {
     value: households,
     set: setHouseholds,

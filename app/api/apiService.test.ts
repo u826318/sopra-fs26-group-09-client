@@ -11,11 +11,11 @@ describe("ApiService", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     global.fetch = fetchMock as unknown as typeof fetch;
-    localStorage.clear();
+    sessionStorage.clear();
   });
 
   it("attaches the stored token to requests", async () => {
-    localStorage.setItem("token", JSON.stringify("stored-token"));
+    sessionStorage.setItem("token", JSON.stringify("stored-token"));
     fetchMock.mockResolvedValue({
       ok: true,
       headers: { get: () => "application/json" },
@@ -35,7 +35,7 @@ describe("ApiService", () => {
   });
 
   it("skips Authorization when token storage is malformed", async () => {
-    localStorage.setItem("token", "not-json");
+    sessionStorage.setItem("token", "not-json");
     fetchMock.mockResolvedValue({
       ok: true,
       headers: { get: () => "application/json" },
@@ -79,6 +79,35 @@ describe("ApiService", () => {
         method: "PUT",
         body: JSON.stringify({ bio: "hi" }),
       }),
+    );
+  });
+
+  it("uploads multipart form data without forcing a JSON content type", async () => {
+    sessionStorage.setItem("token", JSON.stringify("stored-token"));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      headers: { get: () => "application/json" },
+      json: async () => ({ status: "succeeded" }),
+    } as Response);
+
+    const api = new ApiService();
+    const formData = new FormData();
+    formData.append("image", new Blob(["file"]), "receipt.png");
+
+    await api.postFormData("/products/receipt/analyze", formData);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8080/products/receipt/analyze",
+      expect.objectContaining({
+        method: "POST",
+        body: formData,
+        headers: expect.objectContaining({ Authorization: "stored-token" }),
+      }),
+    );
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect((requestInit as RequestInit).headers).not.toEqual(
+      expect.objectContaining({ "Content-Type": "application/json" }),
     );
   });
 

@@ -8,18 +8,19 @@ export class ApiService {
     this.baseURL = getApiDomain();
   }
 
-  private getHeaders(): HeadersInit {
+  private getHeaders(includeJsonContentType = true): HeadersInit {
     let token: string | null = null;
     if (typeof window !== "undefined") {
       try {
-        token = JSON.parse(localStorage.getItem("token") ?? "null") as string | null;
+        token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
       } catch {
         token = null;
       }
     }
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
+    const headers: Record<string, string> = {};
+    if (includeJsonContentType) {
+      headers["Content-Type"] = "application/json";
+    }
     if (token) headers["Authorization"] = token;
     return headers;
   }
@@ -99,6 +100,19 @@ export class ApiService {
     return this.processResponse<T>(
       res,
       "An error occurred while posting the data.\n",
+    );
+  }
+
+  public async postFormData<T>(endpoint: string, data: FormData): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: this.getHeaders(false),
+      body: data,
+    });
+    return this.processResponse<T>(
+      res,
+      "An error occurred while uploading the form data.\n",
     );
   }
 

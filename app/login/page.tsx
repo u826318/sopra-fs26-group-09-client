@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getLoginErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
@@ -18,8 +18,8 @@ const Login: React.FC = () => {
   const router = useRouter();
   const apiService = useApi();
   const [form] = Form.useForm<LoginFormValues>();
-  const { set: setToken } = useLocalStorage<string>("token", "");
-  const { set: setUsername } = useLocalStorage<string>("username", "");
+  const { set: setToken } = useSessionStorage<string>("token", "");
+  const { set: setUsername } = useSessionStorage<string>("username", "");
 
   const handleLogin = async (values: LoginFormValues): Promise<void> => {
     try {

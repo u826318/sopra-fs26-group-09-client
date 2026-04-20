@@ -97,7 +97,7 @@ export default function Home() {
             variant="solid"
             onClick={() => router.push("/open-food-facts")}
           >
-            OFF API portal
+            Debug portal
           </Button>
         </div>
       </main>
