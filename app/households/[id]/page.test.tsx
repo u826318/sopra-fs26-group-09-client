@@ -4,12 +4,6 @@ import HouseholdPantryPage from "@/households/[id]/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
-const postMock = jest.fn();
-const messageMock = {
-  error: jest.fn(),
-  success: jest.fn(),
-  info: jest.fn(),
-};
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -17,12 +11,15 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock, post: postMock }),
+  useApi: () => ({ get: getMock }),
 }));
 
 jest.mock("@/hooks/useLocalStorage", () => ({
   __esModule: true,
   default: (key: string) => {
+    if (key === "username") {
+      return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
+    }
     if (key === "households") {
       return {
         value: [
@@ -40,33 +37,6 @@ jest.mock("@/hooks/useLocalStorage", () => ({
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
-}));
-
-
-
-jest.mock("@/hooks/useSessionStorage", () => ({
-  __esModule: true,
-  default: (key: string) => {
-    if (key === "username") {
-      return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
-    }
-    if (key === "token") {
-      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
-    }
-    return { value: "", set: jest.fn(), clear: jest.fn() };
-  },
-}));
-
-jest.mock("@/hooks/usePantryWebSocket", () => ({
-  usePantryWebSocket: ({ onMessage }: { onMessage: (msg: unknown) => void }) => {
-    (global as any).__wsOnMessage = onMessage;
-    const connected = (global as any).__wsConnected ?? true;
-    return { connected, hasConnectedOnce: (global as any).__wsHasConnectedOnce ?? connected };
-  },
-}));
-
-jest.mock("@ant-design/icons", () => ({
-  MinusCircleOutlined: () => <span data-testid="minus-icon" />,
 }));
 
 jest.mock("antd", () => {
@@ -169,18 +139,20 @@ describe("Household pantry page", () => {
     render(<HouseholdPantryPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Test House")).toBeInTheDocument();
+      expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
     });
 
-    expect(await screen.findByText("Test House")).toBeInTheDocument();
-    expect(await screen.findByText("Chocolate Bar")).toBeInTheDocument();
-    expect(await screen.findByText("Granola")).toBeInTheDocument();
-    expect(await screen.findByText("750 kcal")).toBeInTheDocument();
-    expect(await screen.findByText("3")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Test House")).toBeInTheDocument();
+      expect(screen.getByText("Chocolate Bar")).toBeInTheDocument();
+      expect(screen.getByText("Granola")).toBeInTheDocument();
+      expect(screen.getByText("750 kcal")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
+    });
   });
 
   it("navigates to the OFF portal with the active household context", async () => {
-    getMock.mockResolvedValueOnce({ items: [], totalCalories: 0 });
+    getMock.mockResolvedValue({ items: [], totalCalories: 0 });
 
     render(<HouseholdPantryPage />);
 
@@ -198,7 +170,7 @@ describe("Household pantry page", () => {
   });
 
   it("navigates to the scan page with the active household context", async () => {
-    getMock.mockResolvedValueOnce({ items: [], totalCalories: 0 });
+    getMock.mockResolvedValue({ items: [], totalCalories: 0 });
 
     render(<HouseholdPantryPage />);
 
@@ -216,14 +188,13 @@ describe("Household pantry page", () => {
   });
 
   it("shows an error message when the pantry request fails", async () => {
-    getMock.mockRejectedValueOnce(new Error("pantry fetch failed"));
+    getMock.mockRejectedValue(new Error("pantry fetch failed"));
 
     render(<HouseholdPantryPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Pantry data could not be loaded")).toBeInTheDocument();
+      expect(screen.getByText("pantry fetch failed")).toBeInTheDocument();
     });
-
-    expect(screen.getByText("pantry fetch failed")).toBeInTheDocument();
   });
 });

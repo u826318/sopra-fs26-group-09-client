@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
-import useSessionStorage from "@/hooks/useSessionStorage";
-import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
 import {
@@ -50,22 +47,18 @@ export default function HouseholdPantryPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const api = useApi();
-  const { message } = App.useApp();
 
-  const { value: username } = useSessionStorage<string>("username", "");
-  const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  const { value: username } = useLocalStorage<string>("username", "");
+  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>(
+    "households",
+    [],
+  );
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consumeTarget, setConsumeTarget] = useState<PantryItem | null>(null);
-  const [consuming, setConsuming] = useState(false);
-  const [consumeForm] = Form.useForm<{ quantity: number }>();
 
   const householdName = useMemo(() => {
     if (typeof globalThis.window !== "undefined") {
@@ -113,14 +106,6 @@ export default function HouseholdPantryPage() {
   useEffect(() => {
     void fetchPantry();
   }, [fetchPantry]);
-
-  const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
-    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
-    token,
-    onMessage: () => {
-      void fetchPantry();
-    },
-  });
 
   const totalItemCount = useMemo(() => {
     if (!overview) {
@@ -173,19 +158,6 @@ export default function HouseholdPantryPage() {
       dataIndex: "addedAt",
       key: "addedAt",
       render: (value: string) => formatDate(value),
-    },
-    {
-      title: "Actions",
-      key: "actions",
-      render: (_value, record) => (
-        <Button
-          size="small"
-          icon={<MinusCircleOutlined />}
-          onClick={() => openConsumeModal(record)}
-        >
-          Consume
-        </Button>
-      ),
     },
   ];
 

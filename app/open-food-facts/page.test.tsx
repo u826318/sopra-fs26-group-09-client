@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OpenFoodFactsPage from "./page";
@@ -21,11 +22,23 @@ jest.mock("@/components/products/ProductResultCard", () => ({
 }));
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, loading, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled} data-loading={loading ? "true" : "false"}>
-      {children}
-    </button>
-  );
+  const Button = ({ children, onClick, loading, disabled, htmlType }: any) => {
+    const nativeType =
+      htmlType === "submit" || htmlType === "reset" || htmlType === "button"
+        ? htmlType
+        : "button";
+
+    return (
+      <button
+        type={nativeType}
+        onClick={onClick}
+        disabled={disabled}
+        data-loading={loading ? "true" : "false"}
+      >
+        {children}
+      </button>
+    );
+  };
 
   const Card = ({ children, title }: any) => (
     <section>
@@ -46,7 +59,6 @@ jest.mock("antd", () => {
   );
 
   const Empty = ({ description }: any) => <div>{description}</div>;
-
   const Space = ({ children }: any) => <div>{children}</div>;
 
   const Form = ({ children }: any) => <form>{children}</form>;
@@ -58,7 +70,12 @@ jest.mock("antd", () => {
   );
 
   const Input = ({ value, onChange, placeholder }: any) => (
-    <input aria-label={placeholder} value={value} onChange={onChange} placeholder={placeholder} />
+    <input
+      aria-label={placeholder}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+    />
   );
 
   const Tabs = ({ items }: any) => (
@@ -88,17 +105,38 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock, post: postMock, postFormData: postFormDataMock }),
 }));
 
+jest.mock("@/hooks/useSessionStorage", () => ({
+  __esModule: true,
+  default: (key: string, defaultValue: string) => ({
+    value: key === "token" ? "demo-token" : defaultValue,
+    set: jest.fn(),
+    clear: jest.fn(),
+  }),
+}));
+
 describe("Debug portal page", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
   beforeEach(() => {
     jest.clearAllMocks();
     globalThis.alert = jest.fn();
     window.history.pushState({}, "", "/open-food-facts");
     sessionStorage.clear();
+
     postMock.mockResolvedValue({ token: "demo-token", username: "debug-demo" });
+
+    URL.createObjectURL = jest.fn(() => "blob:receipt-preview");
+    URL.revokeObjectURL = jest.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
   it("looks up a barcode and renders the returned product card", async () => {
-    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
+    getMock.mockResolvedValue({ name: "Fanta Zero", barcode: "90331701" });
 
     render(<OpenFoodFactsPage />);
 
@@ -122,7 +160,7 @@ describe("Debug portal page", () => {
       "/open-food-facts?barcode=9999&householdId=5&householdName=Test",
     );
 
-    getMock.mockResolvedValueOnce({ name: "Auto Product", barcode: "9999" });
+    getMock.mockResolvedValue({ name: "Auto Product", barcode: "9999" });
 
     render(<OpenFoodFactsPage />);
 
@@ -135,7 +173,7 @@ describe("Debug portal page", () => {
   });
 
   it("searches products and renders results", async () => {
-    getMock.mockResolvedValueOnce([
+    getMock.mockResolvedValue([
       { name: "Plant Based Caprese", brand: "V-Love", barcode: "1" },
       { name: "Plant Based Mozzarella", brand: "V-Love", barcode: "2" },
     ]);
@@ -157,7 +195,7 @@ describe("Debug portal page", () => {
   });
 
   it("alerts on barcode lookup failure", async () => {
-    getMock.mockRejectedValueOnce(new Error("lookup failed"));
+    getMock.mockRejectedValue(new Error("lookup failed"));
 
     render(<OpenFoodFactsPage />);
 
@@ -179,7 +217,11 @@ describe("Receipt image upload in the debug portal", () => {
   const originalRevokeObjectURL = URL.revokeObjectURL;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    sessionStorage.clear();
+    postMock.mockResolvedValue({ token: "demo-token", username: "debug-demo" });
     postFormDataMock.mockReset();
+
     URL.createObjectURL = jest.fn(() => "blob:receipt-preview");
     URL.revokeObjectURL = jest.fn();
   });
