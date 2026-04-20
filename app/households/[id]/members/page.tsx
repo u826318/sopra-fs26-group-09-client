@@ -43,6 +43,12 @@ export default function HouseholdMembersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!Number.isFinite(householdId) || householdId <= 0) {
+      setErrorMessage("Invalid household ID.");
+      setIsLoading(false);
+      return;
+    }
+
     const fetchMembers = async () => {
       setIsLoading(true);
       setErrorMessage(null);
