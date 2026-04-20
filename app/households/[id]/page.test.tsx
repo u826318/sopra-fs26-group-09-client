@@ -22,7 +22,15 @@ jest.mock("@/hooks/useLocalStorage", () => ({
     }
     if (key === "households") {
       return {
-        value: [{ householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" }],
+        value: [
+          {
+            householdId: 10,
+            name: "Test House",
+            inviteCode: "ABC123",
+            ownerId: 1,
+            role: "owner",
+          },
+        ],
         set: jest.fn(),
         clear: jest.fn(),
       };
@@ -32,10 +40,35 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 }));
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>;
-  const Card = ({ children }: any) => <div>{children}</div>;
+  const Button = ({ children, onClick, loading, icon, ...props }: any) => (
+    <button onClick={onClick} data-loading={loading ? "true" : "false"} {...props}>
+      {icon}
+      {children}
+    </button>
+  );
+
+  const Card = ({ children, title, extra }: any) => (
+    <div>
+      {title ? <div>{title}</div> : null}
+      {extra ? <div>{extra}</div> : null}
+      <div>{children}</div>
+    </div>
+  );
+
   const Empty = ({ description }: any) => <div>{description}</div>;
   const Space = ({ children }: any) => <div>{children}</div>;
+
+  const Alert = ({ message, description }: any) => (
+    <div>
+      <div>{message}</div>
+      <div>{description}</div>
+    </div>
+  );
+
+  const Row = ({ children }: any) => <div>{children}</div>;
+  const Col = ({ children }: any) => <div>{children}</div>;
+  const Tag = ({ children }: any) => <span>{children}</span>;
+
   const Table = ({ dataSource }: any) => (
     <table>
       <tbody>
@@ -43,27 +76,43 @@ jest.mock("antd", () => {
           <tr key={row.id}>
             <td>{row.name}</td>
             <td>{row.barcode}</td>
+            <td>{row.kcalPerPackage}</td>
+            <td>{row.count}</td>
+            <td>{row.addedAt}</td>
           </tr>
         ))}
       </tbody>
     </table>
   );
+
   const Typography = {
     Title: ({ children }: any) => <h1>{children}</h1>,
     Paragraph: ({ children }: any) => <p>{children}</p>,
     Text: ({ children }: any) => <span>{children}</span>,
   };
 
-  return { Button, Card, Empty, Space, Table, Typography };
+  return {
+    Button,
+    Card,
+    Empty,
+    Space,
+    Table,
+    Typography,
+    Alert,
+    Row,
+    Col,
+    Tag,
+  };
 });
 
 describe("Household pantry page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.history.pushState({}, "", "/households/10?name=Test%20House");
   });
 
   it("shows the pantry item total as the sum of row counts, not the number of entries", async () => {
-    getMock.mockResolvedValueOnce({
+    getMock.mockResolvedValue({
       items: [
         {
           id: 1,
@@ -93,11 +142,11 @@ describe("Household pantry page", () => {
       expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
     });
 
-    expect(screen.getByText("Test House")).toBeInTheDocument();
+    expect(await screen.findByText("Test House")).toBeInTheDocument();
     expect(await screen.findByText("Chocolate Bar")).toBeInTheDocument();
     expect(await screen.findByText("Granola")).toBeInTheDocument();
-    expect(await screen.findByText("750.00")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(await screen.findByText("750 kcal")).toBeInTheDocument();
+    expect(await screen.findByText("3")).toBeInTheDocument();
   });
 
   it("navigates to the OFF portal with the active household context", async () => {
@@ -109,10 +158,30 @@ describe("Household pantry page", () => {
       expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Add item from OFF portal" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Add item from OFF portal/i }),
+    );
 
     expect(pushMock).toHaveBeenCalledWith(
       "/open-food-facts?householdId=10&householdName=Test%20House",
+    );
+  });
+
+  it("navigates to the scan page with the active household context", async () => {
+    getMock.mockResolvedValueOnce({ items: [], totalCalories: 0 });
+
+    render(<HouseholdPantryPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Scan product image/i }),
+    );
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/pantry/add/scan?householdId=10&householdName=Test%20House",
     );
   });
 
@@ -122,7 +191,9 @@ describe("Household pantry page", () => {
     render(<HouseholdPantryPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("pantry fetch failed")).toBeInTheDocument();
+      expect(screen.getByText("Pantry data could not be loaded")).toBeInTheDocument();
     });
+
+    expect(screen.getByText("pantry fetch failed")).toBeInTheDocument();
   });
 });

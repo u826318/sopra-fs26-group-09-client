@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import PantryScanPage from "@/pantry/add/scan/page";
@@ -15,8 +15,13 @@ jest.mock("@/hooks/useApi", () => ({
 }));
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, disabled, icon, loading }: any) => (
-    <button onClick={onClick} disabled={disabled} data-loading={loading ? "true" : "false"}>
+  const Button = ({ children, onClick, disabled, icon, loading, ...props }: any) => (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      data-loading={loading ? "true" : "false"}
+      {...props}
+    >
       {icon}
       {children}
     </button>
@@ -30,7 +35,6 @@ jest.mock("antd", () => {
   );
 
   const Space = ({ children }: any) => <div>{children}</div>;
-  const Divider = () => <hr />;
   const Alert = ({ message, description }: any) => (
     <div>
       <div>{message}</div>
@@ -56,13 +60,28 @@ jest.mock("antd", () => {
     </div>
   );
 
+  const Row = ({ children }: any) => <div>{children}</div>;
+  const Col = ({ children }: any) => <div>{children}</div>;
+  const Tag = ({ children }: any) => <span>{children}</span>;
+
   const Typography = {
     Title: ({ children }: any) => <h1>{children}</h1>,
     Paragraph: ({ children }: any) => <p>{children}</p>,
     Text: ({ children }: any) => <span>{children}</span>,
   };
 
-  return { Button, Card, Space, Divider, Alert, Image, Upload, Typography };
+  return {
+    Button,
+    Card,
+    Space,
+    Alert,
+    Image,
+    Upload,
+    Row,
+    Col,
+    Tag,
+    Typography,
+  };
 });
 
 describe("PantryScanPage", () => {
@@ -70,7 +89,11 @@ describe("PantryScanPage", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    window.history.pushState({}, "", "/pantry/add/scan?householdId=7&householdName=Test%20Household");
+    window.history.pushState(
+      {},
+      "",
+      "/pantry/add/scan?householdId=7&householdName=Test%20Household",
+    );
     URL.createObjectURL = jest.fn(() => "blob:test-preview");
   });
 
