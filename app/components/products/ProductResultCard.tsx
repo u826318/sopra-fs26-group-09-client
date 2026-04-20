@@ -244,7 +244,7 @@ export default function ProductResultCard({
           align="start"
           style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}
         >
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Text strong>{product.name ?? "Unknown product"}</Text>
             {label ? <Tag color="green">{label}</Tag> : null}
           </Space>
@@ -255,7 +255,7 @@ export default function ProductResultCard({
       }
       style={{ width: "100%" }}
     >
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
         <Space
           align="start"
           size="large"
@@ -367,7 +367,7 @@ export default function ProductResultCard({
         ) : null}
 
         <Card size="small" title="Where it is sold / purchase place priority">
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <div>
               <Text strong>Stores: </Text>
               {stores.length > 0 ? stores.map((store) => <Tag key={store}>{store}</Tag>) : <Text>—</Text>}

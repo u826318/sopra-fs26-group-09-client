@@ -28,6 +28,7 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
@@ -102,6 +103,7 @@ function inferCategory(name: string): { label: string; color: string } {
 
 export default function StatsPage() {
   const api = useApi();
+  const router = useRouter();
   const { message } = App.useApp();
 
   const { value: selectedHouseholdId } = useLocalStorage<number | null>("selectedHouseholdId", null);
@@ -340,7 +342,7 @@ export default function StatsPage() {
         </Paragraph>
       </div>
 
-      <Space direction="vertical" size="large" style={{ width: "100%" }}>
+      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
         {!selectedHouseholdId ? (
           <div className={statsStyles.emptyWrap}>
             <Empty description="No household selected. Open Households and pick one first." />
@@ -358,7 +360,7 @@ export default function StatsPage() {
                   title={<span className={statsStyles.cardTitle}>Energy reservoir</span>}
                   variant="borderless"
                 >
-                  <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                  <Space orientation="vertical" size="small" style={{ width: "100%" }}>
                     <div className={statsStyles.metricLead}>Total nutritional value in your pantry</div>
                     <Title level={3} className={statsStyles.metricValue}>
                       {pantry ? formatKcal(pantry.totalCalories) : "—"}
@@ -386,7 +388,7 @@ export default function StatsPage() {
                   }
                   variant="borderless"
                 >
-                  <Space direction="vertical" size="small" style={{ width: "100%" }}>
+                  <Space orientation="vertical" size="small" style={{ width: "100%" }}>
                     <div className={statsStyles.metricLead}>Daily average since start date</div>
                     <Title level={3} className={statsStyles.metricValue}>
                       {stats
@@ -422,7 +424,7 @@ export default function StatsPage() {
                   }
                   variant="borderless"
                 >
-                  <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+                  <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
                     <div>
                       <Text style={{ color: MUTED }}>Daily goal</Text>
                       <div>
@@ -452,7 +454,7 @@ export default function StatsPage() {
                           percent={Math.min(Math.round(todayVsGoalPercent), 100)}
                           status={todayVsGoalPercent > 100 ? "exception" : "active"}
                           strokeColor={todayVsGoalPercent > 100 ? DANGER : FOREST}
-                          trailColor="#e8efe4"
+                          railColor="#e8efe4"
                           showInfo
                           format={(p) => `${p ?? 0}% of daily goal (today)`}
                         />
@@ -505,8 +507,23 @@ export default function StatsPage() {
                   ) : (
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No pantry items yet. Add products from Open Food Facts or your scan flow."
-                    />
+                      description="No pantry items yet."
+                    >
+                      {selectedHouseholdId ? (
+                        <Button
+                          type="primary"
+                          onClick={() =>
+                            router.push(
+                              `/open-food-facts?householdId=${selectedHouseholdId}&householdName=${encodeURIComponent(
+                                cachedHouseholds.find((h) => h.householdId === selectedHouseholdId)?.name ?? `Household ${selectedHouseholdId}`,
+                              )}`,
+                            )
+                          }
+                        >
+                          Add from Open Food Facts
+                        </Button>
+                      ) : null}
+                    </Empty>
                   )}
                 </Card>
               </Col>
@@ -583,7 +600,7 @@ export default function StatsPage() {
         onOk={() => void submitBudget()}
         confirmLoading={savingBudget}
         okText="Save"
-        destroyOnClose
+        destroyOnHidden
       >
         <Paragraph type="secondary">
           Set the ideal total calories your household aims to consume per day. Only the household owner can
@@ -615,7 +632,7 @@ export default function StatsPage() {
         onOk={() => void submitConsumption()}
         confirmLoading={consuming}
         okText="Log consumption"
-        destroyOnClose
+        destroyOnHidden
       >
         <Paragraph type="secondary" style={{ marginBottom: 16 }}>
           Select an item and how many units you used. Calories are calculated from each item&apos;s

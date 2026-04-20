@@ -189,7 +189,7 @@ export default function HouseholdsPage() {
           Create Household
         </Title>
         <Card className={styles.joinCard}>
-          <Space direction="vertical" style={{ width: "100%" }} size="middle">
+          <Space orientation="vertical" style={{ width: "100%" }} size="middle">
             <Input
               placeholder="Enter household name"
               value={createName}
@@ -262,7 +262,7 @@ export default function HouseholdsPage() {
                       {household.name}
                     </Title>
                     <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
-                    <Space direction="vertical" style={{ width: "100%" }}>
+                    <Space orientation="vertical" style={{ width: "100%" }}>
                       {household.role === "owner" && (
                         <Button
                           onClick={() => void handleRegenerateInviteCode(household.householdId)}
@@ -288,7 +288,7 @@ export default function HouseholdsPage() {
           Join a Household
         </Title>
         <Card className={styles.joinCard}>
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <div className={styles.joinHeading}>Redeem Invite Code</div>
             <p className={styles.joinDescription}>
               Have an invite code from a friend or colleague? Enter it below to gain instant access to

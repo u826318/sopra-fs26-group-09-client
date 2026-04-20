@@ -73,7 +73,7 @@ jest.mock("antd", () => {
   );
   const Space = ({ children }: any) => <div>{children}</div>;
   const Spin = () => <div>Loading...</div>;
-  const Empty = ({ description }: any) => <div>{description}</div>;
+  const Empty = ({ description, children }: any) => <div>{description}{children}</div>;
   Empty.PRESENTED_IMAGE_SIMPLE = "simple";
   const Tag = ({ children }: any) => <span>{children}</span>;
   const Table = ({ dataSource, rowKey }: any) => (
@@ -209,6 +209,39 @@ describe("StatsPage", () => {
       expect(screen.getByText(/142 500 kcal/i)).toBeInTheDocument();
       expect(screen.getByText(/2 450 kcal \/ day/i)).toBeInTheDocument();
     });
+  });
+
+  it("shows Add from Open Food Facts button when pantry is empty", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
+      if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
+      if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
+      if (url.includes("/consumption-logs")) return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+
+    render(<StatsPage />);
+
+    expect(await screen.findByRole("button", { name: /Add from Open Food Facts/i })).toBeInTheDocument();
+  });
+
+  it("navigates to OFF portal with household context when add button clicked", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
+      if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
+      if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
+      if (url.includes("/consumption-logs")) return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+
+    render(<StatsPage />);
+
+    const addBtn = await screen.findByRole("button", { name: /Add from Open Food Facts/i });
+    fireEvent.click(addBtn);
+
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringContaining("/open-food-facts?householdId=1"),
+    );
   });
 
   it("opens budget modal when owner clicks Edit", async () => {

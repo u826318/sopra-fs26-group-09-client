@@ -114,7 +114,7 @@ export default function OpenFoodFactsPortalPage() {
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card style={{ width: "100%", maxWidth: 1200 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div>
               <Title level={2} style={{ marginBottom: 0 }}>
@@ -159,7 +159,7 @@ export default function OpenFoodFactsPortalPage() {
                 key: "barcode",
                 label: "Barcode lookup",
                 children: (
-                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                     <Form layout="vertical">
                       <Form.Item label="Barcode">
                         <Input
@@ -195,7 +195,7 @@ export default function OpenFoodFactsPortalPage() {
                 key: "search",
                 label: "Full-name search",
                 children: (
-                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                     <Form layout="vertical">
                       <Form.Item label="Product full name / search query">
                         <Input
@@ -214,7 +214,7 @@ export default function OpenFoodFactsPortalPage() {
                     </Form>
 
                     {priorityResult ? (
-                      <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                         <Title level={4} style={{ marginBottom: 0 }}>
                           Priority result
                         </Title>
