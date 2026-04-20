@@ -275,6 +275,11 @@ export default function HouseholdsPage() {
                       <Button className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
                         View Pantry
                       </Button>
+                      <Button
+                        onClick={() => router.push(`/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`)}
+                      >
+                        View Members
+                      </Button>
                     </Space>
                   </Card>
                 </Col>
