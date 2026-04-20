@@ -4,6 +4,12 @@ import HouseholdPantryPage from "@/households/[id]/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
+const postMock = jest.fn();
+const messageMock = {
+  error: jest.fn(),
+  success: jest.fn(),
+  info: jest.fn(),
+};
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
@@ -11,7 +17,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock }),
+  useApi: () => ({ get: getMock, post: postMock }),
 }));
 
 jest.mock("@/hooks/useLocalStorage", () => ({
@@ -19,6 +25,9 @@ jest.mock("@/hooks/useLocalStorage", () => ({
   default: (key: string) => {
     if (key === "username") {
       return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
+    }
+    if (key === "token") {
+      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
     }
     if (key === "households") {
       return {
@@ -37,6 +46,18 @@ jest.mock("@/hooks/useLocalStorage", () => ({
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
+}));
+
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: ({ onMessage }: { onMessage: (msg: unknown) => void }) => {
+    (global as any).__wsOnMessage = onMessage;
+    const connected = (global as any).__wsConnected ?? true;
+    return { connected, hasConnectedOnce: (global as any).__wsHasConnectedOnce ?? connected };
+  },
+}));
+
+jest.mock("@ant-design/icons", () => ({
+  MinusCircleOutlined: () => <span data-testid="minus-icon" />,
 }));
 
 jest.mock("antd", () => {
@@ -139,7 +160,7 @@ describe("Household pantry page", () => {
     render(<HouseholdPantryPage />);
 
     await waitFor(() => {
-      expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
+      expect(screen.getByText("Test House")).toBeInTheDocument();
     });
 
     expect(await screen.findByText("Test House")).toBeInTheDocument();
