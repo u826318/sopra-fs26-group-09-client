@@ -38,7 +38,6 @@ export default function HouseholdsPage() {
     set: setHouseholds,
   } = useLocalStorage<HouseholdWithRole[]>("households", []);
   const {
-    value: selectedHouseholdId,
     set: setSelectedHouseholdId,
   } = useLocalStorage<number | null>("selectedHouseholdId", null);
 

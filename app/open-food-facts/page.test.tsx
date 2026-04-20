@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OpenFoodFactsPage from "./page";
