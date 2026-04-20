@@ -269,4 +269,23 @@ describe("Households page", () => {
     expect(warningMock).toHaveBeenCalledWith("Please enter a household name.");
     expect(warningMock).toHaveBeenCalledWith("Please enter an invite code.");
   });
+
+  it("View Members navigates to the members page with encoded household name", () => {
+    mockStoredHouseholds = [
+      {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+        role: "owner",
+      },
+    ];
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /View Members/i }));
+    expect(pushMock).toHaveBeenCalledWith(
+      "/households/10/members?name=Test%20House",
+    );
+  });
 });

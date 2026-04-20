@@ -38,7 +38,6 @@ export default function HouseholdsPage() {
     set: setHouseholds,
   } = useLocalStorage<HouseholdWithRole[]>("households", []);
   const {
-    value: selectedHouseholdId,
     set: setSelectedHouseholdId,
   } = useLocalStorage<number | null>("selectedHouseholdId", null);
 
@@ -274,6 +273,11 @@ export default function HouseholdsPage() {
                       )}
                       <Button className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
                         View Pantry
+                      </Button>
+                      <Button
+                        onClick={() => router.push(`/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`)}
+                      >
+                        View Members
                       </Button>
                     </Space>
                   </Card>

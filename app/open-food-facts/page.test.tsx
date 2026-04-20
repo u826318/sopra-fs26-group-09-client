@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OpenFoodFactsPage from "./page";
@@ -182,7 +183,6 @@ describe("Debug portal page", () => {
 
 describe("Receipt image upload in the debug portal", () => {
   const originalCreateObjectURL = URL.createObjectURL;
-  const originalRevokeObjectURL = URL.revokeObjectURL;
 
   beforeEach(() => {
     postFormDataMock.mockReset();
@@ -192,7 +192,6 @@ describe("Receipt image upload in the debug portal", () => {
 
   afterEach(() => {
     URL.createObjectURL = originalCreateObjectURL;
-    URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
   it("shows a local preview after selecting a receipt image", () => {
