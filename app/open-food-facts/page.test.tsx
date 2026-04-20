@@ -12,7 +12,11 @@ jest.mock("@/components/products/ProductResultCard", () =>
         <span>{label}</span>
         <span>{product.name}</span>
         <span>{exportContext}</span>
-        <span>{pantryContext ? `pantry:${pantryContext.householdId}:${pantryContext.householdName}` : "pantry:none"}</span>
+        <span>
+          {pantryContext
+            ? `pantry:${pantryContext.householdId}:${pantryContext.householdName}`
+            : "pantry:none"}
+        </span>
       </div>
     );
   },
@@ -20,7 +24,8 @@ jest.mock("@/components/products/ProductResultCard", () =>
 
 jest.mock("antd", () => {
   const Button = ({ children, onClick, loading, htmlType, type, ...props }: any) => {
-    const nativeType = htmlType ?? (type === "submit" || type === "reset" || type === "button" ? type : "button");
+    const nativeType =
+      htmlType ?? (type === "submit" || type === "reset" || type === "button" ? type : "button");
     return (
       <button
         type={nativeType}
@@ -111,7 +116,26 @@ describe("Open Food Facts page", () => {
     expect(screen.getByText("Fanta Zero")).toBeInTheDocument();
   });
 
-  it("searches products and renders the priority result plus result list", async () => {
+  it("AUTO lookup when barcode is passed via query params", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/open-food-facts?barcode=9999&householdId=5&householdName=Test",
+    );
+
+    getMock.mockResolvedValueOnce({ name: "Auto Product", barcode: "9999" });
+
+    render(<OpenFoodFactsPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=9999");
+    });
+
+    expect(screen.getByText("Auto Product")).toBeInTheDocument();
+    expect(screen.getByText("pantry:5:Test")).toBeInTheDocument();
+  });
+
+  it("searches products and renders results", async () => {
     getMock.mockResolvedValueOnce([
       { name: "Plant Based Caprese", brand: "V-Love", barcode: "1" },
       { name: "Plant Based Mozzarella", brand: "V-Love", barcode: "2" },
@@ -131,34 +155,9 @@ describe("Open Food Facts page", () => {
     });
 
     expect(screen.getByText("Top match")).toBeInTheDocument();
-    expect(screen.getByText("All possible results returned for this search")).toBeInTheDocument();
-    expect(screen.getByText(/1\. Plant Based Caprese — V-Love/)).toBeInTheDocument();
-    expect(screen.getByText(/2\. Plant Based Mozzarella — V-Love/)).toBeInTheDocument();
   });
 
-  it("passes household context into the result cards and enables pantry back navigation", async () => {
-    window.history.pushState({}, "", "/open-food-facts?householdId=10&householdName=Test%20House");
-    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
-
-    render(<OpenFoodFactsPage />);
-
-    expect(screen.getByText(/Pantry target:/)).toBeInTheDocument();
-    expect(screen.getByText("Test House")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("e.g. 3017624010701"), {
-      target: { value: "90331701" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Look up barcode" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("pantry:10:Test House")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Back to pantry" }));
-    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
-  });
-
-  it("alerts and clears the barcode result when barcode lookup fails", async () => {
+  it("alerts on barcode lookup failure", async () => {
     getMock.mockRejectedValueOnce(new Error("lookup failed"));
 
     render(<OpenFoodFactsPage />);

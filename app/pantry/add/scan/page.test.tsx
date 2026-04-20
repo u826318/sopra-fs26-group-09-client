@@ -1,17 +1,22 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import PantryScanPage from "@/pantry/add/scan/page";
 
 const pushMock = jest.fn();
+const postFormDataMock = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({ postFormData: postFormDataMock }),
+}));
+
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, disabled, icon }: any) => (
-    <button onClick={onClick} disabled={disabled}>
+  const Button = ({ children, onClick, disabled, icon, loading }: any) => (
+    <button onClick={onClick} disabled={disabled} data-loading={loading ? "true" : "false"}>
       {icon}
       {children}
     </button>
@@ -109,5 +114,46 @@ describe("PantryScanPage", () => {
     expect(pushMock).toHaveBeenCalledWith(
       "/open-food-facts?householdId=7&householdName=Test%20Household",
     );
+  });
+
+  it("detects barcode and redirects to open food facts with detected barcode", async () => {
+    postFormDataMock.mockResolvedValueOnce({ barcode: "7610848492087" });
+
+    render(<PantryScanPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock upload trigger" }));
+    fireEvent.click(screen.getByRole("button", { name: /Detect barcode from image/i }));
+
+    await waitFor(() => {
+      expect(postFormDataMock).toHaveBeenCalledWith(
+        "/products/barcode/extract",
+        expect.any(FormData),
+      );
+    });
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith(
+        "/open-food-facts?barcode=7610848492087&householdId=7&householdName=Test%20Household",
+      );
+    });
+  });
+
+  it("shows fallback error when barcode detection fails", async () => {
+    postFormDataMock.mockRejectedValueOnce(
+      new Error("No barcode detected in uploaded image."),
+    );
+
+    render(<PantryScanPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mock upload trigger" }));
+    fireEvent.click(screen.getByRole("button", { name: /Detect barcode from image/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Barcode detection failed")).toBeInTheDocument();
+    });
+
+    expect(
+      screen.getByText("No barcode detected in uploaded image."),
+    ).toBeInTheDocument();
   });
 });

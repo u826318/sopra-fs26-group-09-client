@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
@@ -28,6 +28,7 @@ export default function OpenFoodFactsPortalPage() {
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
+  const hasAutoLookedUpRef = useRef(false);
 
   const priorityResult = searchResults.length > 0 ? searchResults[0] : null;
 
@@ -48,13 +49,29 @@ export default function OpenFoodFactsPortalPage() {
     };
   }, []);
 
-  const lookupBarcode = async () => {
+  const barcodeFromQuery = useMemo(() => {
+    if (typeof globalThis.window === "undefined") {
+      return "";
+    }
+
+    const params = new URLSearchParams(globalThis.location.search);
+    return params.get("barcode")?.trim() ?? "";
+  }, []);
+
+  const lookupBarcode = async (barcodeOverride?: string) => {
+    const barcodeToLookup = (barcodeOverride ?? barcode).trim();
+    if (!barcodeToLookup) {
+      alert("Please enter a barcode first.");
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await api.get<Product>(
-        `/products/lookup?barcode=${encodeURIComponent(barcode)}`,
+        `/products/lookup?barcode=${encodeURIComponent(barcodeToLookup)}`,
       );
       setBarcodeResult(result);
+      setBarcode(barcodeToLookup);
     } catch (error) {
       setBarcodeResult(null);
       alert(error instanceof Error ? error.message : "Barcode lookup failed.");
@@ -64,10 +81,16 @@ export default function OpenFoodFactsPortalPage() {
   };
 
   const searchProducts = async () => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      alert("Please enter a product name first.");
+      return;
+    }
+
     setLoading(true);
     try {
       const results = await api.get<Product[]>(
-        `/products/search?q=${encodeURIComponent(query)}&limit=12`,
+        `/products/search?q=${encodeURIComponent(trimmedQuery)}&limit=12`,
       );
       setSearchResults(results);
     } catch (error) {
@@ -77,6 +100,16 @@ export default function OpenFoodFactsPortalPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!barcodeFromQuery || hasAutoLookedUpRef.current) {
+      return;
+    }
+
+    hasAutoLookedUpRef.current = true;
+    setBarcode(barcodeFromQuery);
+    void lookupBarcode(barcodeFromQuery);
+  }, [barcodeFromQuery]);
 
   return (
     <div className="card-container" style={{ padding: 24 }}>
@@ -93,7 +126,10 @@ export default function OpenFoodFactsPortalPage() {
               </Paragraph>
               {pantryTarget ? (
                 <Paragraph style={{ marginBottom: 0 }}>
-                  Pantry target: <strong>{pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}</strong>
+                  Pantry target:{" "}
+                  <strong>
+                    {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
+                  </strong>
                 </Paragraph>
               ) : null}
             </div>
@@ -132,7 +168,11 @@ export default function OpenFoodFactsPortalPage() {
                           placeholder="e.g. 3017624010701"
                         />
                       </Form.Item>
-                      <Button type="primary" loading={loading} onClick={() => void lookupBarcode()}>
+                      <Button
+                        type="primary"
+                        loading={loading}
+                        onClick={() => void lookupBarcode()}
+                      >
                         Look up barcode
                       </Button>
                     </Form>
@@ -164,7 +204,11 @@ export default function OpenFoodFactsPortalPage() {
                           placeholder="e.g. plant based caprese"
                         />
                       </Form.Item>
-                      <Button type="primary" loading={loading} onClick={() => void searchProducts()}>
+                      <Button
+                        type="primary"
+                        loading={loading}
+                        onClick={() => void searchProducts()}
+                      >
                         Search Open Food Facts
                       </Button>
                     </Form>

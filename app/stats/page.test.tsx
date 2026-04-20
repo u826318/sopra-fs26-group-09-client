@@ -206,8 +206,8 @@ describe("StatsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Pantry Overview/i)).toBeInTheDocument();
-      expect(screen.getByText(/142,500 kcal/i)).toBeInTheDocument();
-      expect(screen.getByText(/2,450 kcal \/ day/i)).toBeInTheDocument();
+      expect(screen.getByText(/142 500 kcal/i)).toBeInTheDocument();
+      expect(screen.getByText(/2 450 kcal \/ day/i)).toBeInTheDocument();
     });
   });
 

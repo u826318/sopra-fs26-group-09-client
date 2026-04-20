@@ -24,6 +24,21 @@ export class ApiService {
     return headers;
   }
 
+  private getAuthHeadersWithoutContentType(): HeadersInit {
+    let token: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        token = JSON.parse(localStorage.getItem("token") ?? "null") as string | null;
+      } catch {
+        token = null;
+      }
+    }
+
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = token;
+    return headers;
+  }
+
   /**
    * Helper function to check the response, parse JSON,
    * and throw an error if the response is not OK.
@@ -66,11 +81,6 @@ export class ApiService {
       : Promise.resolve(res as T);
   }
 
-  /**
-   * GET request.
-   * @param endpoint - The API endpoint (e.g. "/users").
-   * @returns JSON data of type T.
-   */
   public async get<T>(endpoint: string): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -83,12 +93,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * POST request.
-   * @param endpoint - The API endpoint (e.g. "/users").
-   * @param data - The payload to post.
-   * @returns JSON data of type T.
-   */
   public async post<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -102,12 +106,19 @@ export class ApiService {
     );
   }
 
-  /**
-   * PUT request.
-   * @param endpoint - The API endpoint (e.g. "/users/123").
-   * @param data - The payload to update.
-   * @returns JSON data of type T.
-   */
+  public async postFormData<T>(endpoint: string, data: FormData): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: this.getAuthHeadersWithoutContentType(),
+      body: data,
+    });
+    return this.processResponse<T>(
+      res,
+      "An error occurred while uploading the file.\n",
+    );
+  }
+
   public async put<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -121,11 +132,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * DELETE request.
-   * @param endpoint - The API endpoint (e.g. "/users/123").
-   * @returns JSON data of type T.
-   */
   public async delete<T>(endpoint: string): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
