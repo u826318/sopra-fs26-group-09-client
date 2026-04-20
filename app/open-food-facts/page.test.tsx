@@ -1,41 +1,39 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import OpenFoodFactsPage from "@/open-food-facts/page";
+import OpenFoodFactsPage from "./page";
 
-const pushMock = jest.fn();
 const getMock = jest.fn();
+const postFormDataMock = jest.fn();
+const postMock = jest.fn();
+const pushMock = jest.fn();
 
-jest.mock("@/components/products/ProductResultCard", () =>
-  function MockProductResultCard({ product, label, exportContext, pantryContext }: any) {
-    return (
-      <div data-testid="product-result-card">
-        <span>{label}</span>
-        <span>{product.name}</span>
-        <span>{exportContext}</span>
-        <span>{pantryContext ? `pantry:${pantryContext.householdId}:${pantryContext.householdName}` : "pantry:none"}</span>
-      </div>
-    );
-  },
-);
+jest.mock("@/components/products/ProductResultCard", () => ({
+  __esModule: true,
+  default: ({ product, label, pantryContext }: any) => (
+    <div>
+      <strong>{label}</strong>
+      <span>{product?.name}</span>
+      {pantryContext ? (
+        <span>{`pantry:${pantryContext.householdId}:${pantryContext.householdName ?? ""}`}</span>
+      ) : null}
+    </div>
+  ),
+}));
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, loading, htmlType, type, ...props }: any) => {
-    const nativeType = htmlType ?? (type === "submit" || type === "reset" || type === "button" ? type : "button");
-    return (
-      <button
-        type={nativeType}
-        onClick={onClick}
-        data-loading={loading ? "true" : "false"}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  };
+  const Button = ({ children, onClick, loading, disabled }: any) => (
+    <button onClick={onClick} disabled={disabled} data-loading={loading ? "true" : "false"}>
+      {children}
+    </button>
+  );
 
-  const Card = ({ children }: any) => <div>{children}</div>;
-  const Space = ({ children }: any) => <div>{children}</div>;
-  const Empty = ({ description }: any) => <div>{description}</div>;
+  const Card = ({ children, title }: any) => (
+    <section>
+      {title ? <h3>{title}</h3> : null}
+      {children}
+    </section>
+  );
+
   const Collapse = ({ items }: any) => (
     <div>
       {items.map((item: any) => (
@@ -46,6 +44,10 @@ jest.mock("antd", () => {
       ))}
     </div>
   );
+
+  const Empty = ({ description }: any) => <div>{description}</div>;
+
+  const Space = ({ children }: any) => <div>{children}</div>;
 
   const Form = ({ children }: any) => <form>{children}</form>;
   Form.Item = ({ children, label }: any) => (
@@ -83,14 +85,16 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock }),
+  useApi: () => ({ get: getMock, post: postMock, postFormData: postFormDataMock }),
 }));
 
-describe("Open Food Facts page", () => {
+describe("Debug portal page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     globalThis.alert = jest.fn();
     window.history.pushState({}, "", "/open-food-facts");
+    sessionStorage.clear();
+    postMock.mockResolvedValue({ token: "demo-token", username: "debug-demo" });
   });
 
   it("looks up a barcode and renders the returned product card", async () => {
@@ -173,5 +177,83 @@ describe("Open Food Facts page", () => {
     });
 
     expect(screen.getByText("No barcode result yet.")).toBeInTheDocument();
+  });
+});
+
+describe("Receipt image upload in the debug portal", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  beforeEach(() => {
+    postFormDataMock.mockReset();
+    URL.createObjectURL = jest.fn(() => "blob:receipt-preview");
+    URL.revokeObjectURL = jest.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  it("shows a local preview after selecting a receipt image", () => {
+    render(<OpenFoodFactsPage />);
+
+    fireEvent.change(screen.getByLabelText("Upload receipt image"), {
+      target: {
+        files: [new File(["receipt"], "receipt.png", { type: "image/png" })],
+      },
+    });
+
+    expect(screen.getByText("receipt.png")).toBeInTheDocument();
+    expect(screen.getByAltText("Uploaded receipt preview")).toHaveAttribute(
+      "src",
+      "blob:receipt-preview",
+    );
+  });
+
+  it("posts the selected image to the receipt analysis endpoint and renders the result", async () => {
+    postFormDataMock.mockResolvedValueOnce({
+      status: "succeeded",
+      merchantName: "Migros",
+      transactionDate: "2026-04-20",
+      total: "12.50 CHF",
+      items: [
+        {
+          description: "Milk",
+          quantity: "2",
+          price: "1.20 CHF",
+          totalPrice: "2.40 CHF",
+          productCode: null,
+          rawItem: null,
+        },
+      ],
+      extractedFields: { MerchantName: "Migros" },
+      rawResult: { status: "succeeded" },
+      rawText: "Migros milk 2.40 CHF",
+    });
+
+    render(<OpenFoodFactsPage />);
+
+    fireEvent.change(screen.getByLabelText("Upload receipt image"), {
+      target: {
+        files: [new File(["receipt"], "receipt.png", { type: "image/png" })],
+      },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze with Azure receipt model" }));
+
+    await waitFor(() => {
+      expect(postFormDataMock).toHaveBeenCalledTimes(1);
+    });
+
+    const [endpoint, formData] = postFormDataMock.mock.calls[0];
+    expect(endpoint).toBe("/products/receipt/analyze");
+    expect(formData).toBeInstanceOf(FormData);
+
+    await screen.findByText("Store and totals");
+    expect(screen.getAllByText("Migros").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Milk").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2.40 CHF").length).toBeGreaterThan(0);
+    expect(screen.getByText("Migros milk 2.40 CHF")).toBeInTheDocument();
   });
 });

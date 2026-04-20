@@ -11,6 +11,7 @@ import {
   ReadOutlined,
 } from "@ant-design/icons";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import type { HouseholdWithRole } from "@/types/household";
 import styles from "@/styles/households.module.css";
 
@@ -24,13 +25,13 @@ interface VirtualPantryAppShellProps {
 export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppShellProps) {
   const router = useRouter();
   const { message } = App.useApp();
-  const { clear: clearToken } = useLocalStorage<string>("token", "");
-  const { clear: clearUsername } = useLocalStorage<string>("username", "");
+  const { clear: clearToken } = useSessionStorage<string>("token", "");
+  const { clear: clearUsername } = useSessionStorage<string>("username", "");
   const { value: households } = useLocalStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, set: setSelectedHouseholdId } = useLocalStorage<
     number | null
   >("selectedHouseholdId", null);
-  const { value: username } = useLocalStorage<string>("username", "");
+  const { value: username } = useSessionStorage<string>("username", "");
 
   const handleSidebarPantry = () => {
     if (households.length === 0) {

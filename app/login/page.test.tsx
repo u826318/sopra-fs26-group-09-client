@@ -56,7 +56,7 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ post: postMock }),
 }));
 
-jest.mock("@/hooks/useLocalStorage", () => ({
+jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
   default: () => ({ set: setTokenMock, clear: jest.fn(), value: "" }),
 }));
