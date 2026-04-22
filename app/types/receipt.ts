@@ -8,6 +8,14 @@ export interface ReceiptLineItem {
 }
 
 export interface ReceiptAnalysisResult {
+  id: number | null;
+  requestedByUserId: number | null;
+  requestedByUsername: string | null;
+  requestedAt: string | null;
+  analyzedAt: string | null;
+  uploadedImageFileName: string | null;
+  uploadedImageContentType: string | null;
+  uploadedImageDataUrl: string | null;
   status: string | null;
   merchantName: string | null;
   merchantPhoneNumber: string | null;

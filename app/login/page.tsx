@@ -20,6 +20,7 @@ const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
+  const { set: setUserId } = useSessionStorage<number | null>("userId", null);
 
   const handleLogin = async (values: LoginFormValues): Promise<void> => {
     try {
@@ -32,6 +33,7 @@ const Login: React.FC = () => {
         setToken(response.token);
       }
       setUsername(response.username?.trim() || values.username.trim());
+      setUserId(response.id ?? null);
 
       router.push("/households");
     } catch (error) {

@@ -44,6 +44,7 @@ const Dashboard: React.FC = () => {
     clear: clearToken, // all we need in this scenario is a method to clear the token
   } = useSessionStorage<string>("token", ""); // session auth is intentionally scoped to the current browser session.
   const { clear: clearUsername } = useSessionStorage<string>("username", "");
+  const { clear: clearUserId } = useSessionStorage<number | null>("userId", null);
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -54,6 +55,7 @@ const Dashboard: React.FC = () => {
       // Clear local auth state only after backend confirms logout.
       clearToken();
       clearUsername();
+      clearUserId();
       router.push("/login");
     } catch (error) {
       if (error instanceof Error) {

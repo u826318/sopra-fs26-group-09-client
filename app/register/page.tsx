@@ -23,6 +23,7 @@ const Register: React.FC = () => {
   const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
+  const { set: setUserId } = useSessionStorage<number | null>("userId", null);
 
   const handleRegister = async (values: RegisterFormValues): Promise<void> => {
     try {
@@ -35,6 +36,7 @@ const Register: React.FC = () => {
         setToken(response.token);
       }
       setUsername(response.username?.trim() || values.username.trim());
+      setUserId(response.id ?? null);
 
       router.push("/households");
     } catch (error) {

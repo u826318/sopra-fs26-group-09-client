@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import useSessionStorage from "@/hooks/useSessionStorage";
-import type { ReceiptAnalysisResult, ReceiptLineItem } from "@/types/receipt";
+import type { ReceiptAnalysisResult } from "@/types/receipt";
 import ProductResultCard from "@/components/products/ProductResultCard";
+import ReceiptAnalysisResultPanel from "@/components/receipts/ReceiptAnalysisResultPanel";
 import {
   Button,
   Card,
@@ -26,18 +27,13 @@ type PantryTarget = {
   householdName?: string;
 };
 
-type KeyValueRow = {
-  label: string;
-  value: string | null;
-};
-
-const receiptSummaryFields: KeyValueRow[] = [];
 
 export default function OpenFoodFactsPortalPage() {
   const router = useRouter();
   const api = useApi();
   const { value: sessionToken, set: setSessionToken } = useSessionStorage<string>("token", "");
   const { set: setSessionUsername } = useSessionStorage<string>("username", "");
+  const { set: setSessionUserId } = useSessionStorage<number | null>("userId", null);
   const [demoSessionReady, setDemoSessionReady] = useState(false);
   const receiptPreviewUrlRef = useRef<string | null>(null);
 
@@ -73,28 +69,6 @@ export default function OpenFoodFactsPortalPage() {
     };
   }, []);
 
-  const receiptSummary = useMemo<KeyValueRow[]>(() => {
-    if (!receiptResult) {
-      return receiptSummaryFields;
-    }
-
-    return [
-      { label: "Status", value: receiptResult.status },
-      { label: "Merchant / store", value: receiptResult.merchantName },
-      { label: "Phone", value: receiptResult.merchantPhoneNumber },
-      { label: "Address", value: receiptResult.merchantAddress },
-      { label: "Transaction date", value: receiptResult.transactionDate },
-      { label: "Transaction time", value: receiptResult.transactionTime },
-      { label: "Receipt type", value: receiptResult.receiptType },
-      { label: "Country / region", value: receiptResult.countryRegion },
-      { label: "Currency", value: receiptResult.currencyCode },
-      { label: "Subtotal", value: receiptResult.subtotal },
-      { label: "Tax", value: receiptResult.tax },
-      { label: "Tip", value: receiptResult.tip },
-      { label: "Total", value: receiptResult.total },
-    ].filter((entry) => entry.value);
-  }, [receiptResult]);
-
   useEffect(() => {
     return () => {
       if (receiptPreviewUrlRef.current) {
@@ -116,7 +90,7 @@ export default function OpenFoodFactsPortalPage() {
       }
 
       try {
-        const response = await api.post<{ token?: string; username?: string }>("/users/demo-login", {});
+        const response = await api.post<{ id?: number; token?: string; username?: string }>("/users/demo-login", {});
         if (!isMounted) {
           return;
         }
@@ -125,6 +99,7 @@ export default function OpenFoodFactsPortalPage() {
           setSessionToken(response.token);
         }
         setSessionUsername(response.username?.trim() || "debug-demo");
+        setSessionUserId(response.id ?? null);
       } catch (error) {
         console.error("Failed to bootstrap debug portal demo session.", error);
       } finally {
@@ -139,7 +114,7 @@ export default function OpenFoodFactsPortalPage() {
     return () => {
       isMounted = false;
     };
-  }, [api, sessionToken, setSessionToken, setSessionUsername]);
+  }, [api, sessionToken, setSessionToken, setSessionUsername, setSessionUserId]);
 
   const resetReceiptState = () => {
     setReceiptError(null);
@@ -158,6 +133,14 @@ export default function OpenFoodFactsPortalPage() {
       setReceiptFile(null);
       setReceiptPreviewUrl(null);
       setReceiptFileName(null);
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setReceiptFile(null);
+      setReceiptPreviewUrl(null);
+      setReceiptFileName(null);
+      setReceiptError("Receipt image must be 2 MB or smaller.");
       return;
     }
 
@@ -224,62 +207,7 @@ export default function OpenFoodFactsPortalPage() {
     }
   };
 
-  const renderReceiptSummary = (rows: KeyValueRow[]) => {
-    if (rows.length === 0) {
-      return <Empty description="No structured receipt fields returned yet." />;
-    }
 
-    return (
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label}>
-              <th
-                style={{ textAlign: "left", verticalAlign: "top", padding: "8px 12px 8px 0" }}
-                scope="row"
-              >
-                {row.label}
-              </th>
-              <td style={{ padding: "8px 0" }}>{row.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    );
-  };
-
-  const renderReceiptItemsTable = (items: ReceiptLineItem[] | null | undefined) => {
-    if (!items || items.length === 0) {
-      return <Empty description="No receipt line items returned yet." />;
-    }
-
-    return (
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: "8px 12px 8px 0" }}>Product</th>
-              <th style={{ textAlign: "left", padding: "8px 12px 8px 0" }}>Quantity</th>
-              <th style={{ textAlign: "left", padding: "8px 12px 8px 0" }}>Unit price</th>
-              <th style={{ textAlign: "left", padding: "8px 12px 8px 0" }}>Total price</th>
-              <th style={{ textAlign: "left", padding: "8px 0" }}>Product code</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item, index) => (
-              <tr key={`${item.description ?? "item"}-${index}`}>
-                <td style={{ padding: "8px 12px 8px 0" }}>{item.description ?? "—"}</td>
-                <td style={{ padding: "8px 12px 8px 0" }}>{item.quantity ?? "—"}</td>
-                <td style={{ padding: "8px 12px 8px 0" }}>{item.price ?? "—"}</td>
-                <td style={{ padding: "8px 12px 8px 0" }}>{item.totalPrice ?? "—"}</td>
-                <td style={{ padding: "8px 0" }}>{item.productCode ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
 
   return (
     <div className="card-container" style={{ padding: 24 }}>
@@ -474,62 +402,13 @@ export default function OpenFoodFactsPortalPage() {
                       )}
                     </Card>
 
-                    <Card size="small" title="Structured receipt result">
-                      {receiptLoading ? (
-                        <Paragraph style={{ marginBottom: 0 }}>
-                          Sending the previewed image to Azure and waiting for the structured
-                          receipt result...
-                        </Paragraph>
-                      ) : receiptResult ? (
-                        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-                          <div>
-                            <Title level={4}>Store and totals</Title>
-                            {renderReceiptSummary(receiptSummary)}
-                          </div>
-
-                          <div>
-                            <Title level={4}>Line items</Title>
-                            {renderReceiptItemsTable(receiptResult.items)}
-                          </div>
-
-                          <div>
-                            <Title level={4}>OCR text</Title>
-                            {receiptResult.rawText ? (
-                              <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                                {receiptResult.rawText}
-                              </pre>
-                            ) : (
-                              <Empty description="No OCR text returned." />
-                            )}
-                          </div>
-
-                          <Collapse
-                            items={[
-                              {
-                                key: "receipt-fields",
-                                label: "All extracted receipt fields",
-                                children: (
-                                  <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                                    {JSON.stringify(receiptResult.extractedFields ?? {}, null, 2)}
-                                  </pre>
-                                ),
-                              },
-                              {
-                                key: "receipt-raw-result",
-                                label: "Raw Azure result payload",
-                                children: (
-                                  <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
-                                    {JSON.stringify(receiptResult.rawResult ?? {}, null, 2)}
-                                  </pre>
-                                ),
-                              },
-                            ]}
-                          />
-                        </Space>
-                      ) : (
-                        <Empty description="No Azure receipt result yet." />
-                      )}
-                    </Card>
+                    <ReceiptAnalysisResultPanel
+                      result={receiptResult}
+                      loading={receiptLoading}
+                      emptyDescription="No Azure receipt result yet."
+                      showMetadata
+                      cardTitle="Structured receipt result"
+                    />
                   </Space>
                 ),
               },
