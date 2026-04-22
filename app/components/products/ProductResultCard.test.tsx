@@ -20,10 +20,16 @@ describe("ProductResultCard", () => {
     name: "Plant Based Caprese",
     brand: "V-Love",
     quantity: "180 g",
+    servingSize: null,
     imageUrl: "https://example.com/image.jpg",
-    nutriments: {
-      "energy-kcal_100g": 220,
-    },
+    productUrl: null,
+    nutriScore: null,
+    stores: null,
+    storeTags: null,
+    purchasePlaces: null,
+    nutriments: { "energy-kcal_100g": 220 },
+    nutriScoreData: null,
+    rawProduct: null,
   };
 
   beforeEach(() => {
@@ -93,11 +99,7 @@ describe("ProductResultCard", () => {
 
 
   it("uses the householdId from the URL when pantryContext is not passed", async () => {
-    const originalLocation = globalThis.location;
-    Object.defineProperty(globalThis, "location", {
-      value: { search: "?householdId=12&householdName=URL%20House" },
-      configurable: true,
-    });
+    window.history.pushState({}, "", "?householdId=12&householdName=URL%20House");
 
     postMock.mockResolvedValueOnce({
       id: 8,
@@ -130,10 +132,7 @@ describe("ProductResultCard", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to URL House.");
 
-    Object.defineProperty(globalThis, "location", {
-      value: originalLocation,
-      configurable: true,
-    });
+    window.history.pushState({}, "", "/");
   });
 
   it("shows a validation error and does not submit when quantity is invalid", async () => {
