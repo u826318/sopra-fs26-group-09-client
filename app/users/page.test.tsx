@@ -45,6 +45,10 @@ jest.mock("antd", () => {
   return { Button, Card, Space, Table };
 });
 
+jest.mock("@/hooks/useAuthGuard", () => ({
+  useAuthGuard: () => ({ isAuthenticated: true }),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));

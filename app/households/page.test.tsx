@@ -17,6 +17,10 @@ let mockSelectedHouseholdId: number | null = null;
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
+jest.mock("@/hooks/useAuthGuard", () => ({
+  useAuthGuard: () => ({ isAuthenticated: true }),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
