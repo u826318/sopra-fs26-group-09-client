@@ -11,16 +11,14 @@ export function useAuthGuard(): { isAuthenticated: boolean } {
 
   useEffect(() => {
     let token: string | null = null;
-    if (typeof window !== "undefined") {
-      try {
-        token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
-      } catch {
-        token = null;
-      }
+    try {
+      token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
+    } catch {
+      token = null;
     }
 
     if (!token) {
-      void message.warning("Please log in to continue.", 2);
+      message.warning("Please log in to continue.", 2);
       router.replace("/login");
     } else {
       setIsAuthenticated(true);
