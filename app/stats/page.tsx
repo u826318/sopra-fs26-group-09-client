@@ -512,6 +512,23 @@ export default function StatsPage() {
                 <Card
                   className={statsStyles.panelCard}
                   title="Current inventory"
+                  extra={
+                    selectedHouseholdId ? (
+                      <Button
+                        type="primary"
+                        size="small"
+                        onClick={() =>
+                          router.push(
+                            `/open-food-facts?householdId=${selectedHouseholdId}&householdName=${encodeURIComponent(
+                              cachedHouseholds.find((h) => h.householdId === selectedHouseholdId)?.name ?? `Household ${selectedHouseholdId}`,
+                            )}`,
+                          )
+                        }
+                      >
+                        Add from Open Food Facts
+                      </Button>
+                    ) : null
+                  }
                   variant="borderless"
                 >
                   {pantry && pantry.items.length > 0 ? (
@@ -526,22 +543,7 @@ export default function StatsPage() {
                     <Empty
                       image={Empty.PRESENTED_IMAGE_SIMPLE}
                       description="No pantry items yet."
-                    >
-                      {selectedHouseholdId ? (
-                        <Button
-                          type="primary"
-                          onClick={() =>
-                            router.push(
-                              `/open-food-facts?householdId=${selectedHouseholdId}&householdName=${encodeURIComponent(
-                                cachedHouseholds.find((h) => h.householdId === selectedHouseholdId)?.name ?? `Household ${selectedHouseholdId}`,
-                              )}`,
-                            )
-                          }
-                        >
-                          Add from Open Food Facts
-                        </Button>
-                      ) : null}
-                    </Empty>
+                    />
                   )}
                 </Card>
               </Col>
