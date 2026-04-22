@@ -45,7 +45,7 @@ function formatNumber(value: number): string {
 }
 
 export default function HouseholdPantryPage() {
-  useAuthGuard();
+  const { isAuthenticated } = useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const api = useApi();
@@ -106,8 +106,9 @@ export default function HouseholdPantryPage() {
   }, [api, householdId]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void fetchPantry();
-  }, [fetchPantry]);
+  }, [fetchPantry, isAuthenticated]);
 
   const totalItemCount = useMemo(() => {
     if (!overview) {

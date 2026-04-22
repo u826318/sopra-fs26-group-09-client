@@ -25,7 +25,7 @@ function formatDate(value: string): string {
 }
 
 export default function HouseholdMembersPage() {
-  useAuthGuard();
+  const { isAuthenticated } = useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -45,6 +45,7 @@ export default function HouseholdMembersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!Number.isFinite(householdId) || householdId <= 0) {
       setErrorMessage("Invalid household ID.");
       setIsLoading(false);
@@ -65,7 +66,7 @@ export default function HouseholdMembersPage() {
     };
     void fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [householdId]);
+  }, [householdId, isAuthenticated]);
 
   return (
     <VirtualPantryAppShell activeNav="households">
