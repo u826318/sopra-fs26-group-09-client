@@ -5,6 +5,10 @@ import HouseholdMembersPage from "@/households/[id]/members/page";
 const pushMock = jest.fn();
 const getMock = jest.fn();
 
+jest.mock("@/hooks/useAuthGuard", () => ({
+  useAuthGuard: () => ({ isAuthenticated: true }),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
   useParams: () => ({ id: "10" }),
