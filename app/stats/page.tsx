@@ -620,7 +620,6 @@ export default function StatsPage() {
         onOk={() => void submitBudget()}
         confirmLoading={savingBudget}
         okText="Save"
-        destroyOnHidden
       >
         <Paragraph type="secondary">
           Set the ideal total calories your household aims to consume per day. Only the household owner can
@@ -652,7 +651,6 @@ export default function StatsPage() {
         onOk={() => void submitConsumption()}
         confirmLoading={consuming}
         okText="Log consumption"
-        destroyOnHidden
       >
         <Paragraph type="secondary" style={{ marginBottom: 16 }}>
           Select an item and how many units you used. Calories are calculated from each item&apos;s

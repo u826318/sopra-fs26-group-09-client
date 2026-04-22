@@ -76,7 +76,10 @@ jest.mock("antd", () => {
       <div>{children}</div>
     </div>
   );
-  const Space = ({ children }: any) => <div>{children}</div>;
+  const Space = Object.assign(
+    ({ children }: any) => <div>{children}</div>,
+    { Compact: ({ children }: any) => <div>{children}</div> },
+  );
   const Spin = () => <div>Loading...</div>;
   const Empty = ({ description, children }: any) => <div>{description}{children}</div>;
   Empty.PRESENTED_IMAGE_SIMPLE = "simple";

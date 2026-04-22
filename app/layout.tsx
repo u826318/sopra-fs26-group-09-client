@@ -54,7 +54,6 @@ export default function RootLayout({
                 algorithm: false, // disable algorithm (line 32)
               },
               Form: {
-                labelColor: "#fff",
                 algorithm: theme.defaultAlgorithm, // specify a specifc algorithm instead of true/false
               },
               Card: {},
