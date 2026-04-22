@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
+import useLocalStorage from "@/hooks/useLocalStorage";
+import type { HouseholdWithRole } from "@/types/household";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getRegisterErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
@@ -23,6 +25,7 @@ const Register: React.FC = () => {
   const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
+  const { set: setHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
   const handleRegister = async (values: RegisterFormValues): Promise<void> => {
     try {
@@ -35,6 +38,13 @@ const Register: React.FC = () => {
         setToken(response.token);
       }
       setUsername(response.username?.trim() || values.username.trim());
+
+      try {
+        const households = await apiService.get<HouseholdWithRole[]>("/households");
+        setHouseholds(households);
+      } catch {
+        setHouseholds([]);
+      }
 
       router.push("/households");
     } catch (error) {

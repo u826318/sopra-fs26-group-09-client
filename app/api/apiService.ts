@@ -1,5 +1,6 @@
 import { getApiDomain } from "@/utils/domain";
 import { ApplicationError } from "@/types/error";
+import { navigateTo } from "@/utils/navigate";
 
 export class ApiService {
   private baseURL: string;
@@ -33,6 +34,12 @@ export class ApiService {
     errorMessage: string,
   ): Promise<T> {
     if (!res.ok) {
+      if (res.status === 401 && typeof window !== "undefined") {
+        sessionStorage.removeItem("token");
+        navigateTo("/login");
+        return new Promise<never>(() => {});
+      }
+
       let errorDetail = res.statusText;
       try {
         const errorInfo = await res.json();

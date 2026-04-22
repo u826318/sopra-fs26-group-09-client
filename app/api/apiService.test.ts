@@ -1,9 +1,12 @@
 import { ApiService } from "@/api/apiService";
 import { ApplicationError } from "@/types/error";
+import { navigateTo } from "@/utils/navigate";
 
 jest.mock("@/utils/domain", () => ({
   getApiDomain: () => "http://localhost:8080",
 }));
+
+jest.mock("@/utils/navigate");
 
 describe("ApiService", () => {
   const fetchMock = jest.fn();
@@ -20,7 +23,7 @@ describe("ApiService", () => {
       ok: true,
       headers: { get: () => "application/json" },
       json: async () => ({ ok: true }),
-    } as Response);
+    });
 
     const api = new ApiService();
     await api.get("/households/10/pantry");
@@ -40,7 +43,7 @@ describe("ApiService", () => {
       ok: true,
       headers: { get: () => "application/json" },
       json: async () => ({ ok: true }),
-    } as Response);
+    });
 
     const api = new ApiService();
     await api.get("/users");
@@ -58,7 +61,7 @@ describe("ApiService", () => {
       ok: true,
       headers: { get: () => "application/json" },
       json: async () => ({ ok: true }),
-    } as Response);
+    });
 
     const api = new ApiService();
     await api.post("/households", { name: "Test House" });
@@ -88,7 +91,7 @@ describe("ApiService", () => {
       ok: true,
       headers: { get: () => "application/json" },
       json: async () => ({ status: "succeeded" }),
-    } as Response);
+    });
 
     const api = new ApiService();
     const formData = new FormData();
@@ -129,21 +132,39 @@ describe("ApiService", () => {
     );
   });
 
-  it("throws ApplicationError with backend details on failure", async () => {
+  it("clears token and redirects to login on 401", async () => {
+    sessionStorage.setItem("token", JSON.stringify("stored-token"));
     fetchMock.mockResolvedValue({
       ok: false,
       status: 401,
       statusText: "Unauthorized",
       headers: { get: () => "application/json" },
-      json: async () => ({ message: "No token" }),
-    } as Response);
+      json: async () => ({ message: "Invalid token" }),
+    });
+
+    const api = new ApiService();
+    void api.get("/households/10/pantry");
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(sessionStorage.getItem("token")).toBeNull();
+    expect(navigateTo).toHaveBeenCalledWith("/login");
+  });
+
+  it("throws ApplicationError with backend details on non-401 failure", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: { get: () => "application/json" },
+      json: async () => ({ message: "Something broke" }),
+    });
 
     const api = new ApiService();
 
-    await expect(api.get("/households/10/pantry")).rejects.toMatchObject<ApplicationError>({
-      status: 401,
-      message: expect.stringContaining("No token"),
-      info: expect.stringContaining('"status": 401'),
-    });
+    await expect(api.get("/households/10/pantry")).rejects.toMatchObject({
+      status: 500,
+      message: expect.stringContaining("Something broke"),
+      info: expect.stringContaining('"status": 500'),
+    } satisfies Partial<ApplicationError>);
   });
 });
