@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App,
   Button,
@@ -117,7 +117,8 @@ export default function StatsPage() {
   }, [cachedHouseholds, selectedHouseholdId]);
   const isOwner = householdRole === "owner";
 
-  const [startDate, setStartDate] = useState<Dayjs | null>(() => dayjs().subtract(7, "day"));
+  const [startDate, setStartDate] = useState<Dayjs | null>(null);
+  const initializedForHousehold = useRef<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [pantry, setPantry] = useState<PantryOverview | null>(null);
   const [stats, setStats] = useState<HouseholdStats | null>(null);
@@ -179,6 +180,21 @@ export default function StatsPage() {
       setLoading(false);
     }
   }, [api, message, selectedHouseholdId, startDate]);
+
+  useEffect(() => {
+    if (!selectedHouseholdId || !cachedHouseholds.length) return;
+    if (initializedForHousehold.current === selectedHouseholdId) return;
+    initializedForHousehold.current = selectedHouseholdId;
+
+    const sevenDaysAgo = dayjs().subtract(7, "day").startOf("day");
+    const household = cachedHouseholds.find((h) => h.householdId === selectedHouseholdId);
+    if (household?.createdAt) {
+      const created = dayjs(household.createdAt).startOf("day");
+      setStartDate(created.isAfter(sevenDaysAgo) ? created : sevenDaysAgo);
+    } else {
+      setStartDate(sevenDaysAgo);
+    }
+  }, [selectedHouseholdId, cachedHouseholds]);
 
   useEffect(() => {
     if (isAuthenticated && selectedHouseholdId && startDate) {

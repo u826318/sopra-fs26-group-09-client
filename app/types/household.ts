@@ -3,6 +3,7 @@ export interface Household {
   name: string;
   inviteCode: string;
   ownerId: number;
+  createdAt?: string;
 }
 
 export interface HouseholdWithRole extends Household {

@@ -44,6 +44,7 @@ jest.mock("@/hooks/useLocalStorage", () => ({
             inviteCode: "abc",
             ownerId: 99,
             role: "owner",
+            createdAt: "2026-01-01T00:00:00Z",
           },
         ],
         set: jest.fn(),
@@ -92,7 +93,7 @@ jest.mock("antd", () => {
     </table>
   );
   const Select = () => <div data-testid="select" />;
-  const DatePicker = ({ onChange, value }: any) => (
+  const DatePicker = ({ onChange }: any) => (
     <input
       aria-label="start-date"
       data-testid="start-date"
