@@ -104,7 +104,7 @@ export default function ProductResultCard({
   };
 
   return (
-    <Card style={{ width: "100%", borderRadius: 24 }} bodyStyle={{ padding: 24 }}>
+    <Card style={{ width: "100%", borderRadius: 24 }} styles={{ body: { padding: 24 } }}>
       <div
         style={{
           display: "grid",

@@ -86,7 +86,7 @@ export default function OpenFoodFactsPortalPage() {
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card style={{ width: "100%", maxWidth: 1200 }}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div style={{ display: "grid", gap: 12 }}>
             <div>
               <button

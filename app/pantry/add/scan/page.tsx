@@ -202,7 +202,7 @@ export default function PantryScanPage() {
           }}
         >
           <Space
-            direction="vertical"
+            orientation="vertical"
             size="large"
             style={{ width: "100%", display: "flex" }}
           >
@@ -292,7 +292,7 @@ export default function PantryScanPage() {
                     height: "100%",
                   }}
                 >
-                  <Space direction="vertical" size={8}>
+                  <Space orientation="vertical" size={8}>
                     <Text
                       style={{
                         color: "#1f7a3f",
@@ -323,7 +323,7 @@ export default function PantryScanPage() {
                     height: "100%",
                   }}
                 >
-                  <Space direction="vertical" size={8}>
+                  <Space orientation="vertical" size={8}>
                     <Text
                       style={{
                         color: "#1f7a3f",
@@ -354,7 +354,7 @@ export default function PantryScanPage() {
                     height: "100%",
                   }}
                 >
-                  <Space direction="vertical" size={8}>
+                  <Space orientation="vertical" size={8}>
                     <Text
                       style={{
                         color: "#1f7a3f",
@@ -403,7 +403,7 @@ export default function PantryScanPage() {
                   }}
                 >
                   <Space
-                    direction="vertical"
+                    orientation="vertical"
                     size="large"
                     style={{ width: "100%", display: "flex" }}
                   >
@@ -486,7 +486,7 @@ export default function PantryScanPage() {
                 >
                   {previewUrl ? (
                     <Space
-                      direction="vertical"
+                      orientation="vertical"
                       size="middle"
                       style={{ width: "100%", display: "flex" }}
                     >
@@ -558,7 +558,7 @@ export default function PantryScanPage() {
               styles={{ body: { padding: 24 } }}
             >
               <Space
-                direction="vertical"
+                orientation="vertical"
                 size="middle"
                 style={{ width: "100%", display: "flex" }}
               >
