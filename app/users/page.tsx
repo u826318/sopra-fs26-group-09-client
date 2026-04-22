@@ -110,9 +110,6 @@ const Dashboard: React.FC = () => {
               <Button onClick={() => router.push("/households")}>
                 Households
               </Button>
-              <Button onClick={() => router.push("/open-food-facts")}>
-                Debug portal
-              </Button>
               <Button onClick={() => void handleLogout()} type="primary">
                 Logout
               </Button>
