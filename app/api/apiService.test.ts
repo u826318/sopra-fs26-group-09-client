@@ -147,7 +147,7 @@ describe("ApiService", () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(sessionStorage.getItem("token")).toBeNull();
-    expect(navigateTo).toHaveBeenCalledWith("/login");
+    expect(navigateTo).toHaveBeenCalledWith("/login?reason=session_expired");
   });
 
   it("throws ApplicationError with backend details on non-401 failure", async () => {

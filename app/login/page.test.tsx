@@ -45,20 +45,30 @@ jest.mock("antd", () => {
     );
   };
 
-  return { Button, Checkbox, Form, Input };
+  const App = {
+    useApp: () => ({ message: { warning: jest.fn(), error: jest.fn(), success: jest.fn() } }),
+  };
+
+  return { App, Button, Checkbox, Form, Input };
 });
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
+  useSearchParams: () => ({ get: () => null }),
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ post: postMock }),
+  useApi: () => ({ post: postMock, get: jest.fn().mockResolvedValue([]) }),
 }));
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
   default: () => ({ set: setTokenMock, clear: jest.fn(), value: "" }),
+}));
+
+jest.mock("@/hooks/useLocalStorage", () => ({
+  __esModule: true,
+  default: () => ({ set: jest.fn(), clear: jest.fn(), value: [] }),
 }));
 
 describe("Login page", () => {

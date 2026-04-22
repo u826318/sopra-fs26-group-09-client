@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import useLocalStorage from "@/hooks/useLocalStorage";
@@ -8,7 +9,7 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import { getLoginErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
 import type { HouseholdWithRole } from "@/types/household";
-import { Button, Checkbox, Form, Input } from "antd";
+import { App, Button, Checkbox, Form, Input } from "antd";
 import styles from "@/styles/auth.module.css";
 
 interface LoginFormValues {
@@ -18,7 +19,15 @@ interface LoginFormValues {
 
 const Login: React.FC = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { message } = App.useApp();
   const apiService = useApi();
+
+  useEffect(() => {
+    if (searchParams.get("reason") === "session_expired") {
+      message.warning("Your session has expired. Please log in again.");
+    }
+  }, [searchParams, message]);
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
