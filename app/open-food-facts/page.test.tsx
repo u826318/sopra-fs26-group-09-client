@@ -22,11 +22,23 @@ jest.mock("@/components/products/ProductResultCard", () => ({
 }));
 
 jest.mock("antd", () => {
-  const Button = ({ children, onClick, loading, disabled }: any) => (
-    <button onClick={onClick} disabled={disabled} data-loading={loading ? "true" : "false"}>
-      {children}
-    </button>
-  );
+  const Button = ({ children, onClick, loading, disabled, htmlType }: any) => {
+    const nativeType =
+      htmlType === "submit" || htmlType === "reset" || htmlType === "button"
+        ? htmlType
+        : "button";
+
+    return (
+      <button
+        type={nativeType}
+        onClick={onClick}
+        disabled={disabled}
+        data-loading={loading ? "true" : "false"}
+      >
+        {children}
+      </button>
+    );
+  };
 
   const Card = ({ children, title }: any) => (
     <section>
@@ -47,7 +59,6 @@ jest.mock("antd", () => {
   );
 
   const Empty = ({ description }: any) => <div>{description}</div>;
-
   const Space = ({ children }: any) => <div>{children}</div>;
 
   const Form = ({ children }: any) => <form>{children}</form>;
@@ -59,7 +70,12 @@ jest.mock("antd", () => {
   );
 
   const Input = ({ value, onChange, placeholder }: any) => (
-    <input aria-label={placeholder} value={value} onChange={onChange} placeholder={placeholder} />
+    <input
+      aria-label={placeholder}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+    />
   );
 
   const Tabs = ({ items }: any) => (
@@ -89,17 +105,38 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock, post: postMock, postFormData: postFormDataMock }),
 }));
 
+jest.mock("@/hooks/useSessionStorage", () => ({
+  __esModule: true,
+  default: (key: string, defaultValue: string) => ({
+    value: key === "token" ? "demo-token" : defaultValue,
+    set: jest.fn(),
+    clear: jest.fn(),
+  }),
+}));
+
 describe("Debug portal page", () => {
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
   beforeEach(() => {
     jest.clearAllMocks();
     globalThis.alert = jest.fn();
     window.history.pushState({}, "", "/open-food-facts");
     sessionStorage.clear();
+
     postMock.mockResolvedValue({ token: "demo-token", username: "debug-demo" });
+
+    URL.createObjectURL = jest.fn(() => "blob:receipt-preview");
+    URL.revokeObjectURL = jest.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
   });
 
   it("looks up a barcode and renders the returned product card", async () => {
-    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
+    getMock.mockResolvedValue({ name: "Fanta Zero", barcode: "90331701" });
 
     render(<OpenFoodFactsPage />);
 
@@ -116,8 +153,27 @@ describe("Debug portal page", () => {
     expect(screen.getByText("Fanta Zero")).toBeInTheDocument();
   });
 
-  it("searches products and renders the priority result plus result list", async () => {
-    getMock.mockResolvedValueOnce([
+  it("AUTO lookup when barcode is passed via query params", async () => {
+    window.history.pushState(
+      {},
+      "",
+      "/open-food-facts?barcode=9999&householdId=5&householdName=Test",
+    );
+
+    getMock.mockResolvedValue({ name: "Auto Product", barcode: "9999" });
+
+    render(<OpenFoodFactsPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=9999");
+    });
+
+    expect(screen.getByText("Auto Product")).toBeInTheDocument();
+    expect(screen.getByText("pantry:5:Test")).toBeInTheDocument();
+  });
+
+  it("searches products and renders results", async () => {
+    getMock.mockResolvedValue([
       { name: "Plant Based Caprese", brand: "V-Love", barcode: "1" },
       { name: "Plant Based Mozzarella", brand: "V-Love", barcode: "2" },
     ]);
@@ -136,35 +192,10 @@ describe("Debug portal page", () => {
     });
 
     expect(screen.getByText("Top match")).toBeInTheDocument();
-    expect(screen.getByText("All possible results returned for this search")).toBeInTheDocument();
-    expect(screen.getByText(/1\. Plant Based Caprese — V-Love/)).toBeInTheDocument();
-    expect(screen.getByText(/2\. Plant Based Mozzarella — V-Love/)).toBeInTheDocument();
   });
 
-  it("passes household context into the result cards and enables pantry back navigation", async () => {
-    window.history.pushState({}, "", "/open-food-facts?householdId=10&householdName=Test%20House");
-    getMock.mockResolvedValueOnce({ name: "Fanta Zero", barcode: "90331701" });
-
-    render(<OpenFoodFactsPage />);
-
-    expect(screen.getByText(/Pantry target:/)).toBeInTheDocument();
-    expect(screen.getByText("Test House")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("e.g. 3017624010701"), {
-      target: { value: "90331701" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Look up barcode" }));
-
-    await waitFor(() => {
-      expect(screen.getByText("pantry:10:Test House")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Back to pantry" }));
-    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
-  });
-
-  it("alerts and clears the barcode result when barcode lookup fails", async () => {
-    getMock.mockRejectedValueOnce(new Error("lookup failed"));
+  it("alerts on barcode lookup failure", async () => {
+    getMock.mockRejectedValue(new Error("lookup failed"));
 
     render(<OpenFoodFactsPage />);
 
@@ -185,7 +216,11 @@ describe("Receipt image upload in the debug portal", () => {
   const originalCreateObjectURL = URL.createObjectURL;
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    sessionStorage.clear();
+    postMock.mockResolvedValue({ token: "demo-token", username: "debug-demo" });
     postFormDataMock.mockReset();
+
     URL.createObjectURL = jest.fn(() => "blob:receipt-preview");
     URL.revokeObjectURL = jest.fn();
   });

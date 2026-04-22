@@ -17,23 +17,17 @@ export class ApiService {
         token = null;
       }
     }
+
     const headers: Record<string, string> = {};
     if (includeJsonContentType) {
       headers["Content-Type"] = "application/json";
     }
-    if (token) headers["Authorization"] = token;
+    if (token) {
+      headers["Authorization"] = token;
+    }
     return headers;
   }
 
-  /**
-   * Helper function to check the response, parse JSON,
-   * and throw an error if the response is not OK.
-   *
-   * @param res - The response from fetch.
-   * @param errorMessage - A descriptive error message for this call.
-   * @returns Parsed JSON data.
-   * @throws ApplicationError if res.ok is false.
-   */
   private async processResponse<T>(
     res: Response,
     errorMessage: string,
@@ -48,12 +42,11 @@ export class ApiService {
           errorDetail = JSON.stringify(errorInfo);
         }
       } catch {
-        // If parsing fails, keep using res.statusText
+        // keep statusText
       }
+
       const detailedMessage = `${errorMessage} (${res.status}: ${errorDetail})`;
-      const error: ApplicationError = new Error(
-        detailedMessage,
-      ) as ApplicationError;
+      const error: ApplicationError = new Error(detailedMessage) as ApplicationError;
       error.info = JSON.stringify(
         { status: res.status, statusText: res.statusText },
         null,
@@ -62,16 +55,12 @@ export class ApiService {
       error.status = res.status;
       throw error;
     }
+
     return res.headers.get("Content-Type")?.includes("application/json")
       ? (res.json() as Promise<T>)
       : Promise.resolve(res as T);
   }
 
-  /**
-   * GET request.
-   * @param endpoint - The API endpoint (e.g. "/users").
-   * @returns JSON data of type T.
-   */
   public async get<T>(endpoint: string): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -84,12 +73,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * POST request.
-   * @param endpoint - The API endpoint (e.g. "/users").
-   * @param data - The payload to post.
-   * @returns JSON data of type T.
-   */
   public async post<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -116,12 +99,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * PUT request.
-   * @param endpoint - The API endpoint (e.g. "/users/123").
-   * @param data - The payload to update.
-   * @returns JSON data of type T.
-   */
   public async put<T>(endpoint: string, data: unknown): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {
@@ -135,11 +112,6 @@ export class ApiService {
     );
   }
 
-  /**
-   * DELETE request.
-   * @param endpoint - The API endpoint (e.g. "/users/123").
-   * @returns JSON data of type T.
-   */
   public async delete<T>(endpoint: string): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     const res = await fetch(url, {

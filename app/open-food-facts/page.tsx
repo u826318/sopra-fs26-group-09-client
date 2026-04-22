@@ -40,6 +40,7 @@ export default function OpenFoodFactsPortalPage() {
   const { set: setSessionUsername } = useSessionStorage<string>("username", "");
   const [demoSessionReady, setDemoSessionReady] = useState(false);
   const receiptPreviewUrlRef = useRef<string | null>(null);
+  const hasAutoLookedUpRef = useRef(false);
 
   const [barcode, setBarcode] = useState("");
   const [query, setQuery] = useState("");
@@ -97,12 +98,15 @@ export default function OpenFoodFactsPortalPage() {
 
   useEffect(() => {
     return () => {
-      if (receiptPreviewUrlRef.current) {
+      if (
+        receiptPreviewUrlRef.current &&
+        typeof URL !== "undefined" &&
+        typeof URL.revokeObjectURL === "function"
+      ) {
         URL.revokeObjectURL(receiptPreviewUrlRef.current);
       }
     };
   }, []);
-
 
   useEffect(() => {
     let isMounted = true;
@@ -116,7 +120,11 @@ export default function OpenFoodFactsPortalPage() {
       }
 
       try {
-        const response = await api.post<{ token?: string; username?: string }>("/users/demo-login", {});
+        const response = await api.post<{ token?: string; username?: string }>(
+          "/users/demo-login",
+          {},
+        );
+
         if (!isMounted) {
           return;
         }
@@ -141,13 +149,50 @@ export default function OpenFoodFactsPortalPage() {
     };
   }, [api, sessionToken, setSessionToken, setSessionUsername]);
 
+  useEffect(() => {
+    if (typeof globalThis.window === "undefined" || hasAutoLookedUpRef.current) {
+      return;
+    }
+
+    const params = new URLSearchParams(globalThis.location.search);
+    const barcodeFromQuery = params.get("barcode")?.trim();
+
+    if (!barcodeFromQuery) {
+      return;
+    }
+
+    hasAutoLookedUpRef.current = true;
+    setBarcode(barcodeFromQuery);
+
+    const autoLookup = async () => {
+      setLoading(true);
+      try {
+        const result = await api.get<Product>(
+          `/products/lookup?barcode=${encodeURIComponent(barcodeFromQuery)}`,
+        );
+        setBarcodeResult(result);
+      } catch (error) {
+        setBarcodeResult(null);
+        alert(error instanceof Error ? error.message : "Barcode lookup failed.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void autoLookup();
+  }, [api]);
+
   const resetReceiptState = () => {
     setReceiptError(null);
     setReceiptResult(null);
   };
 
   const setReceiptPreview = (file?: File) => {
-    if (receiptPreviewUrlRef.current) {
+    if (
+      receiptPreviewUrlRef.current &&
+      typeof URL !== "undefined" &&
+      typeof URL.revokeObjectURL === "function"
+    ) {
       URL.revokeObjectURL(receiptPreviewUrlRef.current);
       receiptPreviewUrlRef.current = null;
     }
@@ -161,7 +206,11 @@ export default function OpenFoodFactsPortalPage() {
       return;
     }
 
-    const nextPreviewUrl = URL.createObjectURL(file);
+    const nextPreviewUrl =
+      typeof URL !== "undefined" && typeof URL.createObjectURL === "function"
+        ? URL.createObjectURL(file)
+        : null;
+
     receiptPreviewUrlRef.current = nextPreviewUrl;
     setReceiptFile(file);
     setReceiptPreviewUrl(nextPreviewUrl);
@@ -169,12 +218,19 @@ export default function OpenFoodFactsPortalPage() {
   };
 
   const lookupBarcode = async () => {
+    const barcodeToLookup = barcode.trim();
+    if (!barcodeToLookup) {
+      alert("Please enter a barcode first.");
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await api.get<Product>(
-        `/products/lookup?barcode=${encodeURIComponent(barcode)}`,
+        `/products/lookup?barcode=${encodeURIComponent(barcodeToLookup)}`,
       );
       setBarcodeResult(result);
+      setBarcode(barcodeToLookup);
     } catch (error) {
       setBarcodeResult(null);
       alert(error instanceof Error ? error.message : "Barcode lookup failed.");
@@ -184,10 +240,16 @@ export default function OpenFoodFactsPortalPage() {
   };
 
   const searchProducts = async () => {
+    const trimmedQuery = query.trim();
+    if (!trimmedQuery) {
+      alert("Please enter a product name first.");
+      return;
+    }
+
     setLoading(true);
     try {
       const results = await api.get<Product[]>(
-        `/products/search?q=${encodeURIComponent(query)}&limit=12`,
+        `/products/search?q=${encodeURIComponent(trimmedQuery)}&limit=12`,
       );
       setSearchResults(results);
     } catch (error) {
@@ -211,6 +273,7 @@ export default function OpenFoodFactsPortalPage() {
     try {
       const formData = new FormData();
       formData.append("image", receiptFile);
+
       const result = await api.postFormData<ReceiptAnalysisResult>(
         "/products/receipt/analyze",
         formData,
@@ -218,7 +281,9 @@ export default function OpenFoodFactsPortalPage() {
       setReceiptResult(result);
     } catch (error) {
       setReceiptResult(null);
-      setReceiptError(error instanceof Error ? error.message : "Receipt analysis failed.");
+      setReceiptError(
+        error instanceof Error ? error.message : "Receipt analysis failed.",
+      );
     } finally {
       setReceiptLoading(false);
     }
@@ -284,31 +349,51 @@ export default function OpenFoodFactsPortalPage() {
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card style={{ width: "100%", maxWidth: 1200 }}>
-        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+        <Space direction="vertical" size="large" style={{ width: "100%" }}>
           <Space style={{ width: "100%", justifyContent: "space-between", flexWrap: "wrap" }}>
             <div>
               <Title level={2} style={{ marginBottom: 0 }}>
                 Debug portal
               </Title>
               <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                Public debugging workspace for Open Food Facts lookups, barcode utilities, and
-                Azure receipt extraction. It auto-starts a demo session in session storage so a
-                browser refresh clears it naturally.
+                Public debugging workspace for Open Food Facts lookups, barcode
+                utilities, and Azure receipt extraction. It auto-starts a demo
+                session in session storage so a browser refresh clears it naturally.
               </Paragraph>
               {pantryTarget ? (
                 <Paragraph style={{ marginBottom: 0 }}>
-                  Pantry target: <strong>{pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}</strong>
+                  Pantry target:{" "}
+                  <strong>
+                    {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
+                  </strong>
                 </Paragraph>
               ) : null}
               <Paragraph style={{ marginBottom: 0 }}>
-                Session mode: <strong>{demoSessionReady ? (sessionToken ? "demo token ready" : "guest access") : "starting demo session..."}</strong>
+                Session mode:{" "}
+                <strong>
+                  {demoSessionReady
+                    ? sessionToken
+                      ? "demo token ready"
+                      : "guest access"
+                    : "starting demo session..."}
+                </strong>
               </Paragraph>
             </div>
+
             <Space wrap>
-              <Button onClick={() => router.push("/")}>Home</Button>
-              <Button type="primary" onClick={() => router.push("/users")}>Users</Button>
+              <Button onClick={() => router.push("/")} htmlType="button">
+                Home
+              </Button>
+              <Button
+                type="primary"
+                onClick={() => router.push("/users")}
+                htmlType="button"
+              >
+                Users
+              </Button>
               {pantryTarget ? (
                 <Button
+                  htmlType="button"
                   onClick={() =>
                     router.push(
                       `/households/${pantryTarget.householdId}?name=${encodeURIComponent(
@@ -330,7 +415,7 @@ export default function OpenFoodFactsPortalPage() {
                 key: "barcode",
                 label: "Barcode lookup",
                 children: (
-                  <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
                     <Form layout="vertical">
                       <Form.Item label="Barcode">
                         <Input
@@ -339,7 +424,12 @@ export default function OpenFoodFactsPortalPage() {
                           placeholder="e.g. 3017624010701"
                         />
                       </Form.Item>
-                      <Button type="primary" loading={loading} onClick={() => void lookupBarcode()}>
+                      <Button
+                        type="primary"
+                        loading={loading}
+                        htmlType="button"
+                        onClick={() => void lookupBarcode()}
+                      >
                         Look up barcode
                       </Button>
                     </Form>
@@ -362,7 +452,7 @@ export default function OpenFoodFactsPortalPage() {
                 key: "search",
                 label: "Full-name search",
                 children: (
-                  <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
                     <Form layout="vertical">
                       <Form.Item label="Product full name / search query">
                         <Input
@@ -371,13 +461,18 @@ export default function OpenFoodFactsPortalPage() {
                           placeholder="e.g. plant based caprese"
                         />
                       </Form.Item>
-                      <Button type="primary" loading={loading} onClick={() => void searchProducts()}>
+                      <Button
+                        type="primary"
+                        loading={loading}
+                        htmlType="button"
+                        onClick={() => void searchProducts()}
+                      >
                         Search Open Food Facts
                       </Button>
                     </Form>
 
                     {priorityResult ? (
-                      <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                      <Space direction="vertical" size="large" style={{ width: "100%" }}>
                         <Title level={4} style={{ marginBottom: 0 }}>
                           Priority result
                         </Title>
@@ -418,28 +513,33 @@ export default function OpenFoodFactsPortalPage() {
                 key: "receipt-image",
                 label: "Receipt image upload",
                 children: (
-                  <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                  <Space direction="vertical" size="large" style={{ width: "100%" }}>
                     <Card size="small" title="Upload + confirmation">
-                      <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+                      <Space direction="vertical" size="middle" style={{ width: "100%" }}>
                         <Paragraph style={{ marginBottom: 0 }}>
-                          Pick a receipt image from your device. The image is only previewed in
-                          this session. When you click the analyze button, the file is sent to your
-                          Spring backend, which then calls Azure Document Intelligence.
+                          Pick a receipt image from your device. The image is only
+                          previewed in this session. When you click the analyze
+                          button, the file is sent to your Spring backend, which then
+                          calls Azure Document Intelligence.
                         </Paragraph>
+
                         <input
                           aria-label="Upload receipt image"
                           type="file"
                           accept="image/*"
                           onChange={(event) => setReceiptPreview(event.target.files?.[0])}
                         />
+
                         {receiptFileName ? (
                           <Paragraph style={{ marginBottom: 0 }}>
                             Selected file: <strong>{receiptFileName}</strong>
                           </Paragraph>
                         ) : null}
+
                         <Space wrap>
                           <Button
                             type="primary"
+                            htmlType="button"
                             disabled={!receiptFile}
                             loading={receiptLoading}
                             onClick={() => void analyzeReceipt()}
@@ -447,13 +547,14 @@ export default function OpenFoodFactsPortalPage() {
                             Analyze with Azure receipt model
                           </Button>
                           {receiptPreviewUrl ? (
-                            <Button onClick={() => setReceiptPreview(undefined)}>
+                            <Button htmlType="button" onClick={() => setReceiptPreview(undefined)}>
                               Remove image
                             </Button>
                           ) : null}
                         </Space>
+
                         {receiptError ? (
-                          <Paragraph type="danger" style={{ marginBottom: 0 }}>
+                          <Paragraph style={{ marginBottom: 0, color: "#cf1322" }}>
                             {receiptError}
                           </Paragraph>
                         ) : null}
@@ -477,11 +578,11 @@ export default function OpenFoodFactsPortalPage() {
                     <Card size="small" title="Structured receipt result">
                       {receiptLoading ? (
                         <Paragraph style={{ marginBottom: 0 }}>
-                          Sending the previewed image to Azure and waiting for the structured
-                          receipt result...
+                          Sending the previewed image to Azure and waiting for the
+                          structured receipt result...
                         </Paragraph>
                       ) : receiptResult ? (
-                        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                        <Space direction="vertical" size="large" style={{ width: "100%" }}>
                           <div>
                             <Title level={4}>Store and totals</Title>
                             {renderReceiptSummary(receiptSummary)}
