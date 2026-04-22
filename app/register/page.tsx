@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
@@ -22,6 +23,15 @@ interface RegisterFormValues {
 const Register: React.FC = () => {
   const router = useRouter();
   const apiService = useApi();
+
+  useEffect(() => {
+    try {
+      const token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
+      if (token) router.replace("/households");
+    } catch {
+      // malformed token, stay on register
+    }
+  }, [router]);
   const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");

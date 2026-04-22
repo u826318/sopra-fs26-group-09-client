@@ -26,8 +26,15 @@ const Login: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("reason") === "session_expired") {
       message.warning("Your session has expired. Please log in again.");
+      return;
     }
-  }, [message]);
+    try {
+      const token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
+      if (token) router.replace("/households");
+    } catch {
+      // malformed token, stay on login
+    }
+  }, [message, router]);
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
