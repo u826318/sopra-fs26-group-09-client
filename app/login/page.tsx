@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import useLocalStorage from "@/hooks/useLocalStorage";
@@ -19,15 +19,15 @@ interface LoginFormValues {
 
 const Login: React.FC = () => {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { message } = App.useApp();
   const apiService = useApi();
 
   useEffect(() => {
-    if (searchParams.get("reason") === "session_expired") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reason") === "session_expired") {
       message.warning("Your session has expired. Please log in again.");
     }
-  }, [searchParams, message]);
+  }, [message]);
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
