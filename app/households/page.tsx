@@ -25,10 +25,12 @@ import {
   Typography,
 } from "antd";
 import { PlusCircleOutlined } from "@ant-design/icons";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
 
 export default function HouseholdsPage() {
+  useAuthGuard();
   const router = useRouter();
   const { message } = App.useApp();
 

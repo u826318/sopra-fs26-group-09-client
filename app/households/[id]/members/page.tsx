@@ -8,6 +8,7 @@ import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { Button, Col, Row, Tag, Typography } from "antd";
 import styles from "@/styles/households.module.css";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
 
@@ -24,6 +25,7 @@ function formatDate(value: string): string {
 }
 
 export default function HouseholdMembersPage() {
+  useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();

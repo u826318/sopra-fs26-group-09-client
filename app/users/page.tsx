@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { User } from "@/types/user";
 import { Button, Card, Space, Table } from "antd";
 import type { TableProps } from "antd"; // antd component library allows imports of types
@@ -32,6 +33,7 @@ const columns: TableProps<User>["columns"] = [
 ];
 
 const Dashboard: React.FC = () => {
+  useAuthGuard();
   const router = useRouter();
   const apiService = useApi();
   const [users, setUsers] = useState<User[] | null>(null);

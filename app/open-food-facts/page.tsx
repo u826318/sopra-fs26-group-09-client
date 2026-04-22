@@ -5,6 +5,7 @@ import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
 import { Button, Card, Empty, Form, Input, Space, Typography } from "antd";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
 
@@ -14,6 +15,7 @@ type PantryTarget = {
 };
 
 export default function OpenFoodFactsPortalPage() {
+  useAuthGuard();
   const api = useApi();
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
