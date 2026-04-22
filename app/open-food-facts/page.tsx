@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
@@ -17,9 +18,11 @@ type PantryTarget = {
 export default function OpenFoodFactsPortalPage() {
   useAuthGuard();
   const api = useApi();
+  const router = useRouter();
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
+  const [lookupMessage, setLookupMessage] = useState("");
   const [hasAutoLookedUp, setHasAutoLookedUp] = useState(false);
 
   const pantryTarget = useMemo<PantryTarget | null>(() => {
@@ -39,6 +42,30 @@ export default function OpenFoodFactsPortalPage() {
     };
   }, []);
 
+  const lookupBarcode = async (barcodeValue: string) => {
+    const barcodeToLookup = barcodeValue.trim();
+    if (!barcodeToLookup) {
+      alert("Please enter a barcode first.");
+      return;
+    }
+
+    setLookupMessage("");
+    setLoading(true);
+    try {
+      const result = await api.get<Product>(
+        `/products/lookup?barcode=${encodeURIComponent(barcodeToLookup)}`,
+      );
+      setBarcodeResult(result);
+      setBarcode(barcodeToLookup);
+      setLookupMessage("");
+    } catch (_error) {
+      setBarcodeResult(null);
+      setLookupMessage("Cannot find the item using the barcode.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (typeof globalThis.window === "undefined" || hasAutoLookedUp) {
       return;
@@ -53,109 +80,105 @@ export default function OpenFoodFactsPortalPage() {
 
     setHasAutoLookedUp(true);
     setBarcode(barcodeFromQuery);
-
-    const autoLookup = async () => {
-      setLoading(true);
-      try {
-        const result = await api.get<Product>(
-          `/products/lookup?barcode=${encodeURIComponent(barcodeFromQuery)}`,
-        );
-        setBarcodeResult(result);
-      } catch (error) {
-        setBarcodeResult(null);
-        alert(error instanceof Error ? error.message : "Barcode lookup failed.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void autoLookup();
-  }, [api, hasAutoLookedUp]);
-
-  const lookupBarcode = async () => {
-    const barcodeToLookup = barcode.trim();
-    if (!barcodeToLookup) {
-      alert("Please enter a barcode first.");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const result = await api.get<Product>(
-        `/products/lookup?barcode=${encodeURIComponent(barcodeToLookup)}`,
-      );
-      setBarcodeResult(result);
-      setBarcode(barcodeToLookup);
-    } catch (error) {
-      setBarcodeResult(null);
-      alert(error instanceof Error ? error.message : "Barcode lookup failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    void lookupBarcode(barcodeFromQuery);
+  }, [hasAutoLookedUp]);
 
   return (
     <div className="card-container" style={{ padding: 24 }}>
       <Card style={{ width: "100%", maxWidth: 1200 }}>
         <Space direction="vertical" size="large" style={{ width: "100%" }}>
-          <div>
-            <Title level={2} style={{ marginBottom: 0 }}>
-              Open Food Facts portal
-            </Title>
-            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-              Look up products by barcode through Open Food Facts.
-            </Paragraph>
-            {pantryTarget ? (
-              <Paragraph style={{ marginBottom: 0 }}>
-                Pantry target:{" "}
-                <strong>
-                  {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
-                </strong>
+          <div style={{ display: "grid", gap: 12 }}>
+            <div>
+              <button
+                type="button"
+                onClick={() => router.push("/stats")}
+                style={{
+                  border: "1px solid #d9d0c6",
+                  borderRadius: 999,
+                  padding: "0 18px",
+                  minHeight: 44,
+                  fontSize: 16,
+                  background: "#ffffff",
+                  color: "#1f1f1f",
+                  cursor: "pointer",
+                }}
+              >
+                Back to household page
+              </button>
+            </div>
+
+            <div>
+              <Title level={2} style={{ marginBottom: 0 }}>
+                Product Lookup Portal
+              </Title>
+              <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                Look up a product by barcode.
               </Paragraph>
-            ) : null}
+            </div>
           </div>
 
-          {pantryTarget ? (
-            <Paragraph style={{ marginBottom: 0 }}>
-              This lookup is currently linked to {" "}
-              <strong>
-                {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
-              </strong>
-              . You can add matching products straight into that pantry below.
-            </Paragraph>
+          <div style={{ display: "grid", gap: 12 }}>
+            <label style={{ display: "grid", gap: 8 }}>
+              <span>Barcode</span>
+              <Input
+                value={barcode}
+                onChange={(event) => {
+                  setBarcode(event.target.value);
+                  if (lookupMessage) {
+                    setLookupMessage("");
+                  }
+                }}
+                onPressEnter={() => void lookupBarcode(barcode)}
+                placeholder="e.g. 3017624010701"
+              />
+            </label>
+            <div>
+              <button
+                type="button"
+                onClick={() => void lookupBarcode(barcode)}
+                disabled={loading}
+                style={{
+                  border: "none",
+                  borderRadius: 999,
+                  padding: "0 24px",
+                  minHeight: 52,
+                  fontSize: 18,
+                  color: "#ffffff",
+                  background: loading ? "#9c7b59" : "#106832",
+                  cursor: loading ? "progress" : "pointer",
+                }}
+              >
+                {loading ? "Looking up..." : "Look up barcode"}
+              </button>
+            </div>
+          </div>
+
+          {lookupMessage ? (
+            <div
+              role="alert"
+              style={{
+                padding: "14px 16px",
+                borderRadius: 16,
+                background: "#fff2f0",
+                border: "1px solid #ffccc7",
+                color: "#a8071a",
+                fontSize: 16,
+              }}
+            >
+              {lookupMessage}
+            </div>
           ) : null}
 
-          <Space direction="vertical" size="large" style={{ width: "100%" }}>
-            <Form layout="vertical">
-              <Form.Item label="Barcode">
-                <Input
-                  value={barcode}
-                  onChange={(event) => setBarcode(event.target.value)}
-                  placeholder="e.g. 3017624010701"
-                />
-              </Form.Item>
-              <Button
-                type="primary"
-                loading={loading}
-                htmlType="button"
-                onClick={() => void lookupBarcode()}
-              >
-                Look up barcode
-              </Button>
-            </Form>
-
-            {barcodeResult ? (
-              <ProductResultCard
-                product={barcodeResult}
-                label="Barcode result"
-                rawTitle="All raw product fields returned by the API"
-                exportContext="Open Food Facts API barcode lookup"
-                pantryContext={pantryTarget ?? undefined}
-              />
-            ) : (
-              <Empty description="No barcode result yet." />
-            )}
-          </Space>
+          {barcodeResult ? (
+            <ProductResultCard
+              product={barcodeResult}
+              rawTitle=""
+              exportContext="Product lookup"
+              pantryContext={pantryTarget ?? undefined}
+            />
+          ) : lookupMessage ? null : (
+            <Empty description="No product loaded yet." />
+          )}
         </Space>
       </Card>
     </div>

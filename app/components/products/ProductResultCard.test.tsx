@@ -2,68 +2,16 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductResultCard from "@/components/products/ProductResultCard";
 
-const exportProductAsTextMock = jest.fn();
 const postMock = jest.fn();
 
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ post: postMock }),
 }));
 
-jest.mock("@/utils/productExport", () => ({
-  exportProductAsText: (...args: any[]) => exportProductAsTextMock(...args),
-}));
-
 jest.mock("antd", () => {
-  const Button = ({ children, onClick }: any) => <button onClick={onClick}>{children}</button>;
-  const Tag = ({ children }: any) => <span>{children}</span>;
-  const Empty = ({ description }: any) => <div>{description}</div>;
   const Image = ({ alt }: any) => <img alt={alt} />;
-  const Space = ({ children }: any) => <div>{children}</div>;
-
-  const Card = ({ children, title }: any) => (
-    <div>
-      <div>{title}</div>
-      <div>{children}</div>
-    </div>
-  );
-
-  const Descriptions: any = ({ children }: any) => <div>{children}</div>;
-  Descriptions.Item = ({ label, children }: any) => (
-    <div>
-      <strong>{label}</strong>
-      <span>{children}</span>
-    </div>
-  );
-
-  const Table = ({ dataSource }: any) => (
-    <table>
-      <tbody>
-        {dataSource.map((row: any) => (
-          <tr key={row.key}>
-            <td>{row.name}</td>
-            <td>{row.value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  const Collapse = ({ items }: any) => (
-    <div>
-      {items.map((item: any) => (
-        <div key={item.key}>
-          <div>{item.label}</div>
-          <div>{item.children}</div>
-        </div>
-      ))}
-    </div>
-  );
-
-  const Typography = {
-    Text: ({ children, strong }: any) => (strong ? <strong>{children}</strong> : <span>{children}</span>),
-  };
-
-  return { Button, Card, Collapse, Descriptions, Empty, Image, Space, Table, Tag, Typography };
+  const Card = ({ children }: any) => <div>{children}</div>;
+  return { Card, Image };
 });
 
 describe("ProductResultCard", () => {
@@ -72,92 +20,32 @@ describe("ProductResultCard", () => {
     name: "Plant Based Caprese",
     brand: "V-Love",
     quantity: "180 g",
-    servingSize: "100 g",
     imageUrl: "https://example.com/image.jpg",
-    productUrl: "https://example.com/product",
-    nutriScore: "b",
-    stores: ["Migros"],
-    storeTags: ["migros"],
-    purchasePlaces: ["Zurich"],
     nutriments: {
-      proteins_100g: 12,
-      random_field: "abc",
       "energy-kcal_100g": 220,
-    },
-    nutriScoreData: {
-      score: 5,
-    },
-    rawProduct: {
-      code: "123456789",
     },
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.alert = jest.fn();
   });
 
-  it("renders the key product information and nutrition rows", () => {
+  it("renders only the streamlined product information", () => {
     render(
       <ProductResultCard
         product={product}
-        label="Top match"
         rawTitle="All raw product fields returned by the API"
         exportContext="Search export"
       />,
     );
 
     expect(screen.getByText("Plant Based Caprese")).toBeInTheDocument();
-    expect(screen.getByText("Top match")).toBeInTheDocument();
-    const productLink = screen.getByRole("link", { name: "https://example.com/product" });
-    expect(productLink).toBeInTheDocument();
-    expect(productLink).toHaveAttribute("href", "https://example.com/product");
-    expect(screen.getByText("Migros")).toBeInTheDocument();
-    expect(screen.getByText("energy-kcal_100g")).toBeInTheDocument();
-    expect(screen.getByText("220")).toBeInTheDocument();
-    expect(screen.getByText("proteins_100g")).toBeInTheDocument();
-    expect(screen.getByText("abc")).toBeInTheDocument();
-    expect(screen.getByText("Nutri-Score computation data")).toBeInTheDocument();
-  });
-
-  it("exports the product when the export button is clicked", () => {
-    render(
-      <ProductResultCard
-        product={product}
-        label="Top match"
-        rawTitle="All raw product fields returned by the API"
-        exportContext="Search export"
-      />,
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "Export full return as TXT" }));
-
-    expect(exportProductAsTextMock).toHaveBeenCalledWith(product, "Search export");
-  });
-
-  it("shows placeholders when optional fields are missing and no nutrition is returned", () => {
-    render(
-      <ProductResultCard
-        product={{
-          ...product,
-          barcode: null,
-          brand: null,
-          quantity: null,
-          servingSize: null,
-          imageUrl: null,
-          productUrl: null,
-          nutriScore: null,
-          stores: [],
-          storeTags: [],
-          purchasePlaces: [],
-          nutriments: null,
-        }}
-        rawTitle="Raw fields"
-        exportContext="Empty export"
-      />,
-    );
-
-    expect(screen.getByText("No nutrition fields were returned for this item.")).toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
+    expect(screen.getByText("Brand: V-Love")).toBeInTheDocument();
+    expect(screen.getByText("Barcode: 123456789")).toBeInTheDocument();
+    expect(screen.getByText("kcal / package (est.): 396")).toBeInTheDocument();
+    expect(screen.queryByText("Export full return as TXT")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nutri-Score computation data")).not.toBeInTheDocument();
   });
 
   it("posts a pantry item successfully when the pantry form is submitted", async () => {
@@ -182,9 +70,7 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    expect(screen.getByDisplayValue("396")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("Package count"), {
+    fireEvent.change(screen.getByLabelText("Quantity to add"), {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
@@ -201,10 +87,56 @@ describe("ProductResultCard", () => {
     expect(onPantryItemAdded).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7, householdId: 10 }),
     );
-    expect(screen.getByText("Plant Based Caprese was added to Test House.")).toBeInTheDocument();
+    expect(globalThis.alert).not.toHaveBeenCalledWith("Plant Based Caprese was added to Test House.");
+    expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to Test House.");
   });
 
-  it("shows a validation error and does not submit when package count is invalid", async () => {
+
+  it("uses the householdId from the URL when pantryContext is not passed", async () => {
+    const originalLocation = globalThis.location;
+    Object.defineProperty(globalThis, "location", {
+      value: { search: "?householdId=12&householdName=URL%20House" },
+      configurable: true,
+    });
+
+    postMock.mockResolvedValueOnce({
+      id: 8,
+      householdId: 12,
+      barcode: "123456789",
+      name: "Plant Based Caprese",
+      kcalPerPackage: 396,
+      count: 1,
+      addedAt: "2026-04-12T10:00:00Z",
+    });
+
+    render(
+      <ProductResultCard
+        product={product}
+        rawTitle="Raw fields"
+        exportContext="Pantry export"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/12/pantry", {
+        barcode: "123456789",
+        name: "Plant Based Caprese",
+        quantity: 1,
+        kcalPerPackage: 396,
+      });
+    });
+
+    expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to URL House.");
+
+    Object.defineProperty(globalThis, "location", {
+      value: originalLocation,
+      configurable: true,
+    });
+  });
+
+  it("shows a validation error and does not submit when quantity is invalid", async () => {
     render(
       <ProductResultCard
         product={product}
@@ -214,13 +146,13 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Package count"), {
+    fireEvent.change(screen.getByLabelText("Quantity to add"), {
       target: { value: "0" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
 
     expect(postMock).not.toHaveBeenCalled();
-    expect(screen.getByText("Package count must be at least 1.")).toBeInTheDocument();
+    expect(globalThis.alert).toHaveBeenCalledWith("Quantity to add must be at least 1.");
   });
 
   it("shows the API error when adding the pantry item fails", async () => {
@@ -238,7 +170,7 @@ describe("ProductResultCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
 
     await waitFor(() => {
-      expect(screen.getByText("backend exploded")).toBeInTheDocument();
+      expect(globalThis.alert).toHaveBeenCalledWith("backend exploded");
     });
   });
 });
