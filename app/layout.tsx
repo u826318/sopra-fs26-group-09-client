@@ -58,6 +58,9 @@ export default function RootLayout({
                 algorithm: theme.defaultAlgorithm, // specify a specifc algorithm instead of true/false
               },
               Card: {},
+          Message: {
+            colorText: "#1f2d1f",
+          },
             },
           }}
         >

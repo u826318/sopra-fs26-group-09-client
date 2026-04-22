@@ -8,6 +8,7 @@ import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { Button, Col, Row, Tag, Typography } from "antd";
 import styles from "@/styles/households.module.css";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
 
@@ -24,6 +25,7 @@ function formatDate(value: string): string {
 }
 
 export default function HouseholdMembersPage() {
+  const { isAuthenticated } = useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
@@ -43,6 +45,7 @@ export default function HouseholdMembersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     if (!Number.isFinite(householdId) || householdId <= 0) {
       setErrorMessage("Invalid household ID.");
       setIsLoading(false);
@@ -63,7 +66,7 @@ export default function HouseholdMembersPage() {
     };
     void fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [householdId]);
+  }, [householdId, isAuthenticated]);
 
   return (
     <VirtualPantryAppShell activeNav="households">

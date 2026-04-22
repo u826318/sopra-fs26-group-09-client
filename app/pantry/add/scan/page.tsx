@@ -25,6 +25,7 @@ import {
   UploadOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -38,6 +39,7 @@ type BarcodeExtractionResponse = {
 };
 
 export default function PantryScanPage() {
+  useAuthGuard();
   const router = useRouter();
   const api = useApi();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);

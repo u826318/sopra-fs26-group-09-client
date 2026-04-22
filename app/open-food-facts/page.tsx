@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
-import { Card, Empty, Input, Space, Typography } from "antd";
+import { Button, Card, Empty, Form, Input, Space, Typography } from "antd";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
 
@@ -14,7 +15,8 @@ type PantryTarget = {
   householdName?: string;
 };
 
-export default function ProductLookupPortalPage() {
+export default function OpenFoodFactsPortalPage() {
+  useAuthGuard();
   const api = useApi();
   const router = useRouter();
   const [barcode, setBarcode] = useState("");

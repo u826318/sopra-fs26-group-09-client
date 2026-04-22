@@ -27,6 +27,7 @@ import {
   InboxOutlined,
   FireOutlined,
 } from "@ant-design/icons";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -44,6 +45,7 @@ function formatNumber(value: number): string {
 }
 
 export default function HouseholdPantryPage() {
+  const { isAuthenticated } = useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const api = useApi();
@@ -104,8 +106,9 @@ export default function HouseholdPantryPage() {
   }, [api, householdId]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void fetchPantry();
-  }, [fetchPantry]);
+  }, [fetchPantry, isAuthenticated]);
 
   const totalItemCount = useMemo(() => {
     if (!overview) {

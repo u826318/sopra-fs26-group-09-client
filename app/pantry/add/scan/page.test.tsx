@@ -6,6 +6,10 @@ import PantryScanPage from "@/pantry/add/scan/page";
 const pushMock = jest.fn();
 const postFormDataMock = jest.fn();
 
+jest.mock("@/hooks/useAuthGuard", () => ({
+  useAuthGuard: () => ({ isAuthenticated: true }),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));

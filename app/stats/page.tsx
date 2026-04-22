@@ -39,6 +39,7 @@ import type { ConsumptionLogEntry } from "@/types/consumption";
 import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
 import type { HouseholdStats } from "@/types/stats";
 import statsStyles from "@/styles/stats.module.css";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -102,6 +103,7 @@ function inferCategory(name: string): { label: string; color: string } {
 }
 
 export default function StatsPage() {
+  const { isAuthenticated } = useAuthGuard();
   const api = useApi();
   const router = useRouter();
   const { message } = App.useApp();
@@ -179,10 +181,10 @@ export default function StatsPage() {
   }, [api, message, selectedHouseholdId, startDate]);
 
   useEffect(() => {
-    if (selectedHouseholdId && startDate) {
+    if (isAuthenticated && selectedHouseholdId && startDate) {
       void loadDashboard();
     }
-  }, [loadDashboard, selectedHouseholdId, startDate]);
+  }, [isAuthenticated, loadDashboard, selectedHouseholdId, startDate]);
 
   const todayStr = dayjs().format("YYYY-MM-DD");
   const dailyGoal = stats?.dailyCalorieTarget ?? budgetRecord?.dailyCalorieTarget ?? null;

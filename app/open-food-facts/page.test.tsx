@@ -39,6 +39,10 @@ jest.mock("antd", () => {
   return { Card, Empty, Input, Space, Typography };
 });
 
+jest.mock("@/hooks/useAuthGuard", () => ({
+  useAuthGuard: () => ({ isAuthenticated: true }),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
