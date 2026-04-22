@@ -92,13 +92,6 @@ export default function Home() {
           >
             Go to register
           </Button>
-          <Button
-            type="primary"
-            variant="solid"
-            onClick={() => router.push("/open-food-facts")}
-          >
-            Debug portal
-          </Button>
         </div>
       </main>
       <footer className={styles.footer}>
