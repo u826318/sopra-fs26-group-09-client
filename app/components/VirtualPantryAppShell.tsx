@@ -26,8 +26,8 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
   const { message } = App.useApp();
   const { clear: clearToken } = useSessionStorage<string>("token", "");
   const { clear: clearUsername } = useSessionStorage<string>("username", "");
-  const { value: households } = useSessionStorage<HouseholdWithRole[]>("households", []);
-  const { value: selectedHouseholdId, set: setSelectedHouseholdId } = useSessionStorage<
+  const { value: households, clear: clearHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { value: selectedHouseholdId, set: setSelectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<
     number | null
   >("selectedHouseholdId", null);
   const { value: username } = useSessionStorage<string>("username", "");
@@ -52,6 +52,8 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
   const handleLogout = () => {
     clearToken();
     clearUsername();
+    clearHouseholds();
+    clearSelectedHouseholdId();
     router.push("/login");
   };
 
