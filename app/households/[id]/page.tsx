@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
 import {
@@ -21,6 +23,7 @@ import {
 import type { TableProps } from "antd";
 import {
   ArrowLeftOutlined,
+  BarChartOutlined,
   ReloadOutlined,
   SearchOutlined,
   CameraOutlined,
@@ -51,6 +54,7 @@ export default function HouseholdPantryPage() {
   const api = useApi();
 
   const { value: username } = useLocalStorage<string>("username", "");
+  const { value: token } = useSessionStorage<string>("token", "");
   const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>(
     "households",
     [],
@@ -109,6 +113,14 @@ export default function HouseholdPantryPage() {
     if (!isAuthenticated) return;
     void fetchPantry();
   }, [fetchPantry, isAuthenticated]);
+
+  const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
+    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    token,
+    onMessage: () => {
+      void fetchPantry();
+    },
+  });
 
   const totalItemCount = useMemo(() => {
     if (!overview) {
@@ -264,6 +276,13 @@ export default function HouseholdPantryPage() {
                   >
                     Refresh pantry
                   </Button>
+                  <Button
+                    icon={<BarChartOutlined />}
+                    size="large"
+                    onClick={() => router.push(`/households/${householdId}/stats`)}
+                  >
+                    View stats
+                  </Button>
                 </Space>
               </Space>
 
@@ -273,6 +292,15 @@ export default function HouseholdPantryPage() {
                   showIcon
                   message="Pantry data could not be loaded"
                   description={errorMessage}
+                />
+              ) : null}
+
+              {hasConnectedOnce && !wsConnected && !isLoading ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="Real-time connection lost"
+                  description="Live pantry updates are paused. Reconnecting automatically — or refresh manually."
                 />
               ) : null}
 

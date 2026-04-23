@@ -22,15 +22,18 @@ import {
 } from "antd";
 import type { TableProps } from "antd";
 import {
+  ArrowLeftOutlined,
   EditOutlined,
   MinusCircleOutlined,
   RestOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
@@ -106,15 +109,25 @@ export default function StatsPage() {
   const { isAuthenticated } = useAuthGuard();
   const api = useApi();
   const router = useRouter();
+  const params = useParams<{ id: string }>();
   const { message } = App.useApp();
 
-  const { value: selectedHouseholdId } = useLocalStorage<number | null>("selectedHouseholdId", null);
+  const householdId = Number(params.id);
+
+  const { value: token } = useSessionStorage<string>("token", "");
   const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
-  const householdRole = useMemo(() => {
-    if (!selectedHouseholdId) return null;
-    return cachedHouseholds.find((h) => h.householdId === selectedHouseholdId)?.role ?? null;
-  }, [cachedHouseholds, selectedHouseholdId]);
+  const householdName = useMemo(
+    () =>
+      cachedHouseholds.find((h) => h.householdId === householdId)?.name ??
+      `Household ${householdId}`,
+    [cachedHouseholds, householdId],
+  );
+
+  const householdRole = useMemo(
+    () => cachedHouseholds.find((h) => h.householdId === householdId)?.role ?? null,
+    [cachedHouseholds, householdId],
+  );
   const isOwner = householdRole === "owner";
 
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
@@ -138,7 +151,7 @@ export default function StatsPage() {
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   const loadDashboard = useCallback(async () => {
-    if (!selectedHouseholdId || !startDate) {
+    if (!householdId || !startDate) {
       return;
     }
 
@@ -148,12 +161,12 @@ export default function StatsPage() {
     setLoading(true);
     try {
       const [pantryRes, statsRes, logsRes] = await Promise.all([
-        api.get<PantryOverview>(`/households/${selectedHouseholdId}/pantry`),
+        api.get<PantryOverview>(`/households/${householdId}/pantry`),
         api.get<HouseholdStats>(
-          `/households/${selectedHouseholdId}/stats?startDate=${startStr}&endDate=${endStr}`,
+          `/households/${householdId}/stats?startDate=${startStr}&endDate=${endStr}`,
         ),
         api.get<ConsumptionLogEntry[]>(
-          `/households/${selectedHouseholdId}/consumption-logs?limit=30`,
+          `/households/${householdId}/consumption-logs?limit=30`,
         ),
       ]);
       setPantry(pantryRes);
@@ -161,7 +174,7 @@ export default function StatsPage() {
       setActivity(logsToActivity(logsRes));
 
       try {
-        const b = await api.get<HouseholdBudget>(`/households/${selectedHouseholdId}/budget`);
+        const b = await api.get<HouseholdBudget>(`/households/${householdId}/budget`);
         setBudgetRecord(b);
       } catch (error) {
         if (isNotFound(error)) {
@@ -179,28 +192,36 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, message, selectedHouseholdId, startDate]);
+  }, [api, message, householdId, startDate]);
 
   useEffect(() => {
-    if (!selectedHouseholdId || !cachedHouseholds.length) return;
-    if (initializedForHousehold.current === selectedHouseholdId) return;
-    initializedForHousehold.current = selectedHouseholdId;
+    if (!householdId || !cachedHouseholds.length) return;
+    if (initializedForHousehold.current === householdId) return;
+    initializedForHousehold.current = householdId;
 
     const sevenDaysAgo = dayjs().subtract(7, "day").startOf("day");
-    const household = cachedHouseholds.find((h) => h.householdId === selectedHouseholdId);
+    const household = cachedHouseholds.find((h) => h.householdId === householdId);
     if (household?.createdAt) {
       const created = dayjs(household.createdAt).startOf("day");
       setStartDate(created.isAfter(sevenDaysAgo) ? created : sevenDaysAgo);
     } else {
       setStartDate(sevenDaysAgo);
     }
-  }, [selectedHouseholdId, cachedHouseholds]);
+  }, [householdId, cachedHouseholds]);
 
   useEffect(() => {
-    if (isAuthenticated && selectedHouseholdId && startDate) {
+    if (isAuthenticated && householdId && startDate) {
       void loadDashboard();
     }
-  }, [isAuthenticated, loadDashboard, selectedHouseholdId, startDate]);
+  }, [isAuthenticated, loadDashboard, householdId, startDate]);
+
+  usePantryWebSocket({
+    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    token,
+    onMessage: () => {
+      void loadDashboard();
+    },
+  });
 
   const todayStr = dayjs().format("YYYY-MM-DD");
   const dailyGoal = stats?.dailyCalorieTarget ?? budgetRecord?.dailyCalorieTarget ?? null;
@@ -229,11 +250,10 @@ export default function StatsPage() {
   };
 
   const submitBudget = async () => {
-    if (!selectedHouseholdId) return;
     const values = await budgetForm.validateFields();
     setSavingBudget(true);
     try {
-      const updated = await api.put<HouseholdBudget>(`/households/${selectedHouseholdId}/budget`, {
+      const updated = await api.put<HouseholdBudget>(`/households/${householdId}/budget`, {
         dailyCalorieTarget: values.dailyCalorieTarget,
       });
       setBudgetRecord(updated);
@@ -258,7 +278,6 @@ export default function StatsPage() {
   };
 
   const submitConsumption = async () => {
-    if (!selectedHouseholdId) return;
     const values = await consumeForm.validateFields();
     const item = pantry?.items.find((i) => i.id === values.itemId);
     if (!item) {
@@ -272,7 +291,7 @@ export default function StatsPage() {
     setConsuming(true);
     try {
       const res = await api.post<ConsumePantryItemResponse>(
-        `/households/${selectedHouseholdId}/pantry/${values.itemId}/consume`,
+        `/households/${householdId}/pantry/${values.itemId}/consume`,
         { quantity: values.quantity },
       );
       message.success(
@@ -281,7 +300,6 @@ export default function StatsPage() {
           : "Consumption recorded.",
       );
       setConsumeModalOpen(false);
-
       await loadDashboard();
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Could not record consumption.");
@@ -351,8 +369,16 @@ export default function StatsPage() {
   return (
     <VirtualPantryAppShell activeNav="pantry">
       <div className={statsStyles.pageHeader}>
+        <Space style={{ marginBottom: 12 }}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={() => router.push(`/households/${householdId}`)}
+          >
+            Back to pantry
+          </Button>
+        </Space>
         <Title level={2} className={statsStyles.pageTitle}>
-          Pantry Overview
+          {householdName} — Overview
         </Title>
         <Paragraph className={statsStyles.pageSubtitle}>
           Energy reservoir, consumption flow, and budget control — with current inventory and a record of
@@ -361,11 +387,7 @@ export default function StatsPage() {
       </div>
 
       <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-        {!selectedHouseholdId ? (
-          <div className={statsStyles.emptyWrap}>
-            <Empty description="No household selected. Open Households and pick one first." />
-          </div>
-        ) : loading && !stats ? (
+        {loading && !stats ? (
           <Card className={statsStyles.spinCard}>
             <Spin size="large" />
           </Card>
@@ -513,21 +535,17 @@ export default function StatsPage() {
                   className={statsStyles.panelCard}
                   title="Current inventory"
                   extra={
-                    selectedHouseholdId ? (
-                      <Button
-                        type="primary"
-                        size="small"
-                        onClick={() =>
-                          router.push(
-                            `/open-food-facts?householdId=${selectedHouseholdId}&householdName=${encodeURIComponent(
-                              cachedHouseholds.find((h) => h.householdId === selectedHouseholdId)?.name ?? `Household ${selectedHouseholdId}`,
-                            )}`,
-                          )
-                        }
-                      >
-                        Add from Open Food Facts
-                      </Button>
-                    ) : null
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={() =>
+                        router.push(
+                          `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                        )
+                      }
+                    >
+                      Add from Open Food Facts
+                    </Button>
                   }
                   variant="borderless"
                 >
@@ -639,7 +657,7 @@ export default function StatsPage() {
               },
             ]}
           >
-            <InputNumber min={1} max={50000} style={{ width: "100%" }} addonAfter="kcal / day" />
+            <InputNumber min={1} max={50000} style={{ width: "100%" }} suffix="kcal / day" />
           </Form.Item>
         </Form>
       </Modal>

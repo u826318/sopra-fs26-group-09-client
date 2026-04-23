@@ -130,7 +130,11 @@ export default function OpenFoodFactsPortalPage() {
             <div className={styles.lookupActions}>
               <Button
                 className={styles.secondaryBtn}
-                onClick={() => router.push("/stats")}
+                onClick={() =>
+                  pantryTarget
+                    ? router.push(`/households/${pantryTarget.householdId}/stats`)
+                    : router.push("/households")
+                }
               >
                 Back to household page
               </Button>

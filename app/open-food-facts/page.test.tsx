@@ -142,6 +142,6 @@ describe("Open Food Facts page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back to household page" }));
 
-    expect(pushMock).toHaveBeenCalledWith("/stats");
+    expect(pushMock).toHaveBeenCalledWith("/households");
   });
 });

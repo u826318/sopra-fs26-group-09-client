@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import StatsPage from "@/stats/page";
+import StatsPage from "@/households/[id]/stats/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
@@ -17,6 +17,7 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
+  useParams: () => ({ id: "1" }),
 }));
 
 jest.mock("@/components/VirtualPantryAppShell", () => ({
@@ -29,12 +30,18 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock, put: putMock }),
 }));
 
+jest.mock("@/hooks/useSessionStorage", () => ({
+  __esModule: true,
+  default: () => ({ value: "test-token", set: jest.fn(), clear: jest.fn() }),
+}));
+
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: () => ({ connected: true, hasConnectedOnce: true }),
+}));
+
 jest.mock("@/hooks/useLocalStorage", () => ({
   __esModule: true,
   default: (key: string) => {
-    if (key === "selectedHouseholdId") {
-      return { value: 1, set: jest.fn(), clear: jest.fn() };
-    }
     if (key === "households") {
       return {
         value: [
@@ -56,6 +63,7 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 }));
 
 jest.mock("@ant-design/icons", () => ({
+  ArrowLeftOutlined: () => <span data-testid="arrow-left-icon" />,
   EditOutlined: () => <span data-testid="edit-icon" />,
   WarningOutlined: () => <span data-testid="warn-icon" />,
   RestOutlined: () => <span data-testid="rest-icon" />,
@@ -213,13 +221,13 @@ describe("StatsPage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Pantry Overview/i)).toBeInTheDocument();
+      expect(screen.getByText(/Pantry Overview|Test Home/i)).toBeInTheDocument();
       expect(screen.getByText(/142[, ]500 kcal/i)).toBeInTheDocument();
       expect(screen.getByText(/2[, ]450 kcal \/ day/i)).toBeInTheDocument();
     });
   });
 
-  it("shows Add from Open Food Facts button when pantry is empty", async () => {
+  it("shows Add from Open Food Facts button", async () => {
     getMock.mockImplementation((url: string) => {
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
