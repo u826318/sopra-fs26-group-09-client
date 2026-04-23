@@ -35,7 +35,7 @@ const Login: React.FC = () => {
     }
     if (!token) return;
 
-    apiService.get("/households")
+    apiService.get("/users/me")
       .then(() => router.replace("/households"))
       .catch((error: unknown) => {
         if ((error as { status?: number })?.status === 401) {

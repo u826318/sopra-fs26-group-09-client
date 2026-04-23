@@ -101,7 +101,7 @@ describe("Login page", () => {
     render(<Login />);
 
     await waitFor(() => {
-      expect(getMock).toHaveBeenCalledWith("/households");
+      expect(getMock).toHaveBeenCalledWith("/users/me");
       expect(replaceMock).toHaveBeenCalledWith("/households");
     });
   });
