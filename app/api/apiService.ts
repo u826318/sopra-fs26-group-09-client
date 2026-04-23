@@ -35,8 +35,11 @@ export class ApiService {
   ): Promise<T> {
     if (!res.ok) {
       if (res.status === 401 && typeof window !== "undefined") {
+        const hadToken = sessionStorage.getItem("token") !== null;
         sessionStorage.removeItem("token");
-        navigateTo("/login?reason=session_expired");
+        if (hadToken) {
+          navigateTo("/login?reason=session_expired");
+        }
         return new Promise<never>(() => {});
       }
 
