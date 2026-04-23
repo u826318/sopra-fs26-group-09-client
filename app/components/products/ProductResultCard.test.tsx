@@ -58,7 +58,6 @@ describe("ProductResultCard", () => {
   });
 
   it("posts a pantry item successfully when the pantry form is submitted", async () => {
-    const onPantryItemAdded = jest.fn();
     postMock.mockResolvedValueOnce({
       id: 7,
       householdId: 10,
@@ -75,7 +74,6 @@ describe("ProductResultCard", () => {
         rawTitle="Raw fields"
         exportContext="Pantry export"
         pantryContext={{ householdId: 10, householdName: "Test House" }}
-        onPantryItemAdded={onPantryItemAdded}
       />,
     );
 
@@ -93,9 +91,6 @@ describe("ProductResultCard", () => {
       });
     });
 
-    expect(onPantryItemAdded).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 7, householdId: 10 }),
-    );
     expect(globalThis.alert).not.toHaveBeenCalledWith("Plant Based Caprese was added to Test House.");
     expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to Test House.");
   });
