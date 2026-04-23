@@ -50,7 +50,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({
               </p>
             </article>
           </div>
-          <p className={styles.leftFooter}>THE DIGITAL CONSERVATORY © 2024</p>
+          <p className={styles.leftFooter}>THE DIGITAL CONSERVATORY © 2026</p>
         </section>
 
         <section className={styles.rightPanel}>
