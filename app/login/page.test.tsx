@@ -3,7 +3,9 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Login from "@/login/page";
 
 const pushMock = jest.fn();
+const replaceMock = jest.fn();
 const postMock = jest.fn();
+const getMock = jest.fn();
 const setTokenMock = jest.fn();
 const messageMock = { warning: jest.fn(), error: jest.fn(), success: jest.fn() };
 
@@ -54,12 +56,12 @@ jest.mock("antd", () => {
 });
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, replace: replaceMock }),
   useSearchParams: () => ({ get: () => null }),
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ post: postMock, get: jest.fn().mockResolvedValue([]) }),
+  useApi: () => ({ post: postMock, get: getMock }),
 }));
 
 jest.mock("@/hooks/useSessionStorage", () => ({
@@ -75,6 +77,8 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 describe("Login page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    sessionStorage.clear();
+    getMock.mockResolvedValue([]);
     globalThis.alert = jest.fn();
   });
 
@@ -82,6 +86,42 @@ describe("Login page", () => {
     render(<Login />);
     expect(screen.getByRole("heading", { name: "Welcome Back" })).toBeInTheDocument();
     expect(screen.getAllByRole("button")[0]).toBeInTheDocument();
+  });
+
+  it("redirects to households when existing token is valid", async () => {
+    sessionStorage.setItem("token", JSON.stringify("valid-token"));
+    getMock.mockResolvedValueOnce([]);
+
+    render(<Login />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households");
+      expect(replaceMock).toHaveBeenCalledWith("/households");
+    });
+  });
+
+  it("clears token and stays on login when existing token returns 401", async () => {
+    sessionStorage.setItem("token", JSON.stringify("expired-token"));
+    getMock.mockRejectedValueOnce({ status: 401 });
+
+    render(<Login />);
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem("token")).toBeNull();
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it("keeps token and stays on login when server error occurs", async () => {
+    sessionStorage.setItem("token", JSON.stringify("valid-token"));
+    getMock.mockRejectedValueOnce({ status: 500 });
+
+    render(<Login />);
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem("token")).not.toBeNull();
+      expect(replaceMock).not.toHaveBeenCalled();
+    });
   });
 
   it("submits credentials and navigates on success", async () => {
