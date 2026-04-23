@@ -5,6 +5,7 @@ import Register from "@/register/page";
 const pushMock = jest.fn();
 const postMock = jest.fn();
 const setTokenMock = jest.fn();
+const messageMock = { warning: jest.fn(), error: jest.fn(), success: jest.fn() };
 
 jest.mock("antd", () => {
   const Form = ({ children, onFinish }: any) => (
@@ -51,7 +52,9 @@ jest.mock("antd", () => {
     );
   };
 
-  return { Button, Checkbox, Form, Input };
+  const App = { useApp: () => ({ message: messageMock }) };
+
+  return { App, Button, Checkbox, Form, Input };
 });
 
 jest.mock("next/navigation", () => ({
@@ -107,7 +110,7 @@ describe("Register page", () => {
     fireEvent.submit(container.querySelector("form")!);
 
     await waitFor(() => {
-      expect(globalThis.alert).toHaveBeenCalledWith(
+      expect(messageMock.error).toHaveBeenCalledWith(
         "This username is already taken. Please choose another one.",
       );
     });

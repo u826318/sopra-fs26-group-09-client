@@ -9,7 +9,7 @@ import type { HouseholdWithRole } from "@/types/household";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getRegisterErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
-import { Button, Checkbox, Form, Input } from "antd";
+import { App, Button, Checkbox, Form, Input } from "antd";
 import styles from "@/styles/auth.module.css";
 
 interface RegisterFormValues {
@@ -22,6 +22,7 @@ interface RegisterFormValues {
 
 const Register: React.FC = () => {
   const router = useRouter();
+  const { message } = App.useApp();
   const apiService = useApi();
 
   useEffect(() => {
@@ -58,7 +59,7 @@ const Register: React.FC = () => {
 
       router.push("/households");
     } catch (error) {
-      alert(getRegisterErrorMessage(error));
+      message.error(getRegisterErrorMessage(error));
     }
   };
 

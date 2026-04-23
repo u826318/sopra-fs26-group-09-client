@@ -61,7 +61,7 @@ const Login: React.FC = () => {
 
       router.push("/households");
     } catch (error) {
-      alert(getLoginErrorMessage(error));
+      message.error(getLoginErrorMessage(error));
     }
   };
 

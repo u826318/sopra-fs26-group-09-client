@@ -5,6 +5,7 @@ import Login from "@/login/page";
 const pushMock = jest.fn();
 const postMock = jest.fn();
 const setTokenMock = jest.fn();
+const messageMock = { warning: jest.fn(), error: jest.fn(), success: jest.fn() };
 
 jest.mock("antd", () => {
   const Form = ({ children, onFinish }: any) => (
@@ -46,7 +47,7 @@ jest.mock("antd", () => {
   };
 
   const App = {
-    useApp: () => ({ message: { warning: jest.fn(), error: jest.fn(), success: jest.fn() } }),
+    useApp: () => ({ message: messageMock }),
   };
 
   return { App, Button, Checkbox, Form, Input };
@@ -111,7 +112,7 @@ describe("Login page", () => {
     fireEvent.submit(container.querySelector("form")!);
 
     await waitFor(() => {
-      expect(globalThis.alert).toHaveBeenCalledWith(
+      expect(messageMock.error).toHaveBeenCalledWith(
         "Username or password is incorrect. Please try again.",
       );
     });
