@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const SYNC_EVENT = "sessionstorage-sync";
 
@@ -47,7 +47,7 @@ export default function useSessionStorage<T>(
     };
   }, [key]);
 
-  const set = (newVal: T) => {
+  const set = useCallback((newVal: T) => {
     setValue(newVal);
     if (typeof window !== "undefined") {
       const serialized = JSON.stringify(newVal);
@@ -56,9 +56,9 @@ export default function useSessionStorage<T>(
         new CustomEvent(SYNC_EVENT, { detail: { key, value: serialized } }),
       );
     }
-  };
+  }, [key]);
 
-  const clear = () => {
+  const clear = useCallback(() => {
     setValue(defaultValueRef.current);
     if (typeof window !== "undefined") {
       globalThis.sessionStorage.removeItem(key);
@@ -66,7 +66,7 @@ export default function useSessionStorage<T>(
         new CustomEvent(SYNC_EVENT, { detail: { key, value: null } }),
       );
     }
-  };
+  }, [key]);
 
   return { value, set, clear };
 }

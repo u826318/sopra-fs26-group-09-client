@@ -1,12 +1,9 @@
 import { ApiService } from "@/api/apiService";
 import { ApplicationError } from "@/types/error";
-import { navigateTo } from "@/utils/navigate";
 
 jest.mock("@/utils/domain", () => ({
   getApiDomain: () => "http://localhost:8080",
 }));
-
-jest.mock("@/utils/navigate");
 
 describe("ApiService", () => {
   const fetchMock = jest.fn();
@@ -132,7 +129,7 @@ describe("ApiService", () => {
     );
   });
 
-  it("clears token and redirects to login on 401", async () => {
+  it("throws ApplicationError with backend details on 401", async () => {
     sessionStorage.setItem("token", JSON.stringify("stored-token"));
     fetchMock.mockResolvedValue({
       ok: false,
@@ -143,11 +140,11 @@ describe("ApiService", () => {
     });
 
     const api = new ApiService();
-    void api.get("/households/10/pantry");
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(sessionStorage.getItem("token")).toBeNull();
-    expect(navigateTo).toHaveBeenCalledWith("/login?reason=session_expired");
+    await expect(api.get("/households/10/pantry")).rejects.toMatchObject({
+      status: 401,
+      message: expect.stringContaining("Invalid token"),
+    } satisfies Partial<ApplicationError>);
+    expect(sessionStorage.getItem("token")).not.toBeNull();
   });
 
   it("throws ApplicationError with backend details on non-401 failure", async () => {

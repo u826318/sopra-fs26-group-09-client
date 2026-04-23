@@ -162,14 +162,14 @@ describe("Households page", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("sidebar Pantry navigates to calorie dashboard when a household exists", () => {
+  it("sidebar Pantry navigates to the selected household pantry when a household exists", () => {
     mockStoredHouseholds = [
       { householdId: 7, name: "Home", inviteCode: "ABC", ownerId: 1, role: "owner" },
     ];
     render(<HouseholdsPage />);
     fireEvent.click(screen.getByText("Pantry").closest("button") as HTMLButtonElement);
     expect(setSelectedHouseholdIdMock).toHaveBeenCalledWith(7);
-    expect(pushMock).toHaveBeenCalledWith("/stats");
+    expect(pushMock).toHaveBeenCalledWith("/households/7?name=Home");
   });
 
   it("creates a household and stores it in local storage", async () => {
@@ -248,7 +248,7 @@ describe("Households page", () => {
     });
   });
 
-  it("View Pantry opens the calorie dashboard for a stored household", () => {
+  it("View Pantry opens the pantry page for a stored household", () => {
     mockStoredHouseholds = [
       {
         householdId: 10,
@@ -263,7 +263,7 @@ describe("Households page", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /View Pantry/i }));
     expect(setSelectedHouseholdIdMock).toHaveBeenCalledWith(10);
-    expect(pushMock).toHaveBeenCalledWith("/stats");
+    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
   });
 
   it("shows warning for empty inputs", () => {

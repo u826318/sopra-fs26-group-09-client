@@ -160,7 +160,9 @@ export default function HouseholdsPage() {
 
   const handleOpenPantry = (household: HouseholdWithRole) => {
     setSelectedHouseholdId(household.householdId);
-    router.push("/stats");
+    router.push(
+      `/households/${household.householdId}?name=${encodeURIComponent(household.name)}`,
+    );
   };
 
   const activeInvites = households.filter((household) => household.role === "owner").length;

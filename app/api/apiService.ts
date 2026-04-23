@@ -1,8 +1,5 @@
 import { getApiDomain } from "@/utils/domain";
 import { ApplicationError } from "@/types/error";
-import { navigateTo } from "@/utils/navigate";
-
-let isRedirectingToLogin = false;
 
 export class ApiService {
   private baseURL: string;
@@ -36,20 +33,6 @@ export class ApiService {
     errorMessage: string,
   ): Promise<T> {
     if (!res.ok) {
-      if (res.status === 401 && typeof window !== "undefined") {
-        if (isRedirectingToLogin) {
-          return new Promise<never>(() => {});
-        }
-        const hadToken = sessionStorage.getItem("token") !== null;
-        sessionStorage.removeItem("token");
-        sessionStorage.removeItem("username");
-        if (hadToken) {
-          isRedirectingToLogin = true;
-          navigateTo("/login?reason=session_expired");
-          return new Promise<never>(() => {});
-        }
-      }
-
       let errorDetail = res.statusText;
       try {
         const errorInfo = await res.json();
