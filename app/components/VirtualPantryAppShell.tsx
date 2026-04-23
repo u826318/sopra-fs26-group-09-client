@@ -43,8 +43,11 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
       households.some((h) => h.householdId === selectedHouseholdId)
         ? selectedHouseholdId
         : households[0].householdId;
+    const household = households.find((h) => h.householdId === id);
     setSelectedHouseholdId(id);
-    router.push("/stats");
+    router.push(
+      `/households/${id}?name=${encodeURIComponent(household?.name ?? `Household ${id}`)}`,
+    );
   };
 
   const handleLogout = () => {

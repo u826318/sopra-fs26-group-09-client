@@ -23,18 +23,23 @@ const Login: React.FC = () => {
   const apiService = useApi();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("reason") === "session_expired") {
-      message.warning("Your session has expired. Please log in again. If login fails, your account may no longer exist, please register.");
-      return;
-    }
+    let token: string | null = null;
     try {
-      const token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
-      if (token) router.replace("/households");
+      token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
     } catch {
-      // malformed token, stay on login
+      // malformed token
     }
-  }, [message, router]);
+    if (!token) return;
+
+    apiService.get("/households")
+      .then(() => router.replace("/households"))
+      .catch((error: unknown) => {
+        if ((error as { status?: number })?.status === 401) {
+          sessionStorage.removeItem("token");
+          sessionStorage.removeItem("username");
+        }
+      });
+  }, [apiService, router]);
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");

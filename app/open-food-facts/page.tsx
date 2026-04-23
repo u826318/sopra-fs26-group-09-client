@@ -109,7 +109,7 @@ export default function OpenFoodFactsPortalPage() {
       </Card>
 
       <Card title="Barcode lookup" className={styles.sectionCard}>
-        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
           <div className={styles.lookupStack}>
             <label className={styles.lookupLabel}>
               <span>Barcode</span>
