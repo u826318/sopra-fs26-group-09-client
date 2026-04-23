@@ -38,14 +38,12 @@ function readPantryContextFromUrl(): PantryContext | undefined {
 export default function ProductResultCard({
   product,
   pantryContext,
-  onPantryItemAdded,
 }: {
   product: Product;
   label?: string;
   rawTitle: string;
   exportContext: string;
   pantryContext?: PantryContext;
-  onPantryItemAdded?: (item: PantryItem) => void;
 }) {
   const api = useApi();
   const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
@@ -95,7 +93,6 @@ export default function ProductResultCard({
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
       );
-      onPantryItemAdded?.(createdItem);
       setSuccessMessage(`Item successfully added to ${getPantryTargetLabel(effectivePantryContext)}.`);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to add the product to the pantry.");

@@ -68,6 +68,7 @@ export default function OpenFoodFactsPortalPage() {
     }
   };
 
+  // This useEffect is used by pantry/add/scan
   useEffect(() => {
     if (typeof globalThis.window === "undefined" || hasAutoLookedUp) {
       return;
