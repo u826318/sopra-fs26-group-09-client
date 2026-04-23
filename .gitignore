@@ -141,4 +141,5 @@ yarn-error.log*
 *.pem
 
 *:Zone.Identifier
-*Zone.Identifier
+*Zone.Identifier.codex
+.superpowers/
