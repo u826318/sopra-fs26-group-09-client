@@ -21,6 +21,10 @@ const Login: React.FC = () => {
   const router = useRouter();
   const { message } = App.useApp();
   const apiService = useApi();
+  const [form] = Form.useForm<LoginFormValues>();
+  const { set: setToken, clear: clearToken } = useSessionStorage<string>("token", "");
+  const { set: setUsername, clear: clearUsername } = useSessionStorage<string>("username", "");
+  const { set: setHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
 
   useEffect(() => {
     let token: string | null = null;
@@ -35,15 +39,11 @@ const Login: React.FC = () => {
       .then(() => router.replace("/households"))
       .catch((error: unknown) => {
         if ((error as { status?: number })?.status === 401) {
-          sessionStorage.removeItem("token");
-          sessionStorage.removeItem("username");
+          clearToken();
+          clearUsername();
         }
       });
-  }, [apiService, router]);
-  const [form] = Form.useForm<LoginFormValues>();
-  const { set: setToken } = useSessionStorage<string>("token", "");
-  const { set: setUsername } = useSessionStorage<string>("username", "");
-  const { set: setHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  }, [apiService, router, clearToken, clearUsername]);
 
   const handleLogin = async (values: LoginFormValues): Promise<void> => {
     try {

@@ -7,6 +7,8 @@ const replaceMock = jest.fn();
 const postMock = jest.fn();
 const getMock = jest.fn();
 const setTokenMock = jest.fn();
+const clearTokenMock = jest.fn(() => sessionStorage.removeItem("token"));
+const clearUsernameMock = jest.fn(() => sessionStorage.removeItem("username"));
 const messageMock = { warning: jest.fn(), error: jest.fn(), success: jest.fn() };
 
 jest.mock("antd", () => {
@@ -66,7 +68,11 @@ jest.mock("@/hooks/useApi", () => ({
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
-  default: () => ({ set: setTokenMock, clear: jest.fn(), value: "" }),
+  default: (key: string) => {
+    if (key === "token") return { set: setTokenMock, clear: clearTokenMock, value: "" };
+    if (key === "username") return { set: jest.fn(), clear: clearUsernameMock, value: "" };
+    return { set: jest.fn(), clear: jest.fn(), value: "" };
+  },
 }));
 
 jest.mock("@/hooks/useLocalStorage", () => ({
