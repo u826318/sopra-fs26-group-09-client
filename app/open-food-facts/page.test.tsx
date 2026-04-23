@@ -1,6 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OpenFoodFactsPage from "./page";
+
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
 
 const getMock = jest.fn();
 const pushMock = jest.fn();
@@ -17,6 +24,9 @@ jest.mock("antd", () => {
   const Card = ({ children }: any) => <div>{children}</div>;
   const Space = ({ children }: any) => <div>{children}</div>;
   const Empty = ({ description }: any) => <div>{description}</div>;
+  const Button = ({ children, onClick }: any) => (
+    <button type="button" onClick={onClick}>{children}</button>
+  );
   const Input = ({ value, onChange, onPressEnter, placeholder }: any) => (
     <input
       aria-label={placeholder}
@@ -36,7 +46,7 @@ jest.mock("antd", () => {
     Paragraph: ({ children }: any) => <p>{children}</p>,
   };
 
-  return { Card, Empty, Input, Space, Typography };
+  return { Button, Card, Empty, Input, Space, Typography };
 });
 
 jest.mock("@/hooks/useAuthGuard", () => ({
