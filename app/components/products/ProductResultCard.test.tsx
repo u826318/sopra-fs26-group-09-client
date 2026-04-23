@@ -47,9 +47,12 @@ describe("ProductResultCard", () => {
     );
 
     expect(screen.getByText("Plant Based Caprese")).toBeInTheDocument();
-    expect(screen.getByText("Brand: V-Love")).toBeInTheDocument();
-    expect(screen.getByText("Barcode: 123456789")).toBeInTheDocument();
-    expect(screen.getByText("kcal / package (est.): 396")).toBeInTheDocument();
+    expect(screen.getByText("Brand")).toBeInTheDocument();
+    expect(screen.getByText("V-Love")).toBeInTheDocument();
+    expect(screen.getByText("Barcode")).toBeInTheDocument();
+    expect(screen.getByText("123456789")).toBeInTheDocument();
+    expect(screen.getByText("Estimated kcal / package")).toBeInTheDocument();
+    expect(screen.getByText("396")).toBeInTheDocument();
     expect(screen.queryByText("Export full return as TXT")).not.toBeInTheDocument();
     expect(screen.queryByText("Nutri-Score computation data")).not.toBeInTheDocument();
   });
