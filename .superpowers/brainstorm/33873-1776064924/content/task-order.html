@@ -1,0 +1,63 @@
+<h2>Recommended Task Order</h2>
+<p class="subtitle">Based on dependencies and risk — pick the order that fits your sprint</p>
+
+<div style="margin: 24px 0;">
+
+  <!-- Dependency flow -->
+  <div style="display: flex; align-items: center; gap: 0; flex-wrap: wrap; justify-content: center; margin-bottom: 32px;">
+
+    <!-- Task 13 -->
+    <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 16px 20px; min-width: 180px; text-align: center;">
+      <div style="font-size: 11px; font-weight: 700; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Step 1 · Already done</div>
+      <div style="font-weight: 700; font-size: 15px; color: #15803d;">#13 Total Calories Display</div>
+      <div style="font-size: 12px; color: #4ade80; margin-top: 6px;">Just close the issue ✓</div>
+    </div>
+
+    <!-- Arrow -->
+    <div style="font-size: 28px; color: #94a3b8; padding: 0 8px;">→</div>
+
+    <!-- Task 6 -->
+    <div style="background: #eff6ff; border: 2px solid #3b82f6; border-radius: 12px; padding: 16px 20px; min-width: 180px; text-align: center;">
+      <div style="font-size: 11px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Step 2 · Foundation</div>
+      <div style="font-weight: 700; font-size: 15px; color: #1e40af;">#6 WebSocket Hook</div>
+      <div style="font-size: 12px; color: #93c5fd; margin-top: 6px;">useWebSocket + pantry updates</div>
+    </div>
+
+    <!-- Arrow -->
+    <div style="font-size: 28px; color: #94a3b8; padding: 0 8px;">→</div>
+
+    <!-- Task 5 -->
+    <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 12px; padding: 16px 20px; min-width: 180px; text-align: center;">
+      <div style="font-size: 11px; font-weight: 700; color: #c2410c; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Step 3 · Depends on #6</div>
+      <div style="font-weight: 700; font-size: 15px; color: #c2410c;">#5 Disconnect Banner</div>
+      <div style="font-size: 12px; color: #fdba74; margin-top: 6px;">Needs WS connection state</div>
+    </div>
+
+    <!-- Arrow -->
+    <div style="font-size: 28px; color: #94a3b8; padding: 0 8px;">→</div>
+
+    <!-- Task 25 -->
+    <div style="background: #fdf4ff; border: 2px solid #a855f7; border-radius: 12px; padding: 16px 20px; min-width: 180px; text-align: center;">
+      <div style="font-size: 11px; font-weight: 700; color: #7e22ce; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Step 4 · Standalone</div>
+      <div style="font-weight: 700; font-size: 15px; color: #7e22ce;">#25 Consume Item UI</div>
+      <div style="font-size: 12px; color: #d8b4fe; margin-top: 6px;">Modal + portion input</div>
+    </div>
+
+  </div>
+
+  <!-- Rationale -->
+  <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px 24px; max-width: 720px; margin: 0 auto;">
+    <h3 style="margin: 0 0 12px; font-size: 15px; color: #334155;">Why this order?</h3>
+    <ul style="margin: 0; padding-left: 18px; color: #475569; font-size: 14px; line-height: 1.9;">
+      <li><strong>#13</strong> is already fully implemented — just verify and close the GitHub issue.</li>
+      <li><strong>#6</strong> must come before #5: you can't detect a disconnect without a connection.</li>
+      <li><strong>#5</strong> is a small addition on top of the WS hook (read <code>connected</code> state → show banner).</li>
+      <li><strong>#25</strong> is self-contained but pairs perfectly with #6: consuming an item triggers a WS event that refreshes other users' pantry in real time.</li>
+    </ul>
+  </div>
+
+  <!-- Alt note -->
+  <p style="text-align:center; color: #94a3b8; font-size: 13px; margin-top: 20px;">
+    #25 can be done before #5/#6 if needed — it only depends on the REST API, not WebSocket.
+  </p>
+</div>

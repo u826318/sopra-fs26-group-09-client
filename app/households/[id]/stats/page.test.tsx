@@ -32,15 +32,6 @@ jest.mock("@/hooks/useApi", () => ({
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
-  default: () => ({ value: "test-token", set: jest.fn(), clear: jest.fn() }),
-}));
-
-jest.mock("@/hooks/usePantryWebSocket", () => ({
-  usePantryWebSocket: () => ({ connected: true, hasConnectedOnce: true }),
-}));
-
-jest.mock("@/hooks/useLocalStorage", () => ({
-  __esModule: true,
   default: (key: string) => {
     if (key === "households") {
       return {
@@ -58,8 +49,17 @@ jest.mock("@/hooks/useLocalStorage", () => ({
         clear: jest.fn(),
       };
     }
-    return { value: null, set: jest.fn(), clear: jest.fn() };
+    return { value: "test-token", set: jest.fn(), clear: jest.fn() };
   },
+}));
+
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: () => ({ connected: true, hasConnectedOnce: true }),
+}));
+
+jest.mock("@/hooks/useLocalStorage", () => ({
+  __esModule: true,
+  default: () => ({ value: null, set: jest.fn(), clear: jest.fn() }),
 }));
 
 jest.mock("@ant-design/icons", () => ({

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import type { HouseholdWithRole } from "@/types/household";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getRegisterErrorMessage } from "@/utils/authError";
@@ -36,7 +35,7 @@ const Register: React.FC = () => {
   const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
-  const { set: setHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  const { set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   const handleRegister = async (values: RegisterFormValues): Promise<void> => {
     try {

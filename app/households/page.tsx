@@ -2,7 +2,6 @@
 
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import type {
   Household,
@@ -38,10 +37,10 @@ export default function HouseholdsPage() {
   const {
     value: households,
     set: setHouseholds,
-  } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const {
     set: setSelectedHouseholdId,
-  } = useLocalStorage<number | null>("selectedHouseholdId", null);
+  } = useSessionStorage<number | null>("selectedHouseholdId", null);
 
   const [createName, setCreateName] = useState("");
   const [joinCode, setJoinCode] = useState("");

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import AuthLayout from "@/components/auth/AuthLayout";
 import { getLoginErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
@@ -24,7 +23,7 @@ const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken, clear: clearToken } = useSessionStorage<string>("token", "");
   const { set: setUsername, clear: clearUsername } = useSessionStorage<string>("username", "");
-  const { set: setHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  const { set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   useEffect(() => {
     let token: string | null = null;

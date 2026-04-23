@@ -10,7 +10,6 @@ import {
   LogoutOutlined,
   ReadOutlined,
 } from "@ant-design/icons";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import type { HouseholdWithRole } from "@/types/household";
 import styles from "@/styles/households.module.css";
@@ -27,8 +26,8 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
   const { message } = App.useApp();
   const { clear: clearToken } = useSessionStorage<string>("token", "");
   const { clear: clearUsername } = useSessionStorage<string>("username", "");
-  const { value: households } = useLocalStorage<HouseholdWithRole[]>("households", []);
-  const { value: selectedHouseholdId, set: setSelectedHouseholdId } = useLocalStorage<
+  const { value: households } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { value: selectedHouseholdId, set: setSelectedHouseholdId } = useSessionStorage<
     number | null
   >("selectedHouseholdId", null);
   const { value: username } = useSessionStorage<string>("username", "");

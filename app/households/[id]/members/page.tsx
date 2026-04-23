@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { Button, Col, Row, Tag, Typography } from "antd";
@@ -31,7 +31,7 @@ export default function HouseholdMembersPage() {
   const searchParams = useSearchParams();
   const api = useApi();
 
-  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const householdId = Number(params.id);
 
   const householdName = useMemo(() => {

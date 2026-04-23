@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
@@ -53,9 +52,9 @@ export default function HouseholdPantryPage() {
   const params = useParams<{ id: string }>();
   const api = useApi();
 
-  const { value: username } = useLocalStorage<string>("username", "");
+  const { value: username } = useSessionStorage<string>("username", "");
   const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>(
+  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>(
     "households",
     [],
   );

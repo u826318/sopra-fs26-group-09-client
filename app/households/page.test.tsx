@@ -31,19 +31,7 @@ jest.mock("@/utils/domain", () => ({
 
 jest.mock("@/hooks/useLocalStorage", () => ({
   __esModule: true,
-  default: (key: string) => {
-    if (key === "households") {
-      return { value: mockStoredHouseholds, set: setHouseholdsMock, clear: jest.fn() };
-    }
-    if (key === "selectedHouseholdId") {
-      return {
-        value: mockSelectedHouseholdId,
-        set: setSelectedHouseholdIdMock,
-        clear: jest.fn(),
-      };
-    }
-    return { value: "", set: jest.fn(), clear: jest.fn() };
-  },
+  default: () => ({ value: null, set: jest.fn(), clear: jest.fn() }),
 }));
 
 jest.mock("@/hooks/useSessionStorage", () => ({
@@ -54,6 +42,16 @@ jest.mock("@/hooks/useSessionStorage", () => ({
     }
     if (key === "username") {
       return { value: "tingting-xu824", set: jest.fn(), clear: clearUsernameMock };
+    }
+    if (key === "households") {
+      return { value: mockStoredHouseholds, set: setHouseholdsMock, clear: jest.fn() };
+    }
+    if (key === "selectedHouseholdId") {
+      return {
+        value: mockSelectedHouseholdId,
+        set: setSelectedHouseholdIdMock,
+        clear: jest.fn(),
+      };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },

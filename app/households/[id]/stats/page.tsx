@@ -31,7 +31,6 @@ import {
 import dayjs, { Dayjs } from "dayjs";
 import { useParams, useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import useLocalStorage from "@/hooks/useLocalStorage";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
@@ -115,7 +114,7 @@ export default function StatsPage() {
   const householdId = Number(params.id);
 
   const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useLocalStorage<HouseholdWithRole[]>("households", []);
+  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   const householdName = useMemo(
     () =>
