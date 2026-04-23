@@ -6,6 +6,7 @@ import type { PantryItem } from "@/types/pantry";
 import type { Product } from "@/types/product";
 import { buildPantryItemPayload, estimateKcalPerPackage } from "@/utils/pantry";
 import { Card, Image } from "antd";
+import styles from "@/styles/productResultCard.module.css";
 
 type PantryContext = {
   householdId: number;
@@ -104,73 +105,52 @@ export default function ProductResultCard({
   };
 
   return (
-    <Card style={{ width: "100%", borderRadius: 24 }} styles={{ body: { padding: 24 } }}>
+    <Card className={styles.resultCard} styles={{ body: { padding: 24 } }}>
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: product.imageUrl ? "minmax(220px, 320px) minmax(320px, 1fr)" : "1fr",
-          gap: 32,
-          alignItems: "start",
-        }}
+        className={`${styles.resultBody} ${product.imageUrl ? "" : styles.resultBodyNoImage}`.trim()}
       >
         {product.imageUrl ? (
-          <div
-            style={{
-              border: "1px solid #d9d0c6",
-              borderRadius: 32,
-              background: "#f5f2ed",
-              minHeight: 280,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 18,
-            }}
-          >
+          <div className={styles.imagePanel}>
             <Image
               src={product.imageUrl}
               alt={product.name ?? "Product image"}
               preview={false}
-              width={276}
-              style={{ objectFit: "contain", maxWidth: "100%", maxHeight: 240 }}
+              width={260}
+              className={styles.image}
             />
           </div>
         ) : null}
 
-        <div style={{ display: "grid", gap: 22 }}>
-          <div style={{ display: "grid", gap: 10 }}>
-            <div style={{ fontSize: 28, lineHeight: 1.2, fontWeight: 700 }}>
-              {product.name ?? "Unknown product"}
+        <div className={styles.content}>
+          <div className={styles.headerBlock}>
+            <div className={styles.eyebrow}>Top match</div>
+            <div className={styles.productName}>{product.name ?? "Unknown product"}</div>
+          </div>
+
+          <div className={styles.metaGrid}>
+            <div className={styles.metaCard}>
+              <div className={styles.metaLabel}>Brand</div>
+              <div className={styles.metaValue}>{product.brand?.trim() || "—"}</div>
             </div>
-            <div style={{ fontSize: 24, lineHeight: 1.35 }}>
-              Brand: {product.brand?.trim() || "—"}
+            <div className={styles.metaCard}>
+              <div className={styles.metaLabel}>Barcode</div>
+              <div className={styles.metaValue}>{product.barcode?.trim() || "—"}</div>
             </div>
-            <div style={{ fontSize: 24, lineHeight: 1.35 }}>
-              Barcode: {product.barcode?.trim() || "—"}
-            </div>
-            <div style={{ fontSize: 24, lineHeight: 1.35 }}>
-              kcal / package (est.): {estimatedKcal ?? "—"}
+            <div className={styles.metaCard}>
+              <div className={styles.metaLabel}>Estimated kcal / package</div>
+              <div className={styles.metaValue}>{estimatedKcal ?? "—"}</div>
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 12, marginTop: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                gap: 14,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  fontSize: 22,
-                  lineHeight: 1.3,
-                }}
-              >
-                <span>Quantity to add:</span>
+          <div className={styles.actionPanel}>
+            <div className={styles.actionHeading}>Add this item to pantry</div>
+            <div className={styles.actionSubtext}>
+              Review the product details, choose the number of packages, then save the item to the current household pantry.
+            </div>
+
+            <div className={styles.controls}>
+              <label className={styles.quantityField}>
+                <span className={styles.quantityLabel}>Quantity to add</span>
                 <input
                   aria-label="Quantity to add"
                   type="number"
@@ -178,15 +158,7 @@ export default function ProductResultCard({
                   step={1}
                   value={packageCount}
                   onChange={(event) => setPackageCount(Number(event.target.value))}
-                  style={{
-                    width: 160,
-                    height: 54,
-                    borderRadius: 999,
-                    border: "1px solid #d9d0c6",
-                    padding: "0 18px",
-                    fontSize: 22,
-                    background: "#ffffff",
-                  }}
+                  className={styles.quantityInput}
                 />
               </label>
 
@@ -194,31 +166,14 @@ export default function ProductResultCard({
                 type="button"
                 onClick={() => void handleAddToPantry()}
                 disabled={isSubmitting}
-                style={{
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "0 32px",
-                  minHeight: 74,
-                  fontSize: 22,
-                  color: "#ffffff",
-                  background: isSubmitting ? "#74a87f" : "#106832",
-                  cursor: isSubmitting ? "progress" : "pointer",
-                }}
+                className={styles.addButton}
               >
                 {isSubmitting ? "Adding..." : "Add to pantry"}
               </button>
             </div>
 
             {successMessage ? (
-              <div
-                role="status"
-                style={{
-                  fontSize: 18,
-                  lineHeight: 1.4,
-                  color: "#106832",
-                  marginLeft: 2,
-                }}
-              >
+              <div role="status" className={styles.successMessage}>
                 {successMessage}
               </div>
             ) : null}

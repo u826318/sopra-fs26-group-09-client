@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
-import { Button, Card, Empty, Form, Input, Space, Typography } from "antd";
+import { Button, Card, Empty, Input, Space, Typography } from "antd";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
+import styles from "@/styles/openFoodFacts.module.css";
 
 const { Title, Paragraph } = Typography;
 
@@ -84,41 +86,32 @@ export default function OpenFoodFactsPortalPage() {
   }, [hasAutoLookedUp]);
 
   return (
-    <div className="card-container" style={{ padding: 24 }}>
-      <Card style={{ width: "100%", maxWidth: 1200 }}>
-        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-          <div style={{ display: "grid", gap: 12 }}>
-            <div>
-              <button
-                type="button"
-                onClick={() => router.push("/stats")}
-                style={{
-                  border: "1px solid #d9d0c6",
-                  borderRadius: 999,
-                  padding: "0 18px",
-                  minHeight: 44,
-                  fontSize: 16,
-                  background: "#ffffff",
-                  color: "#1f1f1f",
-                  cursor: "pointer",
-                }}
-              >
-                Back to household page
-              </button>
-            </div>
+    <VirtualPantryAppShell activeNav="pantry">
+      <header className={styles.pageHeader}>
+        <Title level={1} className={styles.pageTitle}>
+          Product Lookup Portal
+        </Title>
+        <Paragraph className={styles.pageSubtitle}>
+          Search Open Food Facts by barcode and add matching products straight into your pantry flow.
+        </Paragraph>
+      </header>
 
-            <div>
-              <Title level={2} style={{ marginBottom: 0 }}>
-                Product Lookup Portal
-              </Title>
-              <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-                Look up a product by barcode.
-              </Paragraph>
-            </div>
-          </div>
+      <Card className={styles.contextCard}>
+        <div className={styles.contextLabel}>Current flow</div>
+        <div className={styles.contextValue}>
+          {pantryTarget?.householdName?.trim() || "Direct product lookup"}
+        </div>
+        <p className={styles.contextNote}>
+          {pantryTarget
+            ? `Products found here can be added directly to household ${pantryTarget.householdId}.`
+            : "Look up a barcode first, then review the returned product details below."}
+        </p>
+      </Card>
 
-          <div style={{ display: "grid", gap: 12 }}>
-            <label style={{ display: "grid", gap: 8 }}>
+      <Card title="Barcode lookup" className={styles.sectionCard}>
+        <Space direction="vertical" size="large" style={{ width: "100%" }}>
+          <div className={styles.lookupStack}>
+            <label className={styles.lookupLabel}>
               <span>Barcode</span>
               <Input
                 value={barcode}
@@ -132,55 +125,47 @@ export default function OpenFoodFactsPortalPage() {
                 placeholder="e.g. 3017624010701"
               />
             </label>
-            <div>
-              <button
-                type="button"
+
+            <div className={styles.lookupActions}>
+              <Button
+                className={styles.secondaryBtn}
+                onClick={() => router.push("/stats")}
+              >
+                Back to household page
+              </Button>
+              <Button
+                type="primary"
+                className={styles.primaryBtn}
                 onClick={() => void lookupBarcode(barcode)}
-                disabled={loading}
-                style={{
-                  border: "none",
-                  borderRadius: 999,
-                  padding: "0 24px",
-                  minHeight: 52,
-                  fontSize: 18,
-                  color: "#ffffff",
-                  background: loading ? "#9c7b59" : "#106832",
-                  cursor: loading ? "progress" : "pointer",
-                }}
+                loading={loading}
               >
                 {loading ? "Looking up..." : "Look up barcode"}
-              </button>
+              </Button>
             </div>
           </div>
 
           {lookupMessage ? (
-            <div
-              role="alert"
-              style={{
-                padding: "14px 16px",
-                borderRadius: 16,
-                background: "#fff2f0",
-                border: "1px solid #ffccc7",
-                color: "#a8071a",
-                fontSize: 16,
-              }}
-            >
+            <div role="alert" className={styles.inlineError}>
               {lookupMessage}
             </div>
           ) : null}
-
-          {barcodeResult ? (
-            <ProductResultCard
-              product={barcodeResult}
-              rawTitle=""
-              exportContext="Product lookup"
-              pantryContext={pantryTarget ?? undefined}
-            />
-          ) : lookupMessage ? null : (
-            <Empty description="No product loaded yet." />
-          )}
         </Space>
       </Card>
-    </div>
+
+      <section className={styles.resultSection}>
+        {barcodeResult ? (
+          <ProductResultCard
+            product={barcodeResult}
+            rawTitle=""
+            exportContext="Product lookup"
+            pantryContext={pantryTarget ?? undefined}
+          />
+        ) : lookupMessage ? null : (
+          <div className={styles.emptyState}>
+            <Empty description="No product loaded yet." />
+          </div>
+        )}
+      </section>
+    </VirtualPantryAppShell>
   );
 }
