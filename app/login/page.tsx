@@ -25,7 +25,7 @@ const Login: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("reason") === "session_expired") {
-      message.warning("Your session has expired. Please log in again.");
+      message.warning("Your session has expired. Please log in again. If login fails, your account may no longer exist, please register.");
       return;
     }
     try {

@@ -37,6 +37,7 @@ export class ApiService {
       if (res.status === 401 && typeof window !== "undefined") {
         const hadToken = sessionStorage.getItem("token") !== null;
         sessionStorage.removeItem("token");
+        sessionStorage.removeItem("username");
         if (hadToken) {
           navigateTo("/login?reason=session_expired");
         }
