@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
@@ -44,7 +44,7 @@ export default function OpenFoodFactsPortalPage() {
     };
   }, []);
 
-  const lookupBarcode = async (barcodeValue: string) => {
+  const lookupBarcode = useCallback(async (barcodeValue: string) => {
     const barcodeToLookup = barcodeValue.trim();
     if (!barcodeToLookup) {
       alert("Please enter a barcode first.");
@@ -60,13 +60,13 @@ export default function OpenFoodFactsPortalPage() {
       setBarcodeResult(result);
       setBarcode(barcodeToLookup);
       setLookupMessage("");
-    } catch (_error) {
+    } catch {
       setBarcodeResult(null);
       setLookupMessage("Cannot find the item using the barcode.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [api]);
 
   useEffect(() => {
     if (typeof globalThis.window === "undefined" || hasAutoLookedUp) {
@@ -83,7 +83,7 @@ export default function OpenFoodFactsPortalPage() {
     setHasAutoLookedUp(true);
     setBarcode(barcodeFromQuery);
     void lookupBarcode(barcodeFromQuery);
-  }, [hasAutoLookedUp]);
+  }, [hasAutoLookedUp, lookupBarcode]);
 
   return (
     <VirtualPantryAppShell activeNav="pantry">

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import PantryScanPage from "@/pantry/add/scan/page";

@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+/* eslint-disable @typescript-eslint/no-explicit-any, @next/next/no-img-element */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductResultCard from "@/components/products/ProductResultCard";
 
@@ -99,7 +99,6 @@ describe("ProductResultCard", () => {
     expect(globalThis.alert).not.toHaveBeenCalledWith("Plant Based Caprese was added to Test House.");
     expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to Test House.");
   });
-
 
   it("uses the householdId from the URL when pantryContext is not passed", async () => {
     window.history.pushState({}, "", "?householdId=12&householdName=URL%20House");
