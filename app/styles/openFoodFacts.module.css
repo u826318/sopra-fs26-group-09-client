@@ -1,0 +1,118 @@
+.pageHeader {
+  margin-bottom: 28px;
+}
+
+.pageTitle {
+  margin: 0 0 8px !important;
+  font-size: 42px !important;
+  font-weight: 700 !important;
+  color: #1b2a1b !important;
+  line-height: 1.05 !important;
+}
+
+.pageSubtitle {
+  margin: 0 !important;
+  color: #5d6a5d !important;
+  font-size: 15px !important;
+  max-width: 720px;
+}
+
+.contextCard {
+  border-radius: 14px !important;
+  border: 1px solid #e2e8d4 !important;
+  background: linear-gradient(180deg, #fbfcf7 0%, #f3f6ec 100%) !important;
+  box-shadow: 0 4px 14px rgba(24, 60, 28, 0.06) !important;
+  margin-bottom: 24px;
+}
+
+.contextLabel {
+  color: #14532d;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.contextValue {
+  margin-top: 4px;
+  color: #1b2a1b;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.contextNote {
+  margin: 8px 0 0;
+  color: #5d6a5d;
+  font-size: 14px;
+  max-width: 700px;
+}
+
+.sectionCard {
+  border-radius: 14px !important;
+  border: 1px solid #e2e8d4 !important;
+  background: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(24, 60, 28, 0.06) !important;
+}
+
+.sectionCard :global(.ant-card-head) {
+  border-bottom: 1px solid #eef2e8 !important;
+}
+
+.sectionCard :global(.ant-card-head-title) {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #1b2a1b !important;
+}
+
+.lookupStack {
+  display: grid;
+  gap: 16px;
+}
+
+.lookupLabel {
+  display: grid;
+  gap: 8px;
+  color: #334533;
+  font-weight: 600;
+}
+
+.lookupActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.secondaryBtn {
+  min-height: 44px !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+}
+
+.primaryBtn {
+  min-height: 48px !important;
+  border-radius: 12px !important;
+  font-weight: 700 !important;
+  padding-inline: 20px !important;
+}
+
+.inlineError {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff2f0;
+  border: 1px solid #ffccc7;
+  color: #a8071a;
+  font-size: 15px;
+}
+
+.emptyState {
+  padding: 40px 24px;
+  text-align: center;
+  border-radius: 14px;
+  border: 1px dashed #cfd9c4;
+  background: #fafdf7;
+}
+
+.resultSection {
+  margin-top: 24px;
+}
