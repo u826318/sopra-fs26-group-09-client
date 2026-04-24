@@ -29,7 +29,7 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
@@ -48,6 +48,20 @@ const { Title, Paragraph, Text } = Typography;
 const FOREST = "#1b5e20";
 const DANGER = "#c62828";
 const MUTED = "#5d6a5d";
+
+type HouseholdLookup = {
+  householdId: number;
+  name: string;
+};
+
+function routeBackToSafeHouseholdsPage(router: ReturnType<typeof useRouter>) {
+  if (globalThis.window?.history.length > 1) {
+    router.back();
+    return;
+  }
+
+  router.replace("/households");
+}
 
 type ActivityEntry = {
   id: string;
@@ -130,6 +144,7 @@ export default function StatsPage() {
   const api = useApi();
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { message } = App.useApp();
 
   const householdId = Number(params.id);
@@ -163,9 +178,10 @@ export default function StatsPage() {
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
 
   const loadDashboard = useCallback(async () => {
-    if (!householdId || !startDate) {
+    if (!hasValidHouseholdRoute || !householdId || !startDate) {
       return;
     }
 
@@ -206,10 +222,55 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, message, householdId, startDate]);
+  }, [api, message, householdId, startDate, hasValidHouseholdRoute]);
 
   useEffect(() => {
-    if (!householdId || !cachedHouseholds.length) return;
+    let cancelled = false;
+
+    const rejectInvalidHouseholdRoute = (text: string) => {
+      if (cancelled) return;
+      setHasValidHouseholdRoute(false);
+      message.error(text);
+      routeBackToSafeHouseholdsPage(router);
+    };
+
+    const validateHouseholdRoute = async () => {
+      setHasValidHouseholdRoute(false);
+
+      if (!Number.isInteger(householdId) || householdId <= 0) {
+        rejectInvalidHouseholdRoute("Household ID is invalid.");
+        return;
+      }
+
+      try {
+        const household = await api.get<HouseholdLookup>(`/households/${householdId}`);
+        if (cancelled) return;
+
+        const requestedName = searchParams.get("name")?.trim();
+        if (requestedName && requestedName !== household.name) {
+          rejectInvalidHouseholdRoute("Household name does not exist for this household.");
+          return;
+        }
+
+        setHasValidHouseholdRoute(true);
+      } catch (error) {
+        rejectInvalidHouseholdRoute(
+          error instanceof Error && error.message.includes("User is not a member")
+            ? "You are not a member of this household."
+            : "Household ID does not exist.",
+        );
+      }
+    };
+
+    void validateHouseholdRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, householdId, message, router, searchParams]);
+
+  useEffect(() => {
+    if (!hasValidHouseholdRoute || !householdId || !cachedHouseholds.length) return;
     if (initializedForHousehold.current === householdId) return;
     initializedForHousehold.current = householdId;
 
@@ -221,16 +282,16 @@ export default function StatsPage() {
     } else {
       setStartDate(sevenDaysAgo);
     }
-  }, [householdId, cachedHouseholds]);
+  }, [householdId, cachedHouseholds, hasValidHouseholdRoute]);
 
   useEffect(() => {
-    if (isAuthenticated && householdId && startDate) {
+    if (isAuthenticated && hasValidHouseholdRoute && householdId && startDate) {
       void loadDashboard();
     }
-  }, [isAuthenticated, loadDashboard, householdId, startDate]);
+  }, [isAuthenticated, loadDashboard, householdId, startDate, hasValidHouseholdRoute]);
 
   usePantryWebSocket({
-    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    householdId: hasValidHouseholdRoute && Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
     onMessage: () => {
       void loadDashboard();
@@ -431,6 +492,10 @@ export default function StatsPage() {
     ],
     [consumeInventoryItem, consumingItemId, removeInventoryItem, removingItemId],
   );
+
+  if (!hasValidHouseholdRoute) {
+    return null;
+  }
 
   return (
     <VirtualPantryAppShell activeNav="pantry">
