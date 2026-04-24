@@ -161,6 +161,7 @@ export default function StatsPage() {
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   const loadDashboard = useCallback(async () => {
@@ -312,6 +313,39 @@ export default function StatsPage() {
     [api, householdId, loadDashboard, message],
   );
 
+
+  const removeInventoryItem = useCallback(
+    async (item: PantryItem) => {
+      if (!item.id) {
+        message.error("Selected item is missing an item ID.");
+        return;
+      }
+      if (!item.count || item.count <= 0) {
+        message.error("This item is no longer available in the pantry.");
+        return;
+      }
+
+      setRemovingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/remove`,
+          { quantity: 1 },
+        );
+        message.success(
+          res.removed
+            ? "Item removed from pantry."
+            : "One unit removed from pantry.",
+        );
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not remove item from pantry.");
+      } finally {
+        setRemovingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
+
   const inventoryColumns: TableProps<PantryItem>["columns"] = useMemo(
     () => [
       {
@@ -369,22 +403,33 @@ export default function StatsPage() {
       {
         title: "Action",
         key: "action",
-        width: 130,
+        width: 220,
         render: (_: unknown, record: PantryItem) => (
-          <Button
-            type="primary"
-            size="small"
-            icon={<RestOutlined />}
-            loading={consumingItemId === record.id}
-            disabled={Boolean(consumingItemId) || record.count <= 0}
-            onClick={() => void consumeInventoryItem(record)}
-          >
-            Consume
-          </Button>
+          <Space size="small" wrap>
+            <Button
+              type="primary"
+              size="small"
+              icon={<RestOutlined />}
+              loading={consumingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void consumeInventoryItem(record)}
+            >
+              Consume
+            </Button>
+            <Button
+              size="small"
+              danger
+              loading={removingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void removeInventoryItem(record)}
+            >
+              Remove
+            </Button>
+          </Space>
         ),
       },
     ],
-    [consumeInventoryItem, consumingItemId],
+    [consumeInventoryItem, consumingItemId, removeInventoryItem, removingItemId],
   );
 
   return (

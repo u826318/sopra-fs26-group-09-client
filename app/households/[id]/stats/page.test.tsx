@@ -5,6 +5,7 @@ import StatsPage from "@/households/[id]/stats/page";
 const pushMock = jest.fn();
 const getMock = jest.fn();
 const putMock = jest.fn();
+const postMock = jest.fn();
 const messageMock = {
   warning: jest.fn(),
   error: jest.fn(),
@@ -27,7 +28,7 @@ jest.mock("@/components/VirtualPantryAppShell", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock, put: putMock }),
+  useApi: () => ({ get: getMock, put: putMock, post: postMock }),
 }));
 
 jest.mock("@/hooks/useSessionStorage", () => ({
@@ -64,10 +65,12 @@ jest.mock("@/hooks/useLocalStorage", () => ({
 
 jest.mock("@ant-design/icons", () => ({
   ArrowLeftOutlined: () => <span data-testid="arrow-left-icon" />,
+  BarcodeOutlined: () => <span data-testid="barcode-icon" />,
   EditOutlined: () => <span data-testid="edit-icon" />,
   WarningOutlined: () => <span data-testid="warn-icon" />,
   RestOutlined: () => <span data-testid="rest-icon" />,
   MinusCircleOutlined: () => <span data-testid="minus-icon" />,
+  PlusCircleOutlined: () => <span data-testid="plus-icon" />,
 }));
 
 jest.mock("antd", () => {
@@ -92,17 +95,21 @@ jest.mock("antd", () => {
   const Empty = ({ description, children }: any) => <div>{description}{children}</div>;
   Empty.PRESENTED_IMAGE_SIMPLE = "simple";
   const Tag = ({ children }: any) => <span>{children}</span>;
-  const Table = ({ dataSource, rowKey }: any) => (
-    <table>
-      <tbody>
-        {dataSource?.map((row: any, i: number) => (
-          <tr key={row[rowKey] ?? row.date ?? i}>
-            <td>{row.date ?? row.name ?? ""}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+  const Table = ({ dataSource, rowKey, columns }: any) => {
+    const actionColumn = columns?.find((column: any) => column.key === "action");
+    return (
+      <table>
+        <tbody>
+          {dataSource?.map((row: any, i: number) => (
+            <tr key={row[rowKey] ?? row.date ?? i}>
+              <td>{row.date ?? row.name ?? ""}</td>
+              {actionColumn ? <td>{actionColumn.render(undefined, row, i)}</td> : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
   const Select = () => <div data-testid="select" />;
   const DatePicker = ({ onChange }: any) => (
     <input
@@ -174,10 +181,17 @@ jest.mock("antd", () => {
 describe("StatsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
       const today = new Date().toISOString().slice(0, 10);
       if (url.includes("/pantry")) {
-        return Promise.resolve({ items: [{ id: 1 }, { id: 2 }], totalCalories: 142500 });
+        return Promise.resolve({
+          items: [
+            { id: 1, householdId: 1, barcode: "111", name: "Milk", quantity: 1, count: 3, kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
+            { id: 2, householdId: 1, barcode: "222", name: "Rice", quantity: 1, count: 5, kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
+          ],
+          totalCalories: 142500,
+        });
       }
       if (url.includes("/stats")) {
         return Promise.resolve({
@@ -202,7 +216,17 @@ describe("StatsPage", () => {
         });
       }
       if (url.includes("/consumption-logs")) {
-        return Promise.resolve([]);
+        return Promise.resolve([
+          {
+            logId: 9,
+            consumedAt: "2026-04-02T00:00:00Z",
+            pantryItemId: 1,
+            productName: "Milk",
+            consumedQuantity: 1,
+            consumedCalories: 120,
+            userId: 99,
+          },
+        ]);
       }
       return Promise.reject(new Error(`unexpected ${url}`));
     });
@@ -260,6 +284,25 @@ describe("StatsPage", () => {
     );
   });
 
+  it("navigates to scan product page with household context when scan button clicked", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
+      if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
+      if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
+      if (url.includes("/consumption-logs")) return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+
+    render(<StatsPage />);
+
+    const scanBtn = await screen.findByRole("button", { name: /Scan product/i });
+    fireEvent.click(scanBtn);
+
+    expect(pushMock).toHaveBeenCalledWith(
+      expect.stringContaining("/pantry/add/scan?householdId=1"),
+    );
+  });
+
   it("opens budget modal when owner clicks Edit", async () => {
     render(<StatsPage />);
 
@@ -273,4 +316,40 @@ describe("StatsPage", () => {
       expect(screen.getByTestId("budget-modal")).toBeInTheDocument();
     });
   });
+
+
+  it("shows added and consumed rows in recent activity", async () => {
+    render(<StatsPage />);
+
+    expect(await screen.findByText(/Added 3× Milk/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Consumed 1× Milk/i)).toBeInTheDocument();
+  });
+
+  it("consumes one unit from the selected inventory row", async () => {
+    render(<StatsPage />);
+
+    const consumeButtons = await screen.findAllByRole("button", { name: /Consume/i });
+    fireEvent.click(consumeButtons[0]);
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", { quantity: 1 });
+    });
+
+    expect(messageMock.success).toHaveBeenCalledWith("Consumption recorded.");
+  });
+
+  it("removes one unit from the selected inventory row without recording consumption", async () => {
+    render(<StatsPage />);
+
+    const removeButtons = await screen.findAllByRole("button", { name: /Remove/i });
+    fireEvent.click(removeButtons[0]);
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/remove", { quantity: 1 });
+    });
+
+    expect(postMock).not.toHaveBeenCalledWith("/households/1/pantry/1/consume", { quantity: 1 });
+    expect(messageMock.success).toHaveBeenCalledWith("One unit removed from pantry.");
+  });
+
 });
