@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
@@ -18,31 +18,47 @@ type PantryTarget = {
 };
 
 export default function OpenFoodFactsPortalPage() {
+  return (
+    <Suspense fallback={null}>
+      <OpenFoodFactsPortalContent />
+    </Suspense>
+  );
+}
+
+function OpenFoodFactsPortalContent() {
   useAuthGuard();
   const api = useApi();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
   const [lookupMessage, setLookupMessage] = useState("");
   const [hasAutoLookedUp, setHasAutoLookedUp] = useState(false);
 
-  const pantryTarget = useMemo<PantryTarget | null>(() => {
-    if (typeof globalThis.window === "undefined") {
-      return null;
-    }
+  const queryParams = new URLSearchParams(globalThis.location.search);
 
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
+  const pantryTarget = useMemo<PantryTarget | null>(() => {
+    const householdId = Number(queryParams.get("householdId"));
     if (!Number.isFinite(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: queryParams.get("householdName") ?? undefined,
     };
-  }, []);
+  }, [queryParams]);
+
+  const backToPantryStats = useCallback(() => {
+    const householdId = Number(searchParams.get("householdId"));
+    if (Number.isFinite(householdId) && householdId > 0) {
+      router.push(`/households/${householdId}/stats`);
+      return;
+    }
+
+    router.push("/households");
+  }, [router, searchParams]);
 
   const lookupBarcode = useCallback(async (barcodeValue: string) => {
     const barcodeToLookup = barcodeValue.trim();
@@ -130,11 +146,7 @@ export default function OpenFoodFactsPortalPage() {
             <div className={styles.lookupActions}>
               <Button
                 className={styles.secondaryBtn}
-                onClick={() =>
-                  pantryTarget
-                    ? router.push(`/households/${pantryTarget.householdId}/stats`)
-                    : router.push("/households")
-                }
+                onClick={backToPantryStats}
               >
                 Back to pantry stats
               </Button>
