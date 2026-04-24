@@ -155,6 +155,70 @@ describe("Households page", () => {
     mockSelectedHouseholdId = null;
   });
 
+  it("redirects to the household pantry screen after successful creation", async () => {
+  mockFetch.mockImplementationOnce(() =>
+    mockJsonResponse(true, {
+      householdId: 10,
+      name: "Test House",
+      inviteCode: "ABC123",
+      ownerId: 1,
+    }),
+  );
+
+  render(<HouseholdsPage />);
+
+  fireEvent.change(screen.getByPlaceholderText("Enter household name"), {
+    target: { value: "Test House" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Create Household/i }));
+
+  await waitFor(() => {
+    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
+  });
+  });
+
+  it("shows an error when joining with an invalid invite code fails", async () => {
+  mockFetch.mockImplementationOnce(() =>
+    mockJsonResponse(false, { message: "Invite code is invalid." }, 404, "Not Found"),
+  );
+
+  render(<HouseholdsPage />);
+
+  fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
+    target: { value: "INVALID" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
+
+  await waitFor(() => {
+    expect(errorMock).toHaveBeenCalledWith("404: Invite code is invalid.");
+  });
+  });
+
+  it("shows an error when joining with an expired invite code fails", async () => {
+  mockFetch.mockImplementationOnce(() =>
+    mockJsonResponse(
+      false,
+      { message: "Invite code has expired. Please request a new code." },
+      410,
+      "Gone",
+    ),
+  );
+
+  render(<HouseholdsPage />);
+
+  fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
+    target: { value: "EXPIRED" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
+
+  await waitFor(() => {
+    expect(errorMock).toHaveBeenCalledWith(
+      "410: Invite code has expired. Please request a new code.",
+    );
+  });
+  });
+
+
   it("renders navigation and household management", () => {
     render(<HouseholdsPage />);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();

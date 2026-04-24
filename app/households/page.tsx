@@ -101,6 +101,9 @@ export default function HouseholdsPage() {
       setLastGeneratedCode(created.inviteCode);
       setCreateName("");
       message.success("Household created successfully.");
+      router.push(
+        `/households/${created.householdId}?name=${encodeURIComponent(created.name)}`,
+      );
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Failed to create household.");
     } finally {
