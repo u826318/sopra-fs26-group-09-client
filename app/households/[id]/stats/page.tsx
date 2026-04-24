@@ -792,13 +792,27 @@ export default function StatsPage() {
               { required: true, message: "Enter a calorie target" },
               {
                 type: "number",
-                min: 1,
                 max: 50000,
-                message: "Enter a value between 1 and 50000",
+                message: "Enter a value up to 50000",
+              },
+              {
+                validator: (_, value: number | null | undefined) => {
+                  if (value === null || value === undefined) {
+                    return Promise.resolve();
+                  }
+
+                  if (value <= 0) {
+                    return Promise.reject(
+                      new Error("Daily calorie target can't be less than or equal to 0"),
+                    );
+                  }
+
+                  return Promise.resolve();
+                },
               },
             ]}
           >
-            <InputNumber min={1} max={50000} style={{ width: "100%" }} suffix="kcal / day" />
+            <InputNumber max={50000} style={{ width: "100%" }} suffix="kcal / day" />
           </Form.Item>
         </Form>
       </Modal>
