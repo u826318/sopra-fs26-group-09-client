@@ -13,7 +13,6 @@ import {
   Modal,
   Progress,
   Row,
-  Select,
   Space,
   Spin,
   Table,
@@ -25,6 +24,7 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   MinusCircleOutlined,
+  PlusCircleOutlined,
   RestOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -54,17 +54,38 @@ type ActivityEntry = {
   at: string;
   productName: string;
   deltaKcal: number;
-  consumedQuantity: number;
+  quantity: number;
+  type: "ADDED" | "CONSUMED";
 };
 
 function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   return logs.map((log) => ({
-    id: `log-${log.logId}`,
+    id: `consume-${log.logId}`,
     at: log.consumedAt,
     productName: log.productName,
     deltaKcal: -log.consumedCalories,
-    consumedQuantity: log.consumedQuantity,
+    quantity: log.consumedQuantity,
+    type: "CONSUMED",
   }));
+}
+
+function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
+  return items
+    .filter((item) => Boolean(item.addedAt))
+    .map((item) => ({
+      id: `add-${item.id}`,
+      at: item.addedAt,
+      productName: item.name,
+      deltaKcal: item.kcalPerPackage * item.count,
+      quantity: item.count,
+      type: "ADDED",
+    }));
+}
+
+function buildRecentActivity(items: PantryItem[], logs: ConsumptionLogEntry[]): ActivityEntry[] {
+  return [...pantryItemsToActivity(items), ...logsToActivity(logs)]
+    .sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())
+    .slice(0, 30);
 }
 
 function isNotFound(error: unknown): boolean {
@@ -139,14 +160,8 @@ export default function StatsPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
-  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consuming, setConsuming] = useState(false);
-  const [consumeForm] = Form.useForm<{ itemId: number; quantity: number }>();
-  const selectedConsumeItemId = Form.useWatch("itemId", consumeForm);
-  const selectedConsumeItem = useMemo(
-    () => pantry?.items.find((i) => i.id === selectedConsumeItemId),
-    [pantry?.items, selectedConsumeItemId],
-  );
+  const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   const loadDashboard = useCallback(async () => {
@@ -170,7 +185,7 @@ export default function StatsPage() {
       ]);
       setPantry(pantryRes);
       setStats(statsRes);
-      setActivity(logsToActivity(logsRes));
+      setActivity(buildRecentActivity(pantryRes.items, logsRes));
 
       try {
         const b = await api.get<HouseholdBudget>(`/households/${householdId}/budget`);
@@ -266,46 +281,70 @@ export default function StatsPage() {
     }
   };
 
-  const openConsumeModal = () => {
-    if (!pantry?.items.length) {
-      message.info("Add items to your pantry before recording consumption.");
-      return;
-    }
-    const first = pantry.items[0];
-    consumeForm.setFieldsValue({ itemId: first.id, quantity: 1 });
-    setConsumeModalOpen(true);
-  };
+  const consumeInventoryItem = useCallback(
+    async (item: PantryItem) => {
+      if (!item.id) {
+        message.error("Selected item is missing an item ID.");
+        return;
+      }
+      if (!item.count || item.count <= 0) {
+        message.error("This item is no longer available in the pantry.");
+        return;
+      }
 
-  const submitConsumption = async () => {
-    const values = await consumeForm.validateFields();
-    const item = pantry?.items.find((i) => i.id === values.itemId);
-    if (!item) {
-      message.error("Selected item is no longer in the pantry.");
-      return;
-    }
-    if (values.quantity > item.count) {
-      message.error("Quantity cannot exceed available units.");
-      return;
-    }
-    setConsuming(true);
-    try {
-      const res = await api.post<ConsumePantryItemResponse>(
-        `/households/${householdId}/pantry/${values.itemId}/consume`,
-        { quantity: values.quantity },
-      );
-      message.success(
-        res.removed
-          ? "Item fully consumed and removed from pantry."
-          : "Consumption recorded.",
-      );
-      setConsumeModalOpen(false);
-      await loadDashboard();
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "Could not record consumption.");
-    } finally {
-      setConsuming(false);
-    }
-  };
+      setConsumingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/consume`,
+          { quantity: 1 },
+        );
+        message.success(
+          res.removed
+            ? "Item fully consumed and removed from pantry."
+            : "Consumption recorded.",
+        );
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not record consumption.");
+      } finally {
+        setConsumingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
+
+
+  const removeInventoryItem = useCallback(
+    async (item: PantryItem) => {
+      if (!item.id) {
+        message.error("Selected item is missing an item ID.");
+        return;
+      }
+      if (!item.count || item.count <= 0) {
+        message.error("This item is no longer available in the pantry.");
+        return;
+      }
+
+      setRemovingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/remove`,
+          { quantity: 1 },
+        );
+        message.success(
+          res.removed
+            ? "Item removed from pantry."
+            : "One unit removed from pantry.",
+        );
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not remove item from pantry.");
+      } finally {
+        setRemovingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
 
   const inventoryColumns: TableProps<PantryItem>["columns"] = useMemo(
     () => [
@@ -361,8 +400,36 @@ export default function StatsPage() {
             <Tag color="success">In stock</Tag>
           ),
       },
+      {
+        title: "Action",
+        key: "action",
+        width: 220,
+        render: (_: unknown, record: PantryItem) => (
+          <Space size="small" wrap>
+            <Button
+              type="primary"
+              size="small"
+              icon={<RestOutlined />}
+              loading={consumingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void consumeInventoryItem(record)}
+            >
+              Consume
+            </Button>
+            <Button
+              size="small"
+              danger
+              loading={removingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void removeInventoryItem(record)}
+            >
+              Remove
+            </Button>
+          </Space>
+        ),
+      },
     ],
-    [],
+    [consumeInventoryItem, consumingItemId, removeInventoryItem, removingItemId],
   );
 
   return (
@@ -529,81 +596,91 @@ export default function StatsPage() {
             </Row>
 
             <Row gutter={[20, 20]} className={statsStyles.lowerSection}>
-              <Col xs={24} lg={15}>
-                <Card
-                  className={statsStyles.panelCard}
-                  title="Current inventory"
-                  extra={
-                    <Button
-                      type="primary"
-                      size="small"
-                      onClick={() =>
-                        router.push(
-                          `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
-                        )
-                      }
-                    >
-                      Add from Open Food Facts
-                    </Button>
-                  }
-                  variant="borderless"
-                >
-                  {pantry && pantry.items.length > 0 ? (
-                    <Table<PantryItem>
-                      rowKey="id"
-                      pagination={{ pageSize: 8, showSizeChanger: false }}
-                      size="small"
-                      dataSource={pantry.items}
-                      columns={inventoryColumns}
-                    />
-                  ) : (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No pantry items yet."
-                    />
-                  )}
-                </Card>
-              </Col>
-              <Col xs={24} lg={9}>
-                <div className={statsStyles.rightStack}>
-                  <Button
-                    type="primary"
-                    className={statsStyles.recordConsumptionBtn}
-                    icon={<RestOutlined />}
-                    onClick={openConsumeModal}
+              <Col xs={24}>
+                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  <Card
+                    className={statsStyles.panelCard}
+                    title="Current inventory"
+                    extra={
+                      <Space size="small" wrap>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Scan product barcode
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Add from Open Food Facts
+                        </Button>
+                      </Space>
+                    }
+                    variant="borderless"
                   >
-                    Record consumption
-                  </Button>
+                    {pantry && pantry.items.length > 0 ? (
+                      <Table<PantryItem>
+                        rowKey="id"
+                        pagination={{ pageSize: 8, showSizeChanger: false }}
+                        size="small"
+                        dataSource={pantry.items}
+                        columns={inventoryColumns}
+                      />
+                    ) : (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="No pantry items yet."
+                      />
+                    )}
+                  </Card>
 
                   <Card className={`${statsStyles.panelCard} ${statsStyles.activityCard}`} title="Recent activity" variant="borderless">
                     {activity.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 13 }}>
-                        No consumption recorded yet, or logs are still loading.
+                        No pantry activity recorded yet, or logs are still loading.
                       </Text>
                     ) : (
                       <div className={statsStyles.activityList}>
-                        {activity.map((a) => (
-                          <div key={a.id} className={statsStyles.activityItem}>
-                            <div>
-                              <Space size={8}>
-                                <MinusCircleOutlined style={{ color: DANGER }} />
-                                <Text strong style={{ color: "#1b2a1b" }}>
-                                  Consumed {a.consumedQuantity}× {a.productName}
-                                </Text>
-                              </Space>
-                              <div className={statsStyles.activityMeta}>
-                                {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                        {activity.map((a) => {
+                          const isAdded = a.type === "ADDED";
+                          return (
+                            <div key={a.id} className={statsStyles.activityItem}>
+                              <div>
+                                <Space size={8}>
+                                  {isAdded ? (
+                                    <PlusCircleOutlined style={{ color: FOREST }} />
+                                  ) : (
+                                    <MinusCircleOutlined style={{ color: DANGER }} />
+                                  )}
+                                  <Text strong style={{ color: "#1b2a1b" }}>
+                                    {isAdded ? "Added" : "Consumed"} {a.quantity}× {a.productName}
+                                  </Text>
+                                </Space>
+                                <div className={statsStyles.activityMeta}>
+                                  {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                                </div>
                               </div>
+                              <span className={`${statsStyles.activityDelta} ${isAdded ? statsStyles.deltaPos : statsStyles.deltaNeg}`}>
+                                {isAdded ? "+" : ""}{Math.round(a.deltaKcal).toLocaleString()} kcal
+                              </span>
                             </div>
-                            <span className={`${statsStyles.activityDelta} ${statsStyles.deltaNeg}`}>
-                              {Math.round(a.deltaKcal).toLocaleString()} kcal
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </Card>
-                </div>
+                </Space>
               </Col>
             </Row>
 
@@ -661,53 +738,6 @@ export default function StatsPage() {
         </Form>
       </Modal>
 
-      <Modal
-        title="Record consumption"
-        open={consumeModalOpen}
-        onCancel={() => setConsumeModalOpen(false)}
-        onOk={() => void submitConsumption()}
-        confirmLoading={consuming}
-        okText="Log consumption"
-      >
-        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Select an item and how many units you used. Calories are calculated from each item&apos;s
-          kcal per package.
-        </Paragraph>
-        <Form form={consumeForm} layout="vertical">
-          <Form.Item
-            label="Pantry item"
-            name="itemId"
-            rules={[{ required: true, message: "Select an item" }]}
-          >
-            <Select
-              placeholder="Choose item"
-              options={pantry?.items.map((i) => ({
-                value: i.id,
-                label: `${i.name} (${i.count} available)`,
-              }))}
-              onChange={() => consumeForm.setFieldValue("quantity", 1)}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Quantity consumed"
-            name="quantity"
-            rules={[
-              { required: true, message: "Enter quantity" },
-              {
-                type: "number",
-                min: 1,
-                message: "At least 1",
-              },
-            ]}
-          >
-            <InputNumber
-              min={1}
-              max={selectedConsumeItem?.count ?? undefined}
-              style={{ width: "100%" }}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </VirtualPantryAppShell>
   );
 }

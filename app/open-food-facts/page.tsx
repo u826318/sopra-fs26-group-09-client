@@ -136,7 +136,7 @@ export default function OpenFoodFactsPortalPage() {
                     : router.push("/households")
                 }
               >
-                Back to household page
+                Back to pantry stats
               </Button>
               <Button
                 type="primary"
