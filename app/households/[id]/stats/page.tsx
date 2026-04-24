@@ -24,6 +24,7 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   MinusCircleOutlined,
+  PlusCircleOutlined,
   RestOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -53,17 +54,38 @@ type ActivityEntry = {
   at: string;
   productName: string;
   deltaKcal: number;
-  consumedQuantity: number;
+  quantity: number;
+  type: "ADDED" | "CONSUMED";
 };
 
 function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   return logs.map((log) => ({
-    id: `log-${log.logId}`,
+    id: `consume-${log.logId}`,
     at: log.consumedAt,
     productName: log.productName,
     deltaKcal: -log.consumedCalories,
-    consumedQuantity: log.consumedQuantity,
+    quantity: log.consumedQuantity,
+    type: "CONSUMED",
   }));
+}
+
+function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
+  return items
+    .filter((item) => Boolean(item.addedAt))
+    .map((item) => ({
+      id: `add-${item.id}`,
+      at: item.addedAt,
+      productName: item.name,
+      deltaKcal: item.kcalPerPackage * item.count,
+      quantity: item.count,
+      type: "ADDED",
+    }));
+}
+
+function buildRecentActivity(items: PantryItem[], logs: ConsumptionLogEntry[]): ActivityEntry[] {
+  return [...pantryItemsToActivity(items), ...logsToActivity(logs)]
+    .sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())
+    .slice(0, 30);
 }
 
 function isNotFound(error: unknown): boolean {
@@ -162,7 +184,7 @@ export default function StatsPage() {
       ]);
       setPantry(pantryRes);
       setStats(statsRes);
-      setActivity(logsToActivity(logsRes));
+      setActivity(buildRecentActivity(pantryRes.items, logsRes));
 
       try {
         const b = await api.get<HouseholdBudget>(`/households/${householdId}/budget`);
@@ -529,72 +551,91 @@ export default function StatsPage() {
             </Row>
 
             <Row gutter={[20, 20]} className={statsStyles.lowerSection}>
-              <Col xs={24} lg={15}>
-                <Card
-                  className={statsStyles.panelCard}
-                  title="Current inventory"
-                  extra={
-                    <Button
-                      type="primary"
-                      size="small"
-                      onClick={() =>
-                        router.push(
-                          `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
-                        )
-                      }
-                    >
-                      Add from Open Food Facts
-                    </Button>
-                  }
-                  variant="borderless"
-                >
-                  {pantry && pantry.items.length > 0 ? (
-                    <Table<PantryItem>
-                      rowKey="id"
-                      pagination={{ pageSize: 8, showSizeChanger: false }}
-                      size="small"
-                      dataSource={pantry.items}
-                      columns={inventoryColumns}
-                    />
-                  ) : (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No pantry items yet."
-                    />
-                  )}
-                </Card>
-              </Col>
-              <Col xs={24} lg={9}>
-                <div className={statsStyles.rightStack}>
+              <Col xs={24}>
+                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                  <Card
+                    className={statsStyles.panelCard}
+                    title="Current inventory"
+                    extra={
+                      <Space size="small" wrap>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Scan product barcode
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Add from Open Food Facts
+                        </Button>
+                      </Space>
+                    }
+                    variant="borderless"
+                  >
+                    {pantry && pantry.items.length > 0 ? (
+                      <Table<PantryItem>
+                        rowKey="id"
+                        pagination={{ pageSize: 8, showSizeChanger: false }}
+                        size="small"
+                        dataSource={pantry.items}
+                        columns={inventoryColumns}
+                      />
+                    ) : (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="No pantry items yet."
+                      />
+                    )}
+                  </Card>
+
                   <Card className={`${statsStyles.panelCard} ${statsStyles.activityCard}`} title="Recent activity" variant="borderless">
                     {activity.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 13 }}>
-                        No consumption recorded yet, or logs are still loading.
+                        No pantry activity recorded yet, or logs are still loading.
                       </Text>
                     ) : (
                       <div className={statsStyles.activityList}>
-                        {activity.map((a) => (
-                          <div key={a.id} className={statsStyles.activityItem}>
-                            <div>
-                              <Space size={8}>
-                                <MinusCircleOutlined style={{ color: DANGER }} />
-                                <Text strong style={{ color: "#1b2a1b" }}>
-                                  Consumed {a.consumedQuantity}× {a.productName}
-                                </Text>
-                              </Space>
-                              <div className={statsStyles.activityMeta}>
-                                {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                        {activity.map((a) => {
+                          const isAdded = a.type === "ADDED";
+                          return (
+                            <div key={a.id} className={statsStyles.activityItem}>
+                              <div>
+                                <Space size={8}>
+                                  {isAdded ? (
+                                    <PlusCircleOutlined style={{ color: FOREST }} />
+                                  ) : (
+                                    <MinusCircleOutlined style={{ color: DANGER }} />
+                                  )}
+                                  <Text strong style={{ color: "#1b2a1b" }}>
+                                    {isAdded ? "Added" : "Consumed"} {a.quantity}× {a.productName}
+                                  </Text>
+                                </Space>
+                                <div className={statsStyles.activityMeta}>
+                                  {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                                </div>
                               </div>
+                              <span className={`${statsStyles.activityDelta} ${isAdded ? statsStyles.deltaPos : statsStyles.deltaNeg}`}>
+                                {isAdded ? "+" : ""}{Math.round(a.deltaKcal).toLocaleString()} kcal
+                              </span>
                             </div>
-                            <span className={`${statsStyles.activityDelta} ${statsStyles.deltaNeg}`}>
-                              {Math.round(a.deltaKcal).toLocaleString()} kcal
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </Card>
-                </div>
+                </Space>
               </Col>
             </Row>
 
