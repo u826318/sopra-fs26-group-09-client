@@ -1,19 +1,21 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import {
   Alert,
   Button,
   Card,
   Col,
+  ConfigProvider,
   Image,
   Row,
   Space,
   Typography,
   Upload,
   Tag,
+  theme as antdTheme,
 } from "antd";
 import type { UploadFile, UploadProps } from "antd";
 import {
@@ -38,9 +40,10 @@ type BarcodeExtractionResponse = {
   barcode: string;
 };
 
-export default function PantryScanPage() {
+function PantryScanPageContent() {
   useAuthGuard();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const api = useApi();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -52,21 +55,16 @@ export default function PantryScanPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pantryTarget = useMemo<PantryTarget | null>(() => {
-    if (typeof globalThis.window === "undefined") {
-      return null;
-    }
-
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
+    const householdId = Number(searchParams.get("householdId"));
     if (!Number.isFinite(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: searchParams.get("householdName") ?? undefined,
     };
-  }, []);
+  }, [searchParams]);
 
   const updateSelectedFile = (file?: File) => {
     if (!file) {
@@ -180,6 +178,7 @@ export default function PantryScanPage() {
   };
 
   return (
+    <ConfigProvider theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorText: "#182418", colorTextSecondary: "#566556", colorBgBase: "#ffffff" } }}>
     <div
       style={{
         minHeight: "100vh",
@@ -444,14 +443,14 @@ export default function PantryScanPage() {
                       <Alert
                         type="success"
                         showIcon
-                        message="Image selected"
+                        title="Image selected"
                         description={selectedFile.name}
                       />
                     ) : (
                       <Alert
                         type="info"
                         showIcon
-                        message="No image selected yet"
+                        title="No image selected yet"
                         description="Choose a file or take a photo to begin the scan flow."
                       />
                     )}
@@ -514,7 +513,7 @@ export default function PantryScanPage() {
                         type="success"
                         showIcon
                         icon={<CheckCircleOutlined />}
-                        message="Image ready"
+                        title="Image ready"
                         description="The selected image is ready for barcode extraction."
                       />
                     </Space>
@@ -523,7 +522,7 @@ export default function PantryScanPage() {
                       type="warning"
                       showIcon
                       icon={<WarningOutlined />}
-                      message="No image selected yet"
+                      title="No image selected yet"
                       description="Choose a file or take a photo to preview it here."
                     />
                   )}
@@ -535,7 +534,7 @@ export default function PantryScanPage() {
               <Alert
                 type="success"
                 showIcon
-                message="Barcode detected"
+                title="Barcode detected"
                 description={`Detected barcode: ${detectedBarcode}`}
               />
             ) : null}
@@ -544,7 +543,7 @@ export default function PantryScanPage() {
               <Alert
                 type="error"
                 showIcon
-                message="Barcode detection failed"
+                title="Barcode detection failed"
                 description={errorMessage}
               />
             ) : null}
@@ -596,5 +595,14 @@ export default function PantryScanPage() {
         </Card>
       </div>
     </div>
+    </ConfigProvider>
+  );
+}
+
+export default function PantryScanPage() {
+  return (
+    <Suspense>
+      <PantryScanPageContent />
+    </Suspense>
   );
 }

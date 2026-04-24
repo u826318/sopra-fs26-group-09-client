@@ -17,8 +17,9 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, back: jest.fn(), replace: jest.fn() }),
   useParams: () => ({ id: "1" }),
+  useSearchParams: () => new URLSearchParams(""),
 }));
 
 jest.mock("@/components/VirtualPantryAppShell", () => ({
@@ -183,6 +184,7 @@ describe("StatsPage", () => {
     jest.clearAllMocks();
     postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       const today = new Date().toISOString().slice(0, 10);
       if (url.includes("/pantry")) {
         return Promise.resolve({
@@ -253,6 +255,7 @@ describe("StatsPage", () => {
 
   it("shows Add from Open Food Facts button", async () => {
     getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
       if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
@@ -267,6 +270,7 @@ describe("StatsPage", () => {
 
   it("navigates to OFF portal with household context when add button clicked", async () => {
     getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
       if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
@@ -286,6 +290,7 @@ describe("StatsPage", () => {
 
   it("navigates to scan product page with household context when scan button clicked", async () => {
     getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
       if (url.includes("/budget")) return Promise.reject(new Error("no budget"));

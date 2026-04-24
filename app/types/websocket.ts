@@ -1,4 +1,4 @@
-export type PantryEventType = "ITEM_ADDED" | "ITEM_CONSUMED" | "ITEM_REMOVED" | "BULK_ITEMS_ADDED";
+export type PantryEventType = "ITEM_ADDED" | "ITEM_CONSUMED" | "ITEM_REMOVED" | "BULK_ITEMS_ADDED" | "BUDGET_UPDATED";
 
 export interface PantryItemPayload {
   itemId: number;
