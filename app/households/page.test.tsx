@@ -71,7 +71,21 @@ jest.mock("antd", () => {
   const Col = ({ children }: any) => <div>{children}</div>;
   const Card = ({ children }: any) => <div>{children}</div>;
   const Tag = ({ children }: any) => <span>{children}</span>;
-  const Table = ({ dataSource }: any) => <div>rows:{dataSource?.length ?? 0}</div>;
+  const Table = ({ dataSource, columns }: any) => (
+    <div>
+      <span>rows:{dataSource?.length ?? 0}</span>
+      {dataSource?.map((row: any, i: number) => {
+        const actionCol = columns?.find((c: any) => c.key === "actions");
+        return (
+          <div key={row.key ?? i}>
+            {row.created !== undefined && <span data-testid="col-created">{row.created}</span>}
+            {row.expires !== undefined && <span data-testid="col-expires">{row.expires}</span>}
+            {actionCol ? actionCol.render(undefined, row) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   const Input = ({ value, onChange, placeholder, onPressEnter }: any) => (
     <input
@@ -270,6 +284,62 @@ describe("Households page", () => {
     fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
     expect(warningMock).toHaveBeenCalledWith("Please enter a household name.");
     expect(warningMock).toHaveBeenCalledWith("Please enter an invite code.");
+  });
+
+  it("Revoke calls the regenerate invite-code endpoint and shows success", async () => {
+    const expiresAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    mockStoredHouseholds = [
+      {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "OLD123",
+        ownerId: 1,
+        role: "owner",
+        inviteCodeExpiresAt: expiresAt,
+      },
+    ];
+
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(true, {
+        householdId: 10,
+        inviteCode: "NEW456",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Revoke/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/10/invite-code",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "stored-token" }),
+        }),
+      );
+      expect(successMock).toHaveBeenCalledWith("Invite code regenerated.");
+    });
+  });
+
+  it("shows real Expires countdown and Created date from inviteCodeExpiresAt", () => {
+    const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000 + 12 * 60 * 60 * 1000).toISOString();
+    mockStoredHouseholds = [
+      {
+        householdId: 10,
+        name: "Test House",
+        inviteCode: "ABC123",
+        ownerId: 1,
+        role: "owner",
+        inviteCodeExpiresAt: expiresAt,
+      },
+    ];
+
+    render(<HouseholdsPage />);
+
+    expect(screen.getByTestId("col-expires")).toHaveTextContent("3 days");
+    expect(screen.getByTestId("col-created")).not.toHaveTextContent("Today");
   });
 
   it("View Members navigates to the members page with encoded household name", () => {

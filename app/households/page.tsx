@@ -117,7 +117,7 @@ export default function HouseholdsPage() {
       updateHouseholds((currentHouseholds) =>
         currentHouseholds.map((household) =>
           household.householdId === updated.householdId
-            ? { ...household, inviteCode: updated.inviteCode }
+            ? { ...household, inviteCode: updated.inviteCode, inviteCodeExpiresAt: updated.expiresAt }
             : household,
         ),
       );
@@ -166,13 +166,18 @@ export default function HouseholdsPage() {
 
   const activeInvites = households.filter((household) => household.role === "owner").length;
 
-  const invitationRows = ownedHouseholds.slice(0, 2).map((household) => ({
-    key: household.householdId,
-    household: household.name,
-    inviteCode: household.inviteCode,
-    created: "Today",
-    expires: "7 days",
-  }));
+  const invitationRows = ownedHouseholds.slice(0, 2).map((household) => {
+    const expiresAt = household.inviteCodeExpiresAt ? new Date(household.inviteCodeExpiresAt) : null;
+    const createdAt = expiresAt ? new Date(expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000) : null;
+    const daysLeft = expiresAt ? Math.floor((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+    return {
+      key: household.householdId,
+      household: household.name,
+      inviteCode: household.inviteCode,
+      created: createdAt ? createdAt.toLocaleDateString() : "—",
+      expires: daysLeft === null ? "—" : daysLeft <= 0 ? "Expired" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+    };
+  });
 
   return (
     <VirtualPantryAppShell activeNav="households">
@@ -342,8 +347,13 @@ export default function HouseholdsPage() {
               {
                 title: "Actions",
                 key: "actions",
-                render: () => (
-                  <Button size="small" className={styles.outlineButton}>
+                render: (_: unknown, record: { key: number }) => (
+                  <Button
+                    size="small"
+                    className={styles.outlineButton}
+                    loading={regeneratingId === record.key}
+                    onClick={() => void handleRegenerateInviteCode(record.key)}
+                  >
                     Revoke
                   </Button>
                 ),

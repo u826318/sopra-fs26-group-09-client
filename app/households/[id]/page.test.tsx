@@ -10,15 +10,16 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, back: jest.fn(), replace: jest.fn() }),
   useParams: () => ({ id: "10" }),
+  useSearchParams: () => new URLSearchParams(""),
 }));
 
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock }),
 }));
 
-jest.mock("@/hooks/useLocalStorage", () => ({
+jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
   default: (key: string) => {
     if (key === "username") {
@@ -41,6 +42,10 @@ jest.mock("@/hooks/useLocalStorage", () => ({
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
+}));
+
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: () => ({ connected: true, hasConnectedOnce: false }),
 }));
 
 jest.mock("antd", () => {
@@ -95,7 +100,12 @@ jest.mock("antd", () => {
     Text: ({ children }: any) => <span>{children}</span>,
   };
 
+  const App = {
+    useApp: () => ({ message: { error: jest.fn(), warning: jest.fn(), success: jest.fn() } }),
+  };
+
   return {
+    App,
     Button,
     Card,
     Empty,
@@ -116,7 +126,7 @@ describe("Household pantry page", () => {
   });
 
   it("shows the pantry item total as the sum of row counts, not the number of entries", async () => {
-    getMock.mockResolvedValue({
+    const pantryData = {
       items: [
         {
           id: 1,
@@ -138,6 +148,11 @@ describe("Household pantry page", () => {
         },
       ],
       totalCalories: 750,
+    };
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.resolve(pantryData);
+      return Promise.reject(new Error("unexpected: " + url));
     });
 
     render(<HouseholdPantryPage />);
@@ -156,7 +171,11 @@ describe("Household pantry page", () => {
   });
 
   it("navigates to the OFF portal with the active household context", async () => {
-    getMock.mockResolvedValue({ items: [], totalCalories: 0 });
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.resolve({ items: [], totalCalories: 0 });
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdPantryPage />);
 
@@ -174,7 +193,11 @@ describe("Household pantry page", () => {
   });
 
   it("navigates to the scan page with the active household context", async () => {
-    getMock.mockResolvedValue({ items: [], totalCalories: 0 });
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.resolve({ items: [], totalCalories: 0 });
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdPantryPage />);
 
@@ -192,7 +215,10 @@ describe("Household pantry page", () => {
   });
 
   it("shows an error message when the pantry request fails", async () => {
-    getMock.mockRejectedValue(new Error("pantry fetch failed"));
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      return Promise.reject(new Error("pantry fetch failed"));
+    });
 
     render(<HouseholdPantryPage />);
 

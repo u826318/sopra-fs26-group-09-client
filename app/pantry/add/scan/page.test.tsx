@@ -12,6 +12,7 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 jest.mock("@/hooks/useApi", () => ({
@@ -39,9 +40,9 @@ jest.mock("antd", () => {
   );
 
   const Space = ({ children }: any) => <div>{children}</div>;
-  const Alert = ({ message, description }: any) => (
+  const Alert = ({ title, message, description }: any) => (
     <div>
-      <div>{message}</div>
+      <div>{title ?? message}</div>
       <div>{description}</div>
     </div>
   );
@@ -74,6 +75,8 @@ jest.mock("antd", () => {
     Text: ({ children }: any) => <span>{children}</span>,
   };
 
+  const ConfigProvider = ({ children }: any) => <>{children}</>;
+
   return {
     Button,
     Card,
@@ -85,6 +88,8 @@ jest.mock("antd", () => {
     Col,
     Tag,
     Typography,
+    ConfigProvider,
+    theme: { defaultAlgorithm: {} },
   };
 });
 

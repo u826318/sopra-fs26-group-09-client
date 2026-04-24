@@ -700,7 +700,7 @@ export default function StatsPage() {
 
             <Row gutter={[20, 20]} className={statsStyles.lowerSection}>
               <Col xs={24}>
-                <Space direction="vertical" size="large" style={{ width: "100%" }}>
+                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
                   <Card
                     className={statsStyles.panelCard}
                     title="Current inventory"
