@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams} from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import {
   Alert,
@@ -43,6 +43,7 @@ export default function PantryScanPage() {
   const router = useRouter();
   const api = useApi();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const searchParams = useSearchParams();
 
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -52,21 +53,21 @@ export default function PantryScanPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pantryTarget = useMemo<PantryTarget | null>(() => {
-    if (typeof globalThis.window === "undefined") {
+    const householdIdParam = searchParams.get("householdId");
+    if (householdIdParam === null) {
       return null;
     }
 
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
-    if (!Number.isFinite(householdId) || householdId <= 0) {
+    const householdId = Number(householdIdParam);
+    if (!Number.isInteger(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: searchParams.get("householdName") ?? undefined,
     };
-  }, []);
+  }, [searchParams]);
 
   const updateSelectedFile = (file?: File) => {
     if (!file) {
