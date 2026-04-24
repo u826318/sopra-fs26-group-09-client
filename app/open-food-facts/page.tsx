@@ -287,12 +287,14 @@ function OpenFoodFactsPortalContent() {
 
       <section className={styles.resultSection}>
         {barcodeResult ? (
-          <ProductResultCard
-            product={barcodeResult}
-            rawTitle=""
-            exportContext="Product lookup"
-            pantryContext={pantryTarget ?? undefined}
-          />
+          <>
+            <ProductResultCard
+              product={barcodeResult}
+              rawTitle=""
+              exportContext="Product lookup"
+              pantryContext={pantryTarget ?? undefined}
+            />
+          </>
         ) : lookupMessage ? null : (
           <div className={styles.emptyState}>
             <Empty description="No product loaded yet." />
