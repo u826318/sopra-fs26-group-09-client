@@ -447,14 +447,14 @@ export default function PantryScanPage() {
                       <Alert
                         type="success"
                         showIcon
-                        message="Image selected"
+                        title="Image selected"
                         description={selectedFile.name}
                       />
                     ) : (
                       <Alert
                         type="info"
                         showIcon
-                        message="No image selected yet"
+                        title="No image selected yet"
                         description="Choose a file or take a photo to begin the scan flow."
                       />
                     )}
@@ -517,7 +517,7 @@ export default function PantryScanPage() {
                         type="success"
                         showIcon
                         icon={<CheckCircleOutlined />}
-                        message="Image ready"
+                        title="Image ready"
                         description="The selected image is ready for barcode extraction."
                       />
                     </Space>
@@ -526,7 +526,7 @@ export default function PantryScanPage() {
                       type="warning"
                       showIcon
                       icon={<WarningOutlined />}
-                      message="No image selected yet"
+                      title="No image selected yet"
                       description="Choose a file or take a photo to preview it here."
                     />
                   )}
@@ -538,7 +538,7 @@ export default function PantryScanPage() {
               <Alert
                 type="success"
                 showIcon
-                message="Barcode detected"
+                title="Barcode detected"
                 description={`Detected barcode: ${detectedBarcode}`}
               />
             ) : null}
@@ -547,7 +547,7 @@ export default function PantryScanPage() {
               <Alert
                 type="error"
                 showIcon
-                message="Barcode detection failed"
+                title="Barcode detection failed"
                 description={errorMessage}
               />
             ) : null}
