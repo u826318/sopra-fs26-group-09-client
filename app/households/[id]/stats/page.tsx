@@ -159,11 +159,20 @@ export default function StatsPage() {
     [cachedHouseholds, householdId],
   );
 
-  const householdRole = useMemo(
-    () => cachedHouseholds.find((h) => h.householdId === householdId)?.role ?? null,
+  const currentHousehold = useMemo(
+    () => cachedHouseholds.find((h) => h.householdId === householdId) ?? null,
     [cachedHouseholds, householdId],
   );
+
+  const householdRole = currentHousehold?.role ?? null;
   const isOwner = householdRole === "owner";
+
+  const householdCreatedAt = useMemo(() => {
+    if (!currentHousehold?.createdAt) return null;
+
+    const created = dayjs(currentHousehold.createdAt);
+    return created.isValid() ? created.startOf("day") : null;
+  }, [currentHousehold]);
 
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
   const initializedForHousehold = useRef<number | null>(null);
@@ -275,14 +284,42 @@ export default function StatsPage() {
     initializedForHousehold.current = householdId;
 
     const sevenDaysAgo = dayjs().subtract(7, "day").startOf("day");
-    const household = cachedHouseholds.find((h) => h.householdId === householdId);
-    if (household?.createdAt) {
-      const created = dayjs(household.createdAt).startOf("day");
-      setStartDate(created.isAfter(sevenDaysAgo) ? created : sevenDaysAgo);
-    } else {
-      setStartDate(sevenDaysAgo);
-    }
-  }, [householdId, cachedHouseholds, hasValidHouseholdRoute]);
+    setStartDate(
+      householdCreatedAt && householdCreatedAt.isAfter(sevenDaysAgo)
+        ? householdCreatedAt
+        : sevenDaysAgo,
+    );
+  }, [householdId, cachedHouseholds, hasValidHouseholdRoute, householdCreatedAt]);
+
+  const disableConsumptionStartDate = useCallback(
+    (current: Dayjs) => {
+      const selected = current.startOf("day");
+      const today = dayjs().startOf("day");
+
+      return (householdCreatedAt !== null && selected.isBefore(householdCreatedAt)) || selected.isAfter(today);
+    },
+    [householdCreatedAt],
+  );
+
+  const setConsumptionStartDate = useCallback(
+    (value: Dayjs | null) => {
+      if (!value) return;
+
+      const today = dayjs().startOf("day");
+      let next = value.startOf("day");
+
+      if (next.isAfter(today)) {
+        next = today;
+      }
+
+      if (householdCreatedAt !== null && next.isBefore(householdCreatedAt)) {
+        next = householdCreatedAt;
+      }
+
+      setStartDate(next);
+    },
+    [householdCreatedAt],
+  );
 
   useEffect(() => {
     if (isAuthenticated && hasValidHouseholdRoute && householdId && startDate) {
@@ -552,7 +589,8 @@ export default function StatsPage() {
                   extra={
                     <DatePicker
                       value={startDate}
-                      onChange={(v) => setStartDate(v)}
+                      onChange={setConsumptionStartDate}
+                      disabledDate={disableConsumptionStartDate}
                       allowClear={false}
                       size="small"
                     />
