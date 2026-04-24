@@ -53,6 +53,7 @@ export default function ProductResultCard({
   const router = useRouter();
   const { message } = App.useApp();
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
@@ -104,6 +105,7 @@ export default function ProductResultCard({
     } catch (error) {
       if ((error as ApplicationError).status === 404) {
         setHouseholds(households.filter((h) => h.householdId !== effectivePantryContext.householdId));
+        if (selectedHouseholdId === effectivePantryContext.householdId) clearSelectedHouseholdId();
         message.warning("This household no longer exists.");
         router.push("/households");
         return;

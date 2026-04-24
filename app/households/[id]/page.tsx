@@ -114,6 +114,7 @@ export default function HouseholdPantryPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, householdId]);
 
   useEffect(() => {

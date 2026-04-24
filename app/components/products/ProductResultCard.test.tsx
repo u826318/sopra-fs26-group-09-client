@@ -7,6 +7,7 @@ const pushMock = jest.fn();
 const warningMock = jest.fn();
 const errorMock = jest.fn();
 const setHouseholdsMock = jest.fn();
+const clearSelectedHouseholdIdMock = jest.fn();
 
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ post: postMock }),
@@ -25,6 +26,9 @@ jest.mock("@/hooks/useSessionStorage", () => ({
         set: setHouseholdsMock,
         clear: jest.fn(),
       };
+    }
+    if (key === "selectedHouseholdId") {
+      return { value: 10, set: jest.fn(), clear: clearSelectedHouseholdIdMock };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
@@ -212,6 +216,7 @@ describe("ProductResultCard", () => {
 
     await waitFor(() => {
       expect(setHouseholdsMock).toHaveBeenCalledWith([]);
+      expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
       expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
       expect(pushMock).toHaveBeenCalledWith("/households");
     });
