@@ -8,12 +8,14 @@ import {
   Button,
   Card,
   Col,
+  ConfigProvider,
   Image,
   Row,
   Space,
   Typography,
   Upload,
   Tag,
+  theme as antdTheme,
 } from "antd";
 import type { UploadFile, UploadProps } from "antd";
 import {
@@ -180,6 +182,7 @@ export default function PantryScanPage() {
   };
 
   return (
+    <ConfigProvider theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorText: "#182418", colorTextSecondary: "#566556", colorBgBase: "#ffffff" } }}>
     <div
       style={{
         minHeight: "100vh",
@@ -596,5 +599,6 @@ export default function PantryScanPage() {
         </Card>
       </div>
     </div>
+    </ConfigProvider>
   );
 }

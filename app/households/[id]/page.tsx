@@ -7,7 +7,9 @@ import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
+import type { ApplicationError } from "@/types/error";
 import {
+  App,
   Button,
   Card,
   Empty,
@@ -52,12 +54,11 @@ export default function HouseholdPantryPage() {
   const params = useParams<{ id: string }>();
   const api = useApi();
 
+  const { message } = App.useApp();
   const { value: username } = useSessionStorage<string>("username", "");
   const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>(
-    "households",
-    [],
-  );
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
@@ -96,6 +97,13 @@ export default function HouseholdPantryPage() {
       );
       setOverview(pantryOverview);
     } catch (error) {
+      if ((error as ApplicationError).status === 404) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("This household no longer exists.");
+        router.push("/households");
+        return;
+      }
       setOverview(null);
       setErrorMessage(
         error instanceof Error
@@ -116,7 +124,14 @@ export default function HouseholdPantryPage() {
   const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
     householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
-    onMessage: () => {
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED") {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("This household has been deleted.");
+        router.push("/households");
+        return;
+      }
       void fetchPantry();
     },
   });

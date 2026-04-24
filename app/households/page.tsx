@@ -23,7 +23,13 @@ import {
   Table,
   Typography,
 } from "antd";
-import { PlusCircleOutlined } from "@ant-design/icons";
+import {
+  DeleteOutlined,
+  InboxOutlined,
+  PlusCircleOutlined,
+  SyncOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
@@ -34,12 +40,11 @@ export default function HouseholdsPage() {
   const { message } = App.useApp();
 
   const { value: token } = useSessionStorage<string>("token", "");
+  const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const {
-    value: households,
-    set: setHouseholds,
-  } = useSessionStorage<HouseholdWithRole[]>("households", []);
-  const {
+    value: selectedHouseholdId,
     set: setSelectedHouseholdId,
+    clear: clearSelectedHouseholdId,
   } = useSessionStorage<number | null>("selectedHouseholdId", null);
 
   const [createName, setCreateName] = useState("");
@@ -47,6 +52,7 @@ export default function HouseholdsPage() {
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [lastGeneratedCode, setLastGeneratedCode] = useState<string | null>(null);
 
   const ownedHouseholds = useMemo(
@@ -78,10 +84,44 @@ export default function HouseholdsPage() {
     return response.json() as Promise<T>;
   };
 
+  const authDelete = async (endpoint: string): Promise<void> => {
+    const response = await fetch(`${getApiDomain()}${endpoint}`, {
+      method: "DELETE",
+      headers: { Authorization: token },
+    });
+
+    if (!response.ok) {
+      let reason = response.statusText;
+      try {
+        const body = await response.json();
+        reason = body.detail ?? body.message ?? JSON.stringify(body);
+      } catch {
+        // Use status text fallback when body cannot be parsed.
+      }
+      throw new Error(`${response.status}: ${reason}`);
+    }
+  };
+
   const updateHouseholds = (
     updater: (currentHouseholds: HouseholdWithRole[]) => HouseholdWithRole[],
   ) => {
     setHouseholds(updater(households));
+  };
+
+  const handleDeleteHousehold = async (householdId: number) => {
+    setDeletingId(householdId);
+    try {
+      await authDelete(`/households/${householdId}`);
+      updateHouseholds((current) => current.filter((h) => h.householdId !== householdId));
+      if (selectedHouseholdId === householdId) {
+        clearSelectedHouseholdId();
+      }
+      message.success("Household deleted.");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Failed to delete household.");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const handleCreateHousehold = async () => {
@@ -265,24 +305,52 @@ export default function HouseholdsPage() {
                       {household.name}
                     </Title>
                     <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
-                    <Space orientation="vertical" style={{ width: "100%" }}>
-                      {household.role === "owner" && (
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                      <div style={{ display: "flex", gap: 8 }}>
                         <Button
-                          onClick={() => void handleRegenerateInviteCode(household.householdId)}
-                          loading={regeneratingId === household.householdId}
+                          type="primary"
+                          icon={<InboxOutlined />}
+                          style={{ flex: 1 }}
+                          onClick={() => handleOpenPantry(household)}
                         >
-                          Regenerate Invite Code
+                          View Pantry
                         </Button>
+                        <Button
+                          icon={<TeamOutlined />}
+                          style={{ flex: 1 }}
+                          onClick={() =>
+                            router.push(
+                              `/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`,
+                            )
+                          }
+                        >
+                          View Members
+                        </Button>
+                      </div>
+
+                      {household.role === "owner" && (
+                        <>
+                          <Button
+                            icon={<SyncOutlined />}
+                            block
+                            loading={regeneratingId === household.householdId}
+                            onClick={() => void handleRegenerateInviteCode(household.householdId)}
+                          >
+                            Regenerate Invite Code
+                          </Button>
+                          <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            block
+                            loading={deletingId === household.householdId}
+                            onClick={() => void handleDeleteHousehold(household.householdId)}
+                          >
+                            Delete Household
+                          </Button>
+                        </>
                       )}
-                      <Button className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
-                        View Pantry
-                      </Button>
-                      <Button
-                        onClick={() => router.push(`/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`)}
-                      >
-                        View Members
-                      </Button>
-                    </Space>
+                    </div>
                   </Card>
                 </Col>
               ))}

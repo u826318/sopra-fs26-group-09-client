@@ -114,7 +114,8 @@ export default function StatsPage() {
   const householdId = Number(params.id);
 
   const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
 
   const householdName = useMemo(
     () =>
@@ -217,7 +218,14 @@ export default function StatsPage() {
   usePantryWebSocket({
     householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
-    onMessage: () => {
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED") {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("This household has been deleted.");
+        router.push("/households");
+        return;
+      }
       void loadDashboard();
     },
   });

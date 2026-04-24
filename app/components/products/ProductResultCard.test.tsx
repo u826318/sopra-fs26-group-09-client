@@ -3,15 +3,42 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ProductResultCard from "@/components/products/ProductResultCard";
 
 const postMock = jest.fn();
+const pushMock = jest.fn();
+const warningMock = jest.fn();
+const errorMock = jest.fn();
+const setHouseholdsMock = jest.fn();
 
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ post: postMock }),
 }));
 
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: pushMock }),
+}));
+
+jest.mock("@/hooks/useSessionStorage", () => ({
+  __esModule: true,
+  default: (key: string) => {
+    if (key === "households") {
+      return {
+        value: [{ householdId: 10, name: "Test House", inviteCode: "ABC", ownerId: 1, role: "owner" }],
+        set: setHouseholdsMock,
+        clear: jest.fn(),
+      };
+    }
+    return { value: "", set: jest.fn(), clear: jest.fn() };
+  },
+}));
+
 jest.mock("antd", () => {
   const Image = ({ alt }: any) => <img alt={alt} />;
   const Card = ({ children }: any) => <div>{children}</div>;
-  return { Card, Image };
+  const App = {
+    useApp: () => ({
+      message: { warning: warningMock, error: errorMock, success: jest.fn(), info: jest.fn() },
+    }),
+  };
+  return { Card, Image, App };
 });
 
 describe("ProductResultCard", () => {
@@ -34,7 +61,6 @@ describe("ProductResultCard", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    globalThis.alert = jest.fn();
   });
 
   it("renders only the streamlined product information", () => {
@@ -91,7 +117,6 @@ describe("ProductResultCard", () => {
       });
     });
 
-    expect(globalThis.alert).not.toHaveBeenCalledWith("Plant Based Caprese was added to Test House.");
     expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to Test House.");
   });
 
@@ -132,7 +157,7 @@ describe("ProductResultCard", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("shows a validation error and does not submit when quantity is invalid", async () => {
+  it("shows a warning and does not submit when quantity is invalid", async () => {
     render(
       <ProductResultCard
         product={product}
@@ -148,10 +173,10 @@ describe("ProductResultCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
 
     expect(postMock).not.toHaveBeenCalled();
-    expect(globalThis.alert).toHaveBeenCalledWith("Quantity to add must be at least 1.");
+    expect(warningMock).toHaveBeenCalledWith("Quantity to add must be at least 1.");
   });
 
-  it("shows the API error when adding the pantry item fails", async () => {
+  it("shows the API error message when adding the pantry item fails", async () => {
     postMock.mockRejectedValueOnce(new Error("backend exploded"));
 
     render(
@@ -166,7 +191,29 @@ describe("ProductResultCard", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
 
     await waitFor(() => {
-      expect(globalThis.alert).toHaveBeenCalledWith("backend exploded");
+      expect(errorMock).toHaveBeenCalledWith("backend exploded");
+    });
+  });
+
+  it("redirects to /households and removes the household from cache when the pantry returns 404", async () => {
+    const notFoundError = Object.assign(new Error("Not found"), { status: 404, info: "" });
+    postMock.mockRejectedValueOnce(notFoundError);
+
+    render(
+      <ProductResultCard
+        product={product}
+        rawTitle="Raw fields"
+        exportContext="Pantry export"
+        pantryContext={{ householdId: 10, householdName: "Test House" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    await waitFor(() => {
+      expect(setHouseholdsMock).toHaveBeenCalledWith([]);
+      expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
+      expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });
 });
