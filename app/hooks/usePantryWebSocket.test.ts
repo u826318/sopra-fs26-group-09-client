@@ -31,8 +31,10 @@ jest.mock("@stomp/stompjs", () => ({
   }),
 }));
 
+jest.mock("sockjs-client", () => jest.fn().mockImplementation(() => ({})));
+
 jest.mock("@/utils/domain", () => ({
-  getWsDomain: () => "ws://localhost:8080",
+  getApiDomain: () => "http://localhost:8080",
 }));
 
 describe("usePantryWebSocket", () => {
