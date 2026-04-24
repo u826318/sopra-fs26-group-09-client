@@ -193,6 +193,8 @@ describe("Households page", () => {
         ownerId: 1,
       }),
     );
+    expect(setSelectedHouseholdIdMock).toHaveBeenCalledWith(15);
+    expect(pushMock).toHaveBeenCalledWith("/households/10?name=Test%20House");
 
     render(<HouseholdsPage />);
 
@@ -306,6 +308,17 @@ describe("Households page", () => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
       }),
     );
+  });
+
+  it("shows an error when joining with an invalid or expired invite code fails", async () => {
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(
+        false,
+        { message: "Invite code has expired. Please request a new code." },
+        410,
+        "Gone",
+      ),
+    );
 
     render(<HouseholdsPage />);
 
@@ -340,6 +353,28 @@ describe("Households page", () => {
 
     expect(screen.getByTestId("col-expires")).toHaveTextContent("3 days");
     expect(screen.getByTestId("col-created")).not.toHaveTextContent("Today");
+    fireEvent.change(screen.getByPlaceholderText("Enter invite code (e.g. AB-12345)"), {
+      target: { value: "EXPIRED" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Join Household/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/join",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({ Authorization: "stored-token" }),
+          body: JSON.stringify({ inviteCode: "EXPIRED" }),
+        }),
+      );
+
+      expect(errorMock).toHaveBeenCalledWith(
+        "410: Invite code has expired. Please request a new code.",
+      );
+    });
+
+    expect(setHouseholdsMock).not.toHaveBeenCalled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("View Members navigates to the members page with encoded household name", () => {
