@@ -89,7 +89,7 @@ export default function ProductResultCard({
 
     try {
       const payload = buildPantryItemPayload(product, packageCount, estimatedKcal);
-      const createdItem = await api.post<PantryItem>(
+      await api.post<PantryItem>(
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
       );

@@ -13,7 +13,6 @@ import {
   Modal,
   Progress,
   Row,
-  Select,
   Space,
   Spin,
   Table,
@@ -24,7 +23,6 @@ import type { TableProps } from "antd";
 import {
   EditOutlined,
   MinusCircleOutlined,
-  RestOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
@@ -127,14 +125,7 @@ export default function StatsPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
-  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consuming, setConsuming] = useState(false);
-  const [consumeForm] = Form.useForm<{ itemId: number; quantity: number }>();
-  const selectedConsumeItemId = Form.useWatch("itemId", consumeForm);
-  const selectedConsumeItem = useMemo(
-    () => pantry?.items.find((i) => i.id === selectedConsumeItemId),
-    [pantry?.items, selectedConsumeItemId],
-  );
+  const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
 
   const loadDashboard = useCallback(async () => {
@@ -247,48 +238,33 @@ export default function StatsPage() {
     }
   };
 
-  const openConsumeModal = () => {
-    if (!pantry?.items.length) {
-      message.info("Add items to your pantry before recording consumption.");
-      return;
-    }
-    const first = pantry.items[0];
-    consumeForm.setFieldsValue({ itemId: first.id, quantity: 1 });
-    setConsumeModalOpen(true);
-  };
-
-  const submitConsumption = async () => {
+  const handleConsumeItem = useCallback(async (item: PantryItem) => {
     if (!selectedHouseholdId) return;
-    const values = await consumeForm.validateFields();
-    const item = pantry?.items.find((i) => i.id === values.itemId);
-    if (!item) {
-      message.error("Selected item is no longer in the pantry.");
+    if (item.count <= 0) {
+      message.error("This item has no available units left.");
       return;
     }
-    if (values.quantity > item.count) {
-      message.error("Quantity cannot exceed available units.");
-      return;
-    }
-    setConsuming(true);
+
+    setConsumingItemId(item.id);
     try {
       const res = await api.post<ConsumePantryItemResponse>(
-        `/households/${selectedHouseholdId}/pantry/${values.itemId}/consume`,
-        { quantity: values.quantity },
+        `/households/${selectedHouseholdId}/pantry/${item.id}/consume`,
+        { quantity: 1 },
       );
+
       message.success(
         res.removed
           ? "Item fully consumed and removed from pantry."
           : "Consumption recorded.",
       );
-      setConsumeModalOpen(false);
 
       await loadDashboard();
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Could not record consumption.");
     } finally {
-      setConsuming(false);
+      setConsumingItemId(null);
     }
-  };
+  }, [api, loadDashboard, message, selectedHouseholdId]);
 
   const inventoryColumns: TableProps<PantryItem>["columns"] = useMemo(
     () => [
@@ -344,8 +320,25 @@ export default function StatsPage() {
             <Tag color="success">In stock</Tag>
           ),
       },
+      {
+        title: "Action",
+        key: "action",
+        width: 120,
+        render: (_: unknown, record: PantryItem) => (
+          <Button
+            size="small"
+            danger
+            onClick={() => void handleConsumeItem(record)}
+            loading={consumingItemId === record.id}
+            disabled={record.count <= 0}
+            aria-label={`Consume ${record.name}`}
+          >
+            Consume
+          </Button>
+        ),
+      },
     ],
-    [],
+    [consumingItemId, handleConsumeItem],
   );
 
   return (
@@ -549,15 +542,6 @@ export default function StatsPage() {
               </Col>
               <Col xs={24} lg={9}>
                 <div className={statsStyles.rightStack}>
-                  <Button
-                    type="primary"
-                    className={statsStyles.recordConsumptionBtn}
-                    icon={<RestOutlined />}
-                    onClick={openConsumeModal}
-                  >
-                    Record consumption
-                  </Button>
-
                   <Card className={`${statsStyles.panelCard} ${statsStyles.activityCard}`} title="Recent activity" variant="borderless">
                     {activity.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 13 }}>
@@ -641,55 +625,6 @@ export default function StatsPage() {
             ]}
           >
             <InputNumber min={1} max={50000} style={{ width: "100%" }} addonAfter="kcal / day" />
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      <Modal
-        title="Record consumption"
-        open={consumeModalOpen}
-        onCancel={() => setConsumeModalOpen(false)}
-        onOk={() => void submitConsumption()}
-        confirmLoading={consuming}
-        okText="Log consumption"
-        destroyOnHidden
-      >
-        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Select an item and how many units you used. Calories are calculated from each item&apos;s
-          kcal per package.
-        </Paragraph>
-        <Form form={consumeForm} layout="vertical">
-          <Form.Item
-            label="Pantry item"
-            name="itemId"
-            rules={[{ required: true, message: "Select an item" }]}
-          >
-            <Select
-              placeholder="Choose item"
-              options={pantry?.items.map((i) => ({
-                value: i.id,
-                label: `${i.name} (${i.count} available)`,
-              }))}
-              onChange={() => consumeForm.setFieldValue("quantity", 1)}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Quantity consumed"
-            name="quantity"
-            rules={[
-              { required: true, message: "Enter quantity" },
-              {
-                type: "number",
-                min: 1,
-                message: "At least 1",
-              },
-            ]}
-          >
-            <InputNumber
-              min={1}
-              max={selectedConsumeItem?.count ?? undefined}
-              style={{ width: "100%" }}
-            />
           </Form.Item>
         </Form>
       </Modal>
