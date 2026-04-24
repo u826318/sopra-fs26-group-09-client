@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
@@ -15,6 +15,7 @@ import {
   Table,
   Typography,
   Alert,
+  App,
   Row,
   Col,
   Tag,
@@ -33,6 +34,21 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph, Text } = Typography;
 
+type HouseholdLookup = {
+  householdId: number;
+  name: string;
+};
+
+function routeBackToSafeHouseholdsPage(router: ReturnType<typeof useRouter>) {
+  if (globalThis.window?.history.length > 1) {
+    router.back();
+    return;
+  }
+
+  router.replace("/households");
+}
+
+
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -50,7 +66,9 @@ export default function HouseholdPantryPage() {
   const { isAuthenticated } = useAuthGuard();
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const api = useApi();
+  const { message } = App.useApp();
 
   const { value: username } = useSessionStorage<string>("username", "");
   const { value: token } = useSessionStorage<string>("token", "");
@@ -64,21 +82,65 @@ export default function HouseholdPantryPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
 
   const householdName = useMemo(() => {
-    if (typeof globalThis.window !== "undefined") {
-      const queryParams = new URLSearchParams(globalThis.location.search);
-      const queryName = queryParams.get("name");
-      if (queryName?.trim()) {
-        return queryName.trim();
-      }
+    const queryName = searchParams.get("name");
+    if (queryName?.trim()) {
+      return queryName.trim();
     }
 
     return (
       cachedHouseholds.find((household) => household.householdId === householdId)
         ?.name ?? `Household ${householdId}`
     );
-  }, [cachedHouseholds, householdId]);
+  }, [cachedHouseholds, householdId, searchParams]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const rejectInvalidHouseholdRoute = (text: string) => {
+      if (cancelled) return;
+      setHasValidHouseholdRoute(false);
+      setIsLoading(false);
+      message.error(text);
+      routeBackToSafeHouseholdsPage(router);
+    };
+
+    const validateHouseholdRoute = async () => {
+      setHasValidHouseholdRoute(false);
+
+      if (!Number.isInteger(householdId) || householdId <= 0) {
+        rejectInvalidHouseholdRoute("Household ID is invalid.");
+        return;
+      }
+
+      try {
+        const household = await api.get<HouseholdLookup>(`/households/${householdId}`);
+        if (cancelled) return;
+
+        const requestedName = searchParams.get("name")?.trim();
+        if (requestedName && requestedName !== household.name) {
+          rejectInvalidHouseholdRoute("Household name does not exist for this household.");
+          return;
+        }
+
+        setHasValidHouseholdRoute(true);
+      } catch (error) {
+        rejectInvalidHouseholdRoute(
+          error instanceof Error && error.message.includes("User is not a member")
+            ? "You are not a member of this household."
+            : "Household ID does not exist.",
+        );
+      }
+    };
+
+    void validateHouseholdRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, householdId, message, router, searchParams]);
 
   const fetchPantry = useCallback(async () => {
     if (!Number.isFinite(householdId) || householdId <= 0) {
@@ -109,12 +171,12 @@ export default function HouseholdPantryPage() {
   }, [api, householdId]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !hasValidHouseholdRoute) return;
     void fetchPantry();
-  }, [fetchPantry, isAuthenticated]);
+  }, [fetchPantry, hasValidHouseholdRoute, isAuthenticated]);
 
   const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
-    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    householdId: hasValidHouseholdRoute && Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
     onMessage: () => {
       void fetchPantry();
@@ -174,6 +236,10 @@ export default function HouseholdPantryPage() {
       render: (value: string) => formatDate(value),
     },
   ];
+
+  if (!hasValidHouseholdRoute) {
+    return null;
+  }
 
   return (
     <div

@@ -6,11 +6,25 @@ import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
-import { Button, Col, Row, Tag, Typography } from "antd";
+import { App, Button, Col, Row, Tag, Typography } from "antd";
 import styles from "@/styles/households.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
 const { Title, Paragraph } = Typography;
+
+type HouseholdLookup = {
+  householdId: number;
+  name: string;
+};
+
+function routeBackToSafeHouseholdsPage(router: ReturnType<typeof useRouter>) {
+  if (globalThis.window?.history.length > 1) {
+    router.back();
+    return;
+  }
+
+  router.replace("/households");
+}
 
 interface HouseholdMember {
   userId: number;
@@ -30,6 +44,7 @@ export default function HouseholdMembersPage() {
   const params = useParams<{ id: string }>();
   const searchParams = useSearchParams();
   const api = useApi();
+  const { message } = App.useApp();
 
   const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const householdId = Number(params.id);
@@ -43,9 +58,56 @@ export default function HouseholdMembersPage() {
   const [members, setMembers] = useState<HouseholdMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    let cancelled = false;
+
+    const rejectInvalidHouseholdRoute = (text: string) => {
+      if (cancelled) return;
+      setHasValidHouseholdRoute(false);
+      setIsLoading(false);
+      message.error(text);
+      routeBackToSafeHouseholdsPage(router);
+    };
+
+    const validateHouseholdRoute = async () => {
+      setHasValidHouseholdRoute(false);
+
+      if (!Number.isInteger(householdId) || householdId <= 0) {
+        rejectInvalidHouseholdRoute("Household ID is invalid.");
+        return;
+      }
+
+      try {
+        const household = await api.get<HouseholdLookup>(`/households/${householdId}`);
+        if (cancelled) return;
+
+        const requestedName = searchParams.get("name")?.trim();
+        if (requestedName && requestedName !== household.name) {
+          rejectInvalidHouseholdRoute("Household name does not exist for this household.");
+          return;
+        }
+
+        setHasValidHouseholdRoute(true);
+      } catch (error) {
+        rejectInvalidHouseholdRoute(
+          error instanceof Error && error.message.includes("User is not a member")
+            ? "You are not a member of this household."
+            : "Household ID does not exist.",
+        );
+      }
+    };
+
+    void validateHouseholdRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, householdId, message, router, searchParams]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasValidHouseholdRoute) return;
     if (!Number.isFinite(householdId) || householdId <= 0) {
       setErrorMessage("Invalid household ID.");
       setIsLoading(false);
@@ -66,7 +128,11 @@ export default function HouseholdMembersPage() {
     };
     void fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [householdId, isAuthenticated]);
+  }, [householdId, isAuthenticated, hasValidHouseholdRoute]);
+
+  if (!hasValidHouseholdRoute) {
+    return null;
+  }
 
   return (
     <VirtualPantryAppShell activeNav="households">
