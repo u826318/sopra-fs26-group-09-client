@@ -39,9 +39,9 @@ jest.mock("antd", () => {
   );
 
   const Space = ({ children }: any) => <div>{children}</div>;
-  const Alert = ({ message, description }: any) => (
+  const Alert = ({ title, description }: any) => (
     <div>
-      <div>{message}</div>
+      <div>{title}</div>
       <div>{description}</div>
     </div>
   );
