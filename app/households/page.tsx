@@ -272,7 +272,9 @@ export default function HouseholdsPage() {
                     <Title level={4} style={{ marginBottom: 8 }}>
                       {household.name}
                     </Title>
-                    <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
+                    {household.role === "owner" && (
+                      <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
+                    )}
                     <Space orientation="vertical" style={{ width: "100%" }}>
                       {household.role === "owner" && (
                         <Button
