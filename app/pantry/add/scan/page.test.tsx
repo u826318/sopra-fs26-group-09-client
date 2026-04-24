@@ -39,9 +39,9 @@ jest.mock("antd", () => {
   );
 
   const Space = ({ children }: any) => <div>{children}</div>;
-  const Alert = ({ message, description }: any) => (
+  const Alert = ({ title, description }: any) => (
     <div>
-      <div>{message}</div>
+      <div>{title}</div>
       <div>{description}</div>
     </div>
   );
@@ -74,9 +74,16 @@ jest.mock("antd", () => {
     Text: ({ children }: any) => <span>{children}</span>,
   };
 
+  const ConfigProvider = ({ children }: any) => <>{children}</>;
+  const App = {
+    useApp: () => ({ message: { success: jest.fn(), error: jest.fn(), warning: jest.fn(), info: jest.fn() } }),
+  };
+
   return {
+    App,
     Button,
     Card,
+    ConfigProvider,
     Space,
     Alert,
     Image,
@@ -85,6 +92,7 @@ jest.mock("antd", () => {
     Col,
     Tag,
     Typography,
+    theme: { defaultAlgorithm: {} },
   };
 });
 

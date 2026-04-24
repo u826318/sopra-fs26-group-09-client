@@ -11,6 +11,7 @@ const warningMock = jest.fn();
 const infoMock = jest.fn();
 const setHouseholdsMock = jest.fn();
 const setSelectedHouseholdIdMock = jest.fn();
+const clearSelectedHouseholdIdMock = jest.fn();
 let mockStoredHouseholds: any[] = [];
 let mockSelectedHouseholdId: number | null = null;
 
@@ -50,7 +51,7 @@ jest.mock("@/hooks/useSessionStorage", () => ({
       return {
         value: mockSelectedHouseholdId,
         set: setSelectedHouseholdIdMock,
-        clear: jest.fn(),
+        clear: clearSelectedHouseholdIdMock,
       };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
@@ -118,11 +119,14 @@ jest.mock("antd", () => {
 
 jest.mock("@ant-design/icons", () => ({
   DashboardOutlined: () => <span>icon</span>,
+  DeleteOutlined: () => <span>icon</span>,
   HomeOutlined: () => <span>icon</span>,
   InboxOutlined: () => <span>icon</span>,
-  ReadOutlined: () => <span>icon</span>,
   LogoutOutlined: () => <span>icon</span>,
   PlusCircleOutlined: () => <span>icon</span>,
+  ReadOutlined: () => <span>icon</span>,
+  SyncOutlined: () => <span>icon</span>,
+  TeamOutlined: () => <span>icon</span>,
 }));
 
 const mockJsonResponse = (ok: boolean, body: unknown, status = 200, statusText = "OK") =>
@@ -289,5 +293,78 @@ describe("Households page", () => {
     expect(pushMock).toHaveBeenCalledWith(
       "/households/10/members?name=Test%20House",
     );
+  });
+
+  it("Delete Household button is only visible to owners", () => {
+    mockStoredHouseholds = [
+      { householdId: 10, name: "Owned House", inviteCode: "OWN", ownerId: 1, role: "owner" },
+      { householdId: 11, name: "Joined House", inviteCode: "JON", ownerId: 2, role: "member" },
+    ];
+
+    render(<HouseholdsPage />);
+
+    expect(screen.getByRole("button", { name: /Delete Household/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Regenerate Invite Code/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /View Pantry/i })).toHaveLength(2);
+  });
+
+  it("deletes a household and removes it from the list", async () => {
+    mockStoredHouseholds = [
+      { householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" },
+    ];
+
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, status: 204, json: async () => ({}) } as Response),
+    );
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+
+    await waitFor(() => {
+      expect(mockFetch).toHaveBeenCalledWith(
+        "http://localhost:8080/households/10",
+        expect.objectContaining({ method: "DELETE", headers: expect.objectContaining({ Authorization: "stored-token" }) }),
+      );
+      expect(setHouseholdsMock).toHaveBeenCalledWith([]);
+      expect(successMock).toHaveBeenCalledWith("Household deleted.");
+    });
+  });
+
+  it("clears selectedHouseholdId when the currently selected household is deleted", async () => {
+    mockStoredHouseholds = [
+      { householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" },
+    ];
+    mockSelectedHouseholdId = 10;
+
+    mockFetch.mockImplementationOnce(() =>
+      Promise.resolve({ ok: true, status: 204, json: async () => ({}) } as Response),
+    );
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+
+    await waitFor(() => {
+      expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
+    });
+  });
+
+  it("shows an error when deleting a household fails", async () => {
+    mockStoredHouseholds = [
+      { householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" },
+    ];
+
+    mockFetch.mockImplementationOnce(() =>
+      mockJsonResponse(false, { message: "Not authorized" }, 403, "Forbidden"),
+    );
+
+    render(<HouseholdsPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+
+    await waitFor(() => {
+      expect(errorMock).toHaveBeenCalledWith(expect.stringContaining("Not authorized"));
+    });
   });
 });

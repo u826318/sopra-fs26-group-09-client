@@ -4,6 +4,9 @@ import HouseholdMembersPage from "@/households/[id]/members/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
+const warningMock = jest.fn();
+const setHouseholdsMock = jest.fn();
+const clearSelectedHouseholdIdMock = jest.fn();
 
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
@@ -19,9 +22,30 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock }),
 }));
 
-jest.mock("@/hooks/useLocalStorage", () => ({
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: () => ({ connected: false, hasConnectedOnce: false }),
+}));
+
+jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
-  default: () => ({ value: [], set: jest.fn(), clear: jest.fn() }),
+  default: (key: string) => {
+    if (key === "token") {
+      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
+    }
+    if (key === "households") {
+      return {
+        value: [
+          { householdId: 10, name: "Test House", inviteCode: "ABC123", ownerId: 1, role: "owner" },
+        ],
+        set: setHouseholdsMock,
+        clear: jest.fn(),
+      };
+    }
+    if (key === "selectedHouseholdId") {
+      return { value: null, set: jest.fn(), clear: clearSelectedHouseholdIdMock };
+    }
+    return { value: "", set: jest.fn(), clear: jest.fn() };
+  },
 }));
 
 jest.mock("@/components/VirtualPantryAppShell", () => ({
@@ -31,11 +55,14 @@ jest.mock("@/components/VirtualPantryAppShell", () => ({
 }));
 
 jest.mock("antd", () => {
+  const App = {
+    useApp: () => ({
+      message: { warning: warningMock, error: jest.fn(), success: jest.fn(), info: jest.fn() },
+    }),
+  };
   const Button = ({ children, onClick }: any) => (
     <button type="button" onClick={onClick}>{children}</button>
   );
-  const Card = ({ children, loading }: any) =>
-    loading ? <div>loading</div> : <div>{children}</div>;
   const Col = ({ children }: any) => <div>{children}</div>;
   const Row = ({ children }: any) => <div>{children}</div>;
   const Tag = ({ children }: any) => <span>{children}</span>;
@@ -44,7 +71,7 @@ jest.mock("antd", () => {
     Paragraph: ({ children }: any) => <p>{children}</p>,
     Text: ({ children }: any) => <span>{children}</span>,
   };
-  return { Button, Card, Col, Row, Tag, Typography };
+  return { App, Button, Col, Row, Tag, Typography };
 });
 
 const sampleMembers = [
@@ -78,7 +105,7 @@ describe("HouseholdMembersPage", () => {
     });
   });
 
-  it("shows error message when API call fails", async () => {
+  it("shows error message when API call fails with a non-404 error", async () => {
     getMock.mockRejectedValueOnce(new Error("forbidden"));
 
     render(<HouseholdMembersPage />);
@@ -109,5 +136,19 @@ describe("HouseholdMembersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back to households" }));
     expect(pushMock).toHaveBeenCalledWith("/households");
+  });
+
+  it("redirects to /households and removes the household from cache when members returns 404", async () => {
+    const notFoundError = Object.assign(new Error("Not found"), { status: 404, info: "" });
+    getMock.mockRejectedValueOnce(notFoundError);
+
+    render(<HouseholdMembersPage />);
+
+    await waitFor(() => {
+      expect(setHouseholdsMock).toHaveBeenCalledWith([]);
+      expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
+      expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
+      expect(pushMock).toHaveBeenCalledWith("/households");
+    });
   });
 });

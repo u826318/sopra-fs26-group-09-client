@@ -1,11 +1,15 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
+import useSessionStorage from "@/hooks/useSessionStorage";
 import type { PantryItem } from "@/types/pantry";
 import type { Product } from "@/types/product";
+import type { HouseholdWithRole } from "@/types/household";
+import type { ApplicationError } from "@/types/error";
 import { buildPantryItemPayload, estimateKcalPerPackage } from "@/utils/pantry";
-import { Card, Image } from "antd";
+import { App, Card, Image } from "antd";
 import styles from "@/styles/productResultCard.module.css";
 
 type PantryContext = {
@@ -46,6 +50,10 @@ export default function ProductResultCard({
   pantryContext?: PantryContext;
 }) {
   const api = useApi();
+  const router = useRouter();
+  const { message } = App.useApp();
+  const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
@@ -58,29 +66,29 @@ export default function ProductResultCard({
 
   const handleAddToPantry = async (): Promise<void> => {
     if (!effectivePantryContext) {
-      alert("No pantry target is selected.");
+      message.warning("No pantry target is selected.");
       return;
     }
 
     const barcode = product.barcode?.trim() ?? "";
     if (!barcode) {
-      alert("This product does not have a usable barcode.");
+      message.warning("This product does not have a usable barcode.");
       return;
     }
 
     const productName = product.name?.trim() ?? "";
     if (!productName) {
-      alert("This product does not have a usable name.");
+      message.warning("This product does not have a usable name.");
       return;
     }
 
     if (!Number.isInteger(packageCount) || packageCount < 1) {
-      alert("Quantity to add must be at least 1.");
+      message.warning("Quantity to add must be at least 1.");
       return;
     }
 
     if (estimatedKcal === null) {
-      alert("Calories per package could not be estimated for this product.");
+      message.warning("Calories per package could not be estimated for this product.");
       return;
     }
 
@@ -89,13 +97,20 @@ export default function ProductResultCard({
 
     try {
       const payload = buildPantryItemPayload(product, packageCount, estimatedKcal);
-      const createdItem = await api.post<PantryItem>(
+      await api.post<PantryItem>(
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
       );
       setSuccessMessage(`Item successfully added to ${getPantryTargetLabel(effectivePantryContext)}.`);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to add the product to the pantry.");
+      if ((error as ApplicationError).status === 404) {
+        setHouseholds(households.filter((h) => h.householdId !== effectivePantryContext.householdId));
+        if (selectedHouseholdId === effectivePantryContext.householdId) clearSelectedHouseholdId();
+        message.warning("This household no longer exists.");
+        router.push("/households");
+        return;
+      }
+      message.error(error instanceof Error ? error.message : "Failed to add the product to the pantry.");
     } finally {
       setIsSubmitting(false);
     }
