@@ -160,7 +160,7 @@ export default function HouseholdsPage() {
   const handleOpenPantry = (household: HouseholdWithRole) => {
     setSelectedHouseholdId(household.householdId);
     router.push(
-      `/households/${household.householdId}?name=${encodeURIComponent(household.name)}`,
+      `/households/${household.householdId}/stats`,
     );
   };
 
