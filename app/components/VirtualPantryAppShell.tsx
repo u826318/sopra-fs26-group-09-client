@@ -31,6 +31,7 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
     number | null
   >("selectedHouseholdId", null);
   const { value: username } = useSessionStorage<string>("username", "");
+  const { value: userId } = useSessionStorage<string>("userId", "");
 
   const handleSidebarPantry = () => {
     if (households.length === 0) {
@@ -129,7 +130,12 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
         <main className={styles.main}>
           <div className={styles.topUserBar}>
             <span className={styles.userName}>{userLabel}</span>
-            <Avatar size={64} className={styles.userAvatar}>
+            <Avatar
+              size={64}
+              className={styles.userAvatar}
+              style={{ cursor: userId ? "pointer" : "default" }}
+              onClick={() => { if (userId) router.push(`/users/${userId}/health-goal`); }}
+            >
               {userInitial}
             </Avatar>
           </div>
