@@ -23,6 +23,7 @@ const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken, clear: clearToken } = useSessionStorage<string>("token", "");
   const { set: setUsername, clear: clearUsername } = useSessionStorage<string>("username", "");
+  const { set: setUserId } = useSessionStorage<string>("userId", "");
   const { set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   useEffect(() => {
@@ -53,6 +54,9 @@ const Login: React.FC = () => {
 
       if (response.token) {
         setToken(response.token);
+      }
+      if (response.id) {
+        setUserId(String(response.id));
       }
       setUsername(response.username?.trim() || values.username.trim());
 

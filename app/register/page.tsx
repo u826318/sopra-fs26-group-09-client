@@ -35,6 +35,7 @@ const Register: React.FC = () => {
   const [form] = Form.useForm<RegisterFormValues>();
   const { set: setToken } = useSessionStorage<string>("token", "");
   const { set: setUsername } = useSessionStorage<string>("username", "");
+  const { set: setUserId } = useSessionStorage<string>("userId", "");
   const { set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   const handleRegister = async (values: RegisterFormValues): Promise<void> => {
@@ -46,6 +47,9 @@ const Register: React.FC = () => {
 
       if (response.token) {
         setToken(response.token);
+      }
+      if (response.id) {
+        setUserId(String(response.id));
       }
       setUsername(response.username?.trim() || values.username.trim());
 
