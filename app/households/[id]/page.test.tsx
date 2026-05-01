@@ -214,6 +214,28 @@ describe("Household pantry page", () => {
     );
   });
 
+  it("navigates to the receipt upload page with the active household context", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.resolve({ items: [], totalCalories: 0 });
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+
+    render(<HouseholdPantryPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Upload receipt/i }),
+    );
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/pantry/add/receipt?householdId=10&householdName=Test%20House",
+    );
+  });
+
   it("shows an error message when the pantry request fails", async () => {
     getMock.mockImplementation((url: string) => {
       if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });

@@ -27,6 +27,7 @@ import {
   ReloadOutlined,
   SearchOutlined,
   CameraOutlined,
+  FileImageOutlined,
   InboxOutlined,
   FireOutlined,
 } from "@ant-design/icons";
@@ -482,8 +483,8 @@ export default function HouseholdPantryPage() {
                   </Title>
                   <Paragraph style={{ margin: 0, color: "#5f6e60" }}>
                     Choose how you want to add the next item. Use Open Food Facts
-                    for direct barcode or name lookup, or scan a package image to
-                    detect the barcode automatically.
+                    for direct barcode or name lookup, scan a package image, or
+                    upload a receipt to extract purchased items.
                   </Paragraph>
 
                   <Space wrap size="middle">
@@ -514,6 +515,20 @@ export default function HouseholdPantryPage() {
                       }
                     >
                       Scan product image
+                    </Button>
+
+                    <Button
+                      size="large"
+                      icon={<FileImageOutlined />}
+                      onClick={() =>
+                        router.push(
+                          `/pantry/add/receipt?householdId=${householdId}&householdName=${encodeURIComponent(
+                            householdName,
+                          )}`,
+                        )
+                      }
+                    >
+                      Upload receipt
                     </Button>
                   </Space>
                 </Space>

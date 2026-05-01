@@ -1,3 +1,5 @@
+import type { Product } from "@/types/product";
+
 export interface ReceiptLineItem {
   description: string | null;
   quantity: string | null;
@@ -7,7 +9,14 @@ export interface ReceiptLineItem {
   rawItem: Record<string, unknown> | null;
 }
 
+export interface ReceiptMatchedItem extends ReceiptLineItem {
+  matchStatus: string | null;
+  matchSource: string | null;
+  matchedProduct: Product | null;
+}
+
 export interface ReceiptAnalysisResult {
+  householdId?: number;
   status: string | null;
   merchantName: string | null;
   merchantPhoneNumber: string | null;
@@ -22,7 +31,14 @@ export interface ReceiptAnalysisResult {
   currencyCode: string | null;
   countryRegion: string | null;
   rawText: string | null;
-  items: ReceiptLineItem[] | null;
+  items: ReceiptMatchedItem[] | ReceiptLineItem[] | null;
   extractedFields: Record<string, unknown> | null;
   rawResult: Record<string, unknown> | null;
+}
+
+export interface ReceiptUploadSession {
+  householdId: number;
+  householdName?: string;
+  uploadedAt: string;
+  result: ReceiptAnalysisResult;
 }
