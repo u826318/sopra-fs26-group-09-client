@@ -19,6 +19,7 @@ import useSessionStorage from "@/hooks/useSessionStorage";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import type { HealthGoal, HealthGoalPutRequest } from "@/types/healthGoal";
+import type { ApplicationError } from "@/types/error";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -72,8 +73,10 @@ export default function HealthGoalPage() {
         });
         setGoalType(goal.goalType);
         setRecommendation(goal.recommendedDailyCalories);
-      } catch {
-        // 404 — no goal yet, leave form empty
+      } catch (error) {
+        if ((error as ApplicationError).status !== 404) {
+          message.error(error instanceof Error ? error.message : "Failed to load health goal.");
+        }
       } finally {
         setLoading(false);
       }

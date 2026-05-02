@@ -223,7 +223,7 @@ export default function StatsPage() {
         userId
           ? api.get<HealthGoal>(`/users/${userId}/health-goal`)
               .then(setPersonalGoal)
-              .catch(() => setPersonalGoal(null))
+              .catch((error) => { if (isNotFound(error)) setPersonalGoal(null); })
           : Promise.resolve(),
       ]);
     } catch (error) {

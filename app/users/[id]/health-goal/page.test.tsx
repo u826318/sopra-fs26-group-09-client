@@ -1,3 +1,4 @@
+import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import HealthGoalPage from "@/users/[id]/health-goal/page";
 
