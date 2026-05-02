@@ -194,7 +194,7 @@ export default function HealthGoalPage() {
               label="Target rate (kg/week)"
               rules={[{ required: true, message: "Required" }]}
             >
-              <InputNumber min={0.1} max={1.0} step={0.1} style={{ width: "100%" }} suffix="kg/week" />
+              <InputNumber min={0.1} max={1} step={0.1} style={{ width: "100%" }} suffix="kg/week" />
             </Form.Item>
           )}
 

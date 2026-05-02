@@ -659,9 +659,13 @@ export default function StatsPage() {
                           <Text style={{ color: MUTED }}>
                             Not set ·{" "}
                             {userId && (
-                              <a onClick={() => router.push(`/users/${userId}/health-goal`)} style={{ color: FOREST, cursor: "pointer" }}>
+                              <Button
+                                type="link"
+                                onClick={() => router.push(`/users/${userId}/health-goal`)}
+                                style={{ color: FOREST, padding: 0, height: "auto" }}
+                              >
                                 Set goal →
-                              </a>
+                              </Button>
                             )}
                           </Text>
                         )}
