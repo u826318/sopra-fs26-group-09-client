@@ -51,6 +51,7 @@ jest.mock("@/hooks/useSessionStorage", () => ({
         clear: jest.fn(),
       };
     }
+    if (key === "userId") return { value: "", set: jest.fn(), clear: jest.fn() };
     return { value: "test-token", set: jest.fn(), clear: jest.fn() };
   },
 }));

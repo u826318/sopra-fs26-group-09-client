@@ -23,7 +23,7 @@ const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormValues>();
   const { set: setToken, clear: clearToken } = useSessionStorage<string>("token", "");
   const { set: setUsername, clear: clearUsername } = useSessionStorage<string>("username", "");
-  const { set: setUserId } = useSessionStorage<string>("userId", "");
+  const { set: setUserId, clear: clearUserId } = useSessionStorage<string>("userId", "");
   const { set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
 
   useEffect(() => {
@@ -41,9 +41,10 @@ const Login: React.FC = () => {
         if ((error as { status?: number })?.status === 401) {
           clearToken();
           clearUsername();
+          clearUserId();
         }
       });
-  }, [apiService, router, clearToken, clearUsername]);
+  }, [apiService, router, clearToken, clearUsername, clearUserId]);
 
   const handleLogin = async (values: LoginFormValues): Promise<void> => {
     try {

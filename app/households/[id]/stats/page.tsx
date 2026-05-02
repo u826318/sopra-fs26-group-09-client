@@ -223,7 +223,10 @@ export default function StatsPage() {
         userId
           ? api.get<HealthGoal>(`/users/${userId}/health-goal`)
               .then(setPersonalGoal)
-              .catch((error) => { if (isNotFound(error)) setPersonalGoal(null); })
+              .catch((error) => {
+            if (isNotFound(error)) setPersonalGoal(null);
+            else message.warning(error instanceof Error ? error.message : "Failed to load health goal.");
+          })
           : Promise.resolve(),
       ]);
     } catch (error) {

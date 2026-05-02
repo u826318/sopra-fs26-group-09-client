@@ -31,7 +31,7 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
     number | null
   >("selectedHouseholdId", null);
   const { value: username } = useSessionStorage<string>("username", "");
-  const { value: userId } = useSessionStorage<string>("userId", "");
+  const { value: userId, clear: clearUserId } = useSessionStorage<string>("userId", "");
 
   const handleSidebarPantry = () => {
     if (households.length === 0) {
@@ -53,6 +53,7 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
   const handleLogout = () => {
     clearToken();
     clearUsername();
+    clearUserId();
     clearHouseholds();
     clearSelectedHouseholdId();
     router.push("/login");
