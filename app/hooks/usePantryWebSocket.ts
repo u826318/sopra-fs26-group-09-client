@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Client } from "@stomp/stompjs";
-import { getWsDomain } from "@/utils/domain";
+import SockJS from "sockjs-client";
+import { getApiDomain } from "@/utils/domain";
 import type { PantryUpdateMessage } from "@/types/websocket";
 
 interface UsePantryWebSocketOptions {
@@ -30,10 +31,11 @@ export function usePantryWebSocket({
       return;
     }
 
-    const brokerURL = `${getWsDomain()}/ws?token=${encodeURIComponent(token)}`;
-
     const client = new Client({
-      brokerURL,
+      webSocketFactory: () => new SockJS(`${getApiDomain()}/ws`),
+      connectHeaders: {
+        token: token,
+      },
       reconnectDelay: 5000,
       onConnect: () => {
         setConnected(true);

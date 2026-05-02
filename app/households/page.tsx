@@ -25,10 +25,8 @@ import {
 } from "antd";
 import {
   DeleteOutlined,
-  InboxOutlined,
   PlusCircleOutlined,
   SyncOutlined,
-  TeamOutlined,
 } from "@ant-design/icons";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
@@ -141,6 +139,9 @@ export default function HouseholdsPage() {
       setLastGeneratedCode(created.inviteCode);
       setCreateName("");
       message.success("Household created successfully.");
+      router.push(
+        `/households/${created.householdId}?name=${encodeURIComponent(created.name)}`,
+      );
     } catch (error) {
       message.error(error instanceof Error ? error.message : "Failed to create household.");
     } finally {
@@ -157,7 +158,7 @@ export default function HouseholdsPage() {
       updateHouseholds((currentHouseholds) =>
         currentHouseholds.map((household) =>
           household.householdId === updated.householdId
-            ? { ...household, inviteCode: updated.inviteCode }
+            ? { ...household, inviteCode: updated.inviteCode, inviteCodeExpiresAt: updated.expiresAt }
             : household,
         ),
       );
@@ -206,13 +207,18 @@ export default function HouseholdsPage() {
 
   const activeInvites = households.filter((household) => household.role === "owner").length;
 
-  const invitationRows = ownedHouseholds.slice(0, 2).map((household) => ({
-    key: household.householdId,
-    household: household.name,
-    inviteCode: household.inviteCode,
-    created: "Today",
-    expires: "7 days",
-  }));
+  const invitationRows = ownedHouseholds.slice(0, 2).map((household) => {
+    const expiresAt = household.inviteCodeExpiresAt ? new Date(household.inviteCodeExpiresAt) : null;
+    const createdAt = expiresAt ? new Date(expiresAt.getTime() - 7 * 24 * 60 * 60 * 1000) : null;
+    const daysLeft = expiresAt ? Math.floor((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+    return {
+      key: household.householdId,
+      household: household.name,
+      inviteCode: household.inviteCode,
+      created: createdAt ? createdAt.toLocaleDateString() : "—",
+      expires: daysLeft === null ? "—" : daysLeft <= 0 ? "Expired" : `${daysLeft} day${daysLeft === 1 ? "" : "s"}`,
+    };
+  });
 
   return (
     <VirtualPantryAppShell activeNav="households">
@@ -304,31 +310,22 @@ export default function HouseholdsPage() {
                     <Title level={4} style={{ marginBottom: 8 }}>
                       {household.name}
                     </Title>
-                    <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <Button
-                          type="primary"
-                          icon={<InboxOutlined />}
-                          style={{ flex: 1 }}
-                          onClick={() => handleOpenPantry(household)}
-                        >
-                          View Pantry
-                        </Button>
-                        <Button
-                          icon={<TeamOutlined />}
-                          style={{ flex: 1 }}
-                          onClick={() =>
-                            router.push(
-                              `/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`,
-                            )
-                          }
-                        >
-                          View Members
-                        </Button>
-                      </div>
-
+                    {household.role === "owner" && (
+                      <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
+                    )}
+                    <Space orientation="vertical" style={{ width: "100%" }}>
+                      <Button className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
+                        View Pantry
+                      </Button>
+                      <Button
+                        onClick={() =>
+                          router.push(
+                            `/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`,
+                          )
+                        }
+                      >
+                        View Members
+                      </Button>
                       {household.role === "owner" && (
                         <>
                           <Button
@@ -350,7 +347,7 @@ export default function HouseholdsPage() {
                           </Button>
                         </>
                       )}
-                    </div>
+                    </Space>
                   </Card>
                 </Col>
               ))}
@@ -410,8 +407,13 @@ export default function HouseholdsPage() {
               {
                 title: "Actions",
                 key: "actions",
-                render: () => (
-                  <Button size="small" className={styles.outlineButton}>
+                render: (_: unknown, record: { key: number }) => (
+                  <Button
+                    size="small"
+                    className={styles.outlineButton}
+                    loading={regeneratingId === record.key}
+                    onClick={() => void handleRegenerateInviteCode(record.key)}
+                  >
                     Revoke
                   </Button>
                 ),

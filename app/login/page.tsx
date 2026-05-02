@@ -8,7 +8,7 @@ import AuthLayout from "@/components/auth/AuthLayout";
 import { getLoginErrorMessage } from "@/utils/authError";
 import { User } from "@/types/user";
 import type { HouseholdWithRole } from "@/types/household";
-import { App, Button, Checkbox, Form, Input } from "antd";
+import { App, Button, Form, Input } from "antd";
 import styles from "@/styles/auth.module.css";
 
 interface LoginFormValues {
@@ -100,9 +100,9 @@ const Login: React.FC = () => {
         >
           <Input.Password placeholder="••••••••" />
         </Form.Item>
-        <Form.Item name="rememberMe" valuePropName="checked">
+        {/* <Form.Item name="rememberMe" valuePropName="checked">
           <Checkbox className={styles.inlineAgreement}>Remember me</Checkbox>
-        </Form.Item>
+        </Form.Item> */}
         <Form.Item>
           <Button type="primary" htmlType="submit" className={styles.submitButton}>
             Sign In

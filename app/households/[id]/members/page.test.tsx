@@ -13,7 +13,7 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, back: jest.fn(), replace: jest.fn() }),
   useParams: () => ({ id: "10" }),
   useSearchParams: () => ({ get: (key: string) => (key === "name" ? "Test House" : null) }),
 }));
@@ -25,6 +25,7 @@ jest.mock("@/hooks/useApi", () => ({
 jest.mock("@/hooks/usePantryWebSocket", () => ({
   usePantryWebSocket: () => ({ connected: false, hasConnectedOnce: false }),
 }));
+
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
@@ -71,7 +72,8 @@ jest.mock("antd", () => {
     Paragraph: ({ children }: any) => <p>{children}</p>,
     Text: ({ children }: any) => <span>{children}</span>,
   };
-  return { App, Button, Col, Row, Tag, Typography };
+  const Card = ({ children }: any) => <div>{children}</div>;
+  return { App, Button, Card, Col, Row, Tag, Typography };
 });
 
 const sampleMembers = [
@@ -85,7 +87,11 @@ describe("HouseholdMembersPage", () => {
   });
 
   it("renders household name and members on success", async () => {
-    getMock.mockResolvedValueOnce(sampleMembers);
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 
@@ -96,7 +102,11 @@ describe("HouseholdMembersPage", () => {
   });
 
   it("shows Members (2) count after loading", async () => {
-    getMock.mockResolvedValueOnce(sampleMembers);
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 
@@ -105,8 +115,12 @@ describe("HouseholdMembersPage", () => {
     });
   });
 
-  it("shows error message when API call fails with a non-404 error", async () => {
-    getMock.mockRejectedValueOnce(new Error("forbidden"));
+  it("shows error message when API call fails", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.reject(new Error("forbidden"));
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 
@@ -116,7 +130,11 @@ describe("HouseholdMembersPage", () => {
   });
 
   it("shows no members message when list is empty", async () => {
-    getMock.mockResolvedValueOnce([]);
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve([]);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 
@@ -126,7 +144,11 @@ describe("HouseholdMembersPage", () => {
   });
 
   it("Back button navigates to /households", async () => {
-    getMock.mockResolvedValueOnce(sampleMembers);
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 
@@ -140,7 +162,11 @@ describe("HouseholdMembersPage", () => {
 
   it("redirects to /households and removes the household from cache when members returns 404", async () => {
     const notFoundError = Object.assign(new Error("Not found"), { status: 404, info: "" });
-    getMock.mockRejectedValueOnce(notFoundError);
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.reject(notFoundError);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<HouseholdMembersPage />);
 

@@ -46,7 +46,11 @@ jest.mock("antd", () => {
     Paragraph: ({ children }: any) => <p>{children}</p>,
   };
 
-  return { Button, Card, Empty, Input, Space, Typography };
+  const App = {
+    useApp: () => ({ message: { error: jest.fn(), warning: jest.fn(), success: jest.fn() } }),
+  };
+
+  return { App, Button, Card, Empty, Input, Space, Typography };
 });
 
 jest.mock("@/hooks/useAuthGuard", () => ({
@@ -54,7 +58,8 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock }),
+  useRouter: () => ({ push: pushMock, back: jest.fn(), replace: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 jest.mock("@/hooks/useApi", () => ({
@@ -108,7 +113,11 @@ describe("Open Food Facts page", () => {
       "/open-food-facts?barcode=9999&householdId=5&householdName=Test",
     );
 
-    getMock.mockResolvedValue({ name: "Auto Product", barcode: "9999" });
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/5") return Promise.resolve({ householdId: 5, name: "Test" });
+      if (url.includes("/products/lookup")) return Promise.resolve({ name: "Auto Product", barcode: "9999" });
+      return Promise.reject(new Error("unexpected: " + url));
+    });
 
     render(<OpenFoodFactsPage />);
 
@@ -137,10 +146,10 @@ describe("Open Food Facts page", () => {
     expect(screen.queryByText("No product loaded yet.")).not.toBeInTheDocument();
   });
 
-  it("navigates back to the household page", () => {
+  it("navigates back to the household page", async () => {
     render(<OpenFoodFactsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to household page" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Back to pantry stats" }));
 
     expect(pushMock).toHaveBeenCalledWith("/households");
   });

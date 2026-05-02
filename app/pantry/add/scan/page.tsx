@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import {
   Alert,
@@ -40,9 +40,10 @@ type BarcodeExtractionResponse = {
   barcode: string;
 };
 
-export default function PantryScanPage() {
+function PantryScanPageContent() {
   useAuthGuard();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const api = useApi();
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -54,21 +55,16 @@ export default function PantryScanPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pantryTarget = useMemo<PantryTarget | null>(() => {
-    if (typeof globalThis.window === "undefined") {
-      return null;
-    }
-
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
+    const householdId = Number(searchParams.get("householdId"));
     if (!Number.isFinite(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: searchParams.get("householdName") ?? undefined,
     };
-  }, []);
+  }, [searchParams]);
 
   const updateSelectedFile = (file?: File) => {
     if (!file) {
@@ -600,5 +596,13 @@ export default function PantryScanPage() {
       </div>
     </div>
     </ConfigProvider>
+  );
+}
+
+export default function PantryScanPage() {
+  return (
+    <Suspense>
+      <PantryScanPageContent />
+    </Suspense>
   );
 }

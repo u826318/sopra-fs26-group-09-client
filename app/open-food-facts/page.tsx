@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
-import { Button, Card, Empty, Input, Space, Typography } from "antd";
+import { App, Button, Card, Empty, Input, Space, Typography } from "antd";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import styles from "@/styles/openFoodFacts.module.css";
@@ -17,32 +17,149 @@ type PantryTarget = {
   householdName?: string;
 };
 
+function formatHouseholdValidationError(error: unknown): string {
+  if (error instanceof Error && error.message.includes("User is not a member")) {
+    return "You are not a member of this household.";
+  }
+
+  return "Household ID does not exist.";
+}
+
+type HouseholdLookup = {
+  householdId: number;
+  name: string;
+};
+
 export default function OpenFoodFactsPortalPage() {
+  return (
+    <Suspense fallback={null}>
+      <OpenFoodFactsPortalContent />
+    </Suspense>
+  );
+}
+
+function OpenFoodFactsPortalContent() {
   useAuthGuard();
   const api = useApi();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { message } = App.useApp();
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
   const [lookupMessage, setLookupMessage] = useState("");
   const [hasAutoLookedUp, setHasAutoLookedUp] = useState(false);
+  const [validatedPantryTarget, setValidatedPantryTarget] = useState<PantryTarget | null>(null);
+  const [validatingPantryTarget, setValidatingPantryTarget] = useState(true);
 
-  const pantryTarget = useMemo<PantryTarget | null>(() => {
-    if (typeof globalThis.window === "undefined") {
+  const requestedPantryTarget = useMemo<PantryTarget | null>(() => {
+    const householdIdParam = searchParams.get("householdId");
+    if (householdIdParam === null) {
       return null;
     }
 
-    const params = new URLSearchParams(globalThis.location.search);
-    const householdId = Number(params.get("householdId"));
-    if (!Number.isFinite(householdId) || householdId <= 0) {
+    const householdId = Number(householdIdParam);
+    if (!Number.isInteger(householdId) || householdId <= 0) {
       return null;
     }
 
     return {
       householdId,
-      householdName: params.get("householdName") ?? undefined,
+      householdName: searchParams.get("householdName") ?? undefined,
     };
-  }, []);
+  }, [searchParams]);
+
+  const invalidPantryTargetMessage = useMemo(() => {
+    const householdIdParam = searchParams.get("householdId");
+    const householdNameParam = searchParams.get("householdName");
+
+    if (householdIdParam === null) {
+      return householdNameParam
+        ? "Household ID is required when a household name is provided."
+        : "";
+    }
+
+    const householdId = Number(householdIdParam);
+    return Number.isInteger(householdId) && householdId > 0
+      ? ""
+      : "Household ID is invalid.";
+  }, [searchParams]);
+
+  const pantryTarget = validatedPantryTarget;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const rejectInvalidTarget = (text: string) => {
+      if (cancelled) {
+        return;
+      }
+
+      setValidatedPantryTarget(null);
+      setValidatingPantryTarget(false);
+      message.error(text);
+
+      if (globalThis.window.history.length > 1) {
+        router.back();
+      } else {
+        router.replace("/households");
+      }
+    };
+
+    const validatePantryTarget = async () => {
+      if (invalidPantryTargetMessage) {
+        rejectInvalidTarget(invalidPantryTargetMessage);
+        return;
+      }
+
+      if (!requestedPantryTarget) {
+        setValidatedPantryTarget(null);
+        setValidatingPantryTarget(false);
+        return;
+      }
+
+      setValidatingPantryTarget(true);
+      try {
+        const household = await api.get<HouseholdLookup>(
+          `/households/${requestedPantryTarget.householdId}`,
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const requestedName = requestedPantryTarget.householdName?.trim();
+        if (requestedName && requestedName !== household.name) {
+          rejectInvalidTarget("Household name does not exist for this household.");
+          return;
+        }
+
+        setValidatedPantryTarget({
+          householdId: requestedPantryTarget.householdId,
+          householdName: household.name,
+        });
+        setValidatingPantryTarget(false);
+      } catch (error) {
+        rejectInvalidTarget(formatHouseholdValidationError(error));
+      }
+    };
+
+    void validatePantryTarget();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, invalidPantryTargetMessage, message, requestedPantryTarget, router]);
+
+  const backToPantryStats = useCallback(() => {
+    const householdId = Number(searchParams.get("householdId"));
+    if (Number.isFinite(householdId) && householdId > 0) {
+      router.push(`/households/${householdId}/stats`);
+      return;
+    }
+
+    router.push("/households");
+  }, [router, searchParams]);
 
   const lookupBarcode = useCallback(async (barcodeValue: string) => {
     const barcodeToLookup = barcodeValue.trim();
@@ -68,14 +185,18 @@ export default function OpenFoodFactsPortalPage() {
     }
   }, [api]);
 
-  // This useEffect is used by pantry/add/scan
+  // This useEffect is used by pantry/add/scan. Wait until the household target is validated
+  // so an invalid household URL cannot render product results or create an add-to-pantry flow.
   useEffect(() => {
-    if (typeof globalThis.window === "undefined" || hasAutoLookedUp) {
+    if (validatingPantryTarget || hasAutoLookedUp) {
       return;
     }
 
-    const params = new URLSearchParams(globalThis.location.search);
-    const barcodeFromQuery = params.get("barcode")?.trim();
+    if (requestedPantryTarget && !validatedPantryTarget) {
+      return;
+    }
+
+    const barcodeFromQuery = searchParams.get("barcode")?.trim();
 
     if (!barcodeFromQuery) {
       return;
@@ -84,7 +205,18 @@ export default function OpenFoodFactsPortalPage() {
     setHasAutoLookedUp(true);
     setBarcode(barcodeFromQuery);
     void lookupBarcode(barcodeFromQuery);
-  }, [hasAutoLookedUp, lookupBarcode]);
+  }, [
+    hasAutoLookedUp,
+    lookupBarcode,
+    requestedPantryTarget,
+    searchParams,
+    validatedPantryTarget,
+    validatingPantryTarget,
+  ]);
+
+  if (validatingPantryTarget || (requestedPantryTarget && !validatedPantryTarget)) {
+    return null;
+  }
 
   return (
     <VirtualPantryAppShell activeNav="pantry">
@@ -130,13 +262,9 @@ export default function OpenFoodFactsPortalPage() {
             <div className={styles.lookupActions}>
               <Button
                 className={styles.secondaryBtn}
-                onClick={() =>
-                  pantryTarget
-                    ? router.push(`/households/${pantryTarget.householdId}/stats`)
-                    : router.push("/households")
-                }
+                onClick={backToPantryStats}
               >
-                Back to household page
+                Back to pantry stats
               </Button>
               <Button
                 type="primary"
@@ -159,12 +287,14 @@ export default function OpenFoodFactsPortalPage() {
 
       <section className={styles.resultSection}>
         {barcodeResult ? (
-          <ProductResultCard
-            product={barcodeResult}
-            rawTitle=""
-            exportContext="Product lookup"
-            pantryContext={pantryTarget ?? undefined}
-          />
+          <>
+            <ProductResultCard
+              product={barcodeResult}
+              rawTitle=""
+              exportContext="Product lookup"
+              pantryContext={pantryTarget ?? undefined}
+            />
+          </>
         ) : lookupMessage ? null : (
           <div className={styles.emptyState}>
             <Empty description="No product loaded yet." />

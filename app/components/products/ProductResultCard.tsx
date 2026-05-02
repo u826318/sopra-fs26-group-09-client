@@ -55,6 +55,7 @@ export default function ProductResultCard({
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
+  const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback";
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
     [pantryContext],
@@ -135,7 +136,14 @@ export default function ProductResultCard({
 
         <div className={styles.content}>
           <div className={styles.headerBlock}>
-            <div className={styles.eyebrow}>Top match</div>
+            <div className={styles.headerRow}>
+              <div className={styles.eyebrow}>Top match</div>
+              {isLocalFallback ? (
+                <span className={styles.sourceBadge}>From Local Dataset</span>
+              ) : (
+                <span className={styles.sourceBadgeSecondary}>Open Food Facts API</span>
+              )}
+            </div>
             <div className={styles.productName}>{product.name ?? "Unknown product"}</div>
           </div>
 
@@ -151,6 +159,12 @@ export default function ProductResultCard({
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Estimated kcal / package</div>
               <div className={styles.metaValue}>{estimatedKcal ?? "—"}</div>
+            </div>
+            <div className={styles.metaCard}>
+              <div className={styles.metaLabel}>Data source</div>
+              <div className={styles.metaValue}>
+                {isLocalFallback ? "Local fallback" : "Open Food Facts"}
+              </div>
             </div>
           </div>
 

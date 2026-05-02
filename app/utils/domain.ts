@@ -12,10 +12,3 @@ export function getApiDomain(): string {
   return isProduction() ? prodUrl : devUrl;
 }
 
-export function getWsDomain(): string {
-  const prodUrl = process.env.NEXT_PUBLIC_PROD_API_URL ||
-    "https://sopra-fs26-group-09-server.oa.r.appspot.com";
-  const devUrl = "http://localhost:8080";
-  const base = isProduction() ? prodUrl : devUrl;
-  return base.replace(/^http/, "ws");
-}

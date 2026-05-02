@@ -13,7 +13,6 @@ import {
   Modal,
   Progress,
   Row,
-  Select,
   Space,
   Spin,
   Table,
@@ -25,11 +24,12 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   MinusCircleOutlined,
+  PlusCircleOutlined,
   RestOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
 import dayjs, { Dayjs } from "dayjs";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
@@ -49,22 +49,57 @@ const FOREST = "#1b5e20";
 const DANGER = "#c62828";
 const MUTED = "#5d6a5d";
 
+type HouseholdLookup = {
+  householdId: number;
+  name: string;
+};
+
+function routeBackToSafeHouseholdsPage(router: ReturnType<typeof useRouter>) {
+  if (globalThis.window?.history.length > 1) {
+    router.back();
+    return;
+  }
+
+  router.replace("/households");
+}
+
 type ActivityEntry = {
   id: string;
   at: string;
   productName: string;
   deltaKcal: number;
-  consumedQuantity: number;
+  quantity: number;
+  type: "ADDED" | "CONSUMED";
 };
 
 function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   return logs.map((log) => ({
-    id: `log-${log.logId}`,
+    id: `consume-${log.logId}`,
     at: log.consumedAt,
     productName: log.productName,
     deltaKcal: -log.consumedCalories,
-    consumedQuantity: log.consumedQuantity,
+    quantity: log.consumedQuantity,
+    type: "CONSUMED",
   }));
+}
+
+function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
+  return items
+    .filter((item) => Boolean(item.addedAt))
+    .map((item) => ({
+      id: `add-${item.id}`,
+      at: item.addedAt,
+      productName: item.name,
+      deltaKcal: item.kcalPerPackage * item.count,
+      quantity: item.count,
+      type: "ADDED",
+    }));
+}
+
+function buildRecentActivity(items: PantryItem[], logs: ConsumptionLogEntry[]): ActivityEntry[] {
+  return [...pantryItemsToActivity(items), ...logsToActivity(logs)]
+    .sort((a, b) => dayjs(b.at).valueOf() - dayjs(a.at).valueOf())
+    .slice(0, 30);
 }
 
 function isNotFound(error: unknown): boolean {
@@ -109,6 +144,7 @@ export default function StatsPage() {
   const api = useApi();
   const router = useRouter();
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const { message } = App.useApp();
 
   const householdId = Number(params.id);
@@ -124,11 +160,20 @@ export default function StatsPage() {
     [cachedHouseholds, householdId],
   );
 
-  const householdRole = useMemo(
-    () => cachedHouseholds.find((h) => h.householdId === householdId)?.role ?? null,
+  const currentHousehold = useMemo(
+    () => cachedHouseholds.find((h) => h.householdId === householdId) ?? null,
     [cachedHouseholds, householdId],
   );
+
+  const householdRole = currentHousehold?.role ?? null;
   const isOwner = householdRole === "owner";
+
+  const householdCreatedAt = useMemo(() => {
+    if (!currentHousehold?.createdAt) return null;
+
+    const created = dayjs(currentHousehold.createdAt);
+    return created.isValid() ? created.startOf("day") : null;
+  }, [currentHousehold]);
 
   const [startDate, setStartDate] = useState<Dayjs | null>(null);
   const initializedForHousehold = useRef<number | null>(null);
@@ -140,18 +185,13 @@ export default function StatsPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
-  const [consumeModalOpen, setConsumeModalOpen] = useState(false);
-  const [consuming, setConsuming] = useState(false);
-  const [consumeForm] = Form.useForm<{ itemId: number; quantity: number }>();
-  const selectedConsumeItemId = Form.useWatch("itemId", consumeForm);
-  const selectedConsumeItem = useMemo(
-    () => pantry?.items.find((i) => i.id === selectedConsumeItemId),
-    [pantry?.items, selectedConsumeItemId],
-  );
+  const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
+  const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
 
   const loadDashboard = useCallback(async () => {
-    if (!householdId || !startDate) {
+    if (!hasValidHouseholdRoute || !householdId || !startDate) {
       return;
     }
 
@@ -171,7 +211,7 @@ export default function StatsPage() {
       ]);
       setPantry(pantryRes);
       setStats(statsRes);
-      setActivity(logsToActivity(logsRes));
+      setActivity(buildRecentActivity(pantryRes.items, logsRes));
 
       try {
         const b = await api.get<HouseholdBudget>(`/households/${householdId}/budget`);
@@ -192,31 +232,104 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, message, householdId, startDate]);
+  }, [api, message, householdId, startDate, hasValidHouseholdRoute]);
 
   useEffect(() => {
-    if (!householdId || !cachedHouseholds.length) return;
+    let cancelled = false;
+
+    const rejectInvalidHouseholdRoute = (text: string) => {
+      if (cancelled) return;
+      setHasValidHouseholdRoute(false);
+      message.error(text);
+      routeBackToSafeHouseholdsPage(router);
+    };
+
+    const validateHouseholdRoute = async () => {
+      setHasValidHouseholdRoute(false);
+
+      if (!Number.isInteger(householdId) || householdId <= 0) {
+        rejectInvalidHouseholdRoute("Household ID is invalid.");
+        return;
+      }
+
+      try {
+        const household = await api.get<HouseholdLookup>(`/households/${householdId}`);
+        if (cancelled) return;
+
+        const requestedName = searchParams.get("name")?.trim();
+        if (requestedName && requestedName !== household.name) {
+          rejectInvalidHouseholdRoute("Household name does not exist for this household.");
+          return;
+        }
+
+        setHasValidHouseholdRoute(true);
+      } catch (error) {
+        rejectInvalidHouseholdRoute(
+          error instanceof Error && error.message.includes("User is not a member")
+            ? "You are not a member of this household."
+            : "Household ID does not exist.",
+        );
+      }
+    };
+
+    void validateHouseholdRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, householdId, message, router, searchParams]);
+
+  useEffect(() => {
+    if (!hasValidHouseholdRoute || !householdId || !cachedHouseholds.length) return;
     if (initializedForHousehold.current === householdId) return;
     initializedForHousehold.current = householdId;
 
     const sevenDaysAgo = dayjs().subtract(7, "day").startOf("day");
-    const household = cachedHouseholds.find((h) => h.householdId === householdId);
-    if (household?.createdAt) {
-      const created = dayjs(household.createdAt).startOf("day");
-      setStartDate(created.isAfter(sevenDaysAgo) ? created : sevenDaysAgo);
-    } else {
-      setStartDate(sevenDaysAgo);
-    }
-  }, [householdId, cachedHouseholds]);
+    setStartDate(
+      householdCreatedAt && householdCreatedAt.isAfter(sevenDaysAgo)
+        ? householdCreatedAt
+        : sevenDaysAgo,
+    );
+  }, [householdId, cachedHouseholds, hasValidHouseholdRoute, householdCreatedAt]);
+
+  const disableConsumptionStartDate = useCallback(
+    (current: Dayjs) => {
+      const selected = current.startOf("day");
+      const today = dayjs().startOf("day");
+
+      return (householdCreatedAt !== null && selected.isBefore(householdCreatedAt)) || selected.isAfter(today);
+    },
+    [householdCreatedAt],
+  );
+
+  const setConsumptionStartDate = useCallback(
+    (value: Dayjs | null) => {
+      if (!value) return;
+
+      const today = dayjs().startOf("day");
+      let next = value.startOf("day");
+
+      if (next.isAfter(today)) {
+        next = today;
+      }
+
+      if (householdCreatedAt !== null && next.isBefore(householdCreatedAt)) {
+        next = householdCreatedAt;
+      }
+
+      setStartDate(next);
+    },
+    [householdCreatedAt],
+  );
 
   useEffect(() => {
-    if (isAuthenticated && householdId && startDate) {
+    if (isAuthenticated && hasValidHouseholdRoute && householdId && startDate) {
       void loadDashboard();
     }
-  }, [isAuthenticated, loadDashboard, householdId, startDate]);
+  }, [isAuthenticated, loadDashboard, householdId, startDate, hasValidHouseholdRoute]);
 
   usePantryWebSocket({
-    householdId: Number.isFinite(householdId) && householdId > 0 ? householdId : null,
+    householdId: hasValidHouseholdRoute && Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
     onMessage: (msg) => {
       if (msg.eventType === "HOUSEHOLD_DELETED") {
@@ -274,46 +387,70 @@ export default function StatsPage() {
     }
   };
 
-  const openConsumeModal = () => {
-    if (!pantry?.items.length) {
-      message.info("Add items to your pantry before recording consumption.");
-      return;
-    }
-    const first = pantry.items[0];
-    consumeForm.setFieldsValue({ itemId: first.id, quantity: 1 });
-    setConsumeModalOpen(true);
-  };
+  const consumeInventoryItem = useCallback(
+    async (item: PantryItem) => {
+      if (!item.id) {
+        message.error("Selected item is missing an item ID.");
+        return;
+      }
+      if (!item.count || item.count <= 0) {
+        message.error("This item is no longer available in the pantry.");
+        return;
+      }
 
-  const submitConsumption = async () => {
-    const values = await consumeForm.validateFields();
-    const item = pantry?.items.find((i) => i.id === values.itemId);
-    if (!item) {
-      message.error("Selected item is no longer in the pantry.");
-      return;
-    }
-    if (values.quantity > item.count) {
-      message.error("Quantity cannot exceed available units.");
-      return;
-    }
-    setConsuming(true);
-    try {
-      const res = await api.post<ConsumePantryItemResponse>(
-        `/households/${householdId}/pantry/${values.itemId}/consume`,
-        { quantity: values.quantity },
-      );
-      message.success(
-        res.removed
-          ? "Item fully consumed and removed from pantry."
-          : "Consumption recorded.",
-      );
-      setConsumeModalOpen(false);
-      await loadDashboard();
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "Could not record consumption.");
-    } finally {
-      setConsuming(false);
-    }
-  };
+      setConsumingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/consume`,
+          { quantity: 1 },
+        );
+        message.success(
+          res.removed
+            ? "Item fully consumed and removed from pantry."
+            : "Consumption recorded.",
+        );
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not record consumption.");
+      } finally {
+        setConsumingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
+
+
+  const removeInventoryItem = useCallback(
+    async (item: PantryItem) => {
+      if (!item.id) {
+        message.error("Selected item is missing an item ID.");
+        return;
+      }
+      if (!item.count || item.count <= 0) {
+        message.error("This item is no longer available in the pantry.");
+        return;
+      }
+
+      setRemovingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/remove`,
+          { quantity: 1 },
+        );
+        message.success(
+          res.removed
+            ? "Item removed from pantry."
+            : "One unit removed from pantry.",
+        );
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not remove item from pantry.");
+      } finally {
+        setRemovingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
 
   const inventoryColumns: TableProps<PantryItem>["columns"] = useMemo(
     () => [
@@ -369,9 +506,41 @@ export default function StatsPage() {
             <Tag color="success">In stock</Tag>
           ),
       },
+      {
+        title: "Action",
+        key: "action",
+        width: 220,
+        render: (_: unknown, record: PantryItem) => (
+          <Space size="small" wrap>
+            <Button
+              type="primary"
+              size="small"
+              icon={<RestOutlined />}
+              loading={consumingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void consumeInventoryItem(record)}
+            >
+              Consume
+            </Button>
+            <Button
+              size="small"
+              danger
+              loading={removingItemId === record.id}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              onClick={() => void removeInventoryItem(record)}
+            >
+              Remove
+            </Button>
+          </Space>
+        ),
+      },
     ],
-    [],
+    [consumeInventoryItem, consumingItemId, removeInventoryItem, removingItemId],
   );
+
+  if (!hasValidHouseholdRoute) {
+    return null;
+  }
 
   return (
     <VirtualPantryAppShell activeNav="pantry">
@@ -428,7 +597,8 @@ export default function StatsPage() {
                   extra={
                     <DatePicker
                       value={startDate}
-                      onChange={(v) => setStartDate(v)}
+                      onChange={setConsumptionStartDate}
+                      disabledDate={disableConsumptionStartDate}
                       allowClear={false}
                       size="small"
                     />
@@ -537,81 +707,91 @@ export default function StatsPage() {
             </Row>
 
             <Row gutter={[20, 20]} className={statsStyles.lowerSection}>
-              <Col xs={24} lg={15}>
-                <Card
-                  className={statsStyles.panelCard}
-                  title="Current inventory"
-                  extra={
-                    <Button
-                      type="primary"
-                      size="small"
-                      onClick={() =>
-                        router.push(
-                          `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
-                        )
-                      }
-                    >
-                      Add from Open Food Facts
-                    </Button>
-                  }
-                  variant="borderless"
-                >
-                  {pantry && pantry.items.length > 0 ? (
-                    <Table<PantryItem>
-                      rowKey="id"
-                      pagination={{ pageSize: 8, showSizeChanger: false }}
-                      size="small"
-                      dataSource={pantry.items}
-                      columns={inventoryColumns}
-                    />
-                  ) : (
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="No pantry items yet."
-                    />
-                  )}
-                </Card>
-              </Col>
-              <Col xs={24} lg={9}>
-                <div className={statsStyles.rightStack}>
-                  <Button
-                    type="primary"
-                    className={statsStyles.recordConsumptionBtn}
-                    icon={<RestOutlined />}
-                    onClick={openConsumeModal}
+              <Col xs={24}>
+                <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+                  <Card
+                    className={statsStyles.panelCard}
+                    title="Current inventory"
+                    extra={
+                      <Space size="small" wrap>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Scan product barcode
+                        </Button>
+                        <Button
+                          type="primary"
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Add from Open Food Facts
+                        </Button>
+                      </Space>
+                    }
+                    variant="borderless"
                   >
-                    Record consumption
-                  </Button>
+                    {pantry && pantry.items.length > 0 ? (
+                      <Table<PantryItem>
+                        rowKey="id"
+                        pagination={{ pageSize: 8, showSizeChanger: false }}
+                        size="small"
+                        dataSource={pantry.items}
+                        columns={inventoryColumns}
+                      />
+                    ) : (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="No pantry items yet."
+                      />
+                    )}
+                  </Card>
 
                   <Card className={`${statsStyles.panelCard} ${statsStyles.activityCard}`} title="Recent activity" variant="borderless">
                     {activity.length === 0 ? (
                       <Text type="secondary" style={{ fontSize: 13 }}>
-                        No consumption recorded yet, or logs are still loading.
+                        No pantry activity recorded yet, or logs are still loading.
                       </Text>
                     ) : (
                       <div className={statsStyles.activityList}>
-                        {activity.map((a) => (
-                          <div key={a.id} className={statsStyles.activityItem}>
-                            <div>
-                              <Space size={8}>
-                                <MinusCircleOutlined style={{ color: DANGER }} />
-                                <Text strong style={{ color: "#1b2a1b" }}>
-                                  Consumed {a.consumedQuantity}× {a.productName}
-                                </Text>
-                              </Space>
-                              <div className={statsStyles.activityMeta}>
-                                {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                        {activity.map((a) => {
+                          const isAdded = a.type === "ADDED";
+                          return (
+                            <div key={a.id} className={statsStyles.activityItem}>
+                              <div>
+                                <Space size={8}>
+                                  {isAdded ? (
+                                    <PlusCircleOutlined style={{ color: FOREST }} />
+                                  ) : (
+                                    <MinusCircleOutlined style={{ color: DANGER }} />
+                                  )}
+                                  <Text strong style={{ color: "#1b2a1b" }}>
+                                    {isAdded ? "Added" : "Consumed"} {a.quantity}× {a.productName}
+                                  </Text>
+                                </Space>
+                                <div className={statsStyles.activityMeta}>
+                                  {dayjs(a.at).format("MMM D, YYYY · HH:mm")}
+                                </div>
                               </div>
+                              <span className={`${statsStyles.activityDelta} ${isAdded ? statsStyles.deltaPos : statsStyles.deltaNeg}`}>
+                                {isAdded ? "+" : ""}{Math.round(a.deltaKcal).toLocaleString()} kcal
+                              </span>
                             </div>
-                            <span className={`${statsStyles.activityDelta} ${statsStyles.deltaNeg}`}>
-                              {Math.round(a.deltaKcal).toLocaleString()} kcal
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </Card>
-                </div>
+                </Space>
               </Col>
             </Row>
 
@@ -658,64 +838,31 @@ export default function StatsPage() {
               { required: true, message: "Enter a calorie target" },
               {
                 type: "number",
-                min: 1,
                 max: 50000,
-                message: "Enter a value between 1 and 50000",
+                message: "Enter a value up to 50000",
+              },
+              {
+                validator: (_, value: number | null | undefined) => {
+                  if (value === null || value === undefined) {
+                    return Promise.resolve();
+                  }
+
+                  if (value <= 0) {
+                    return Promise.reject(
+                      new Error("Daily calorie target can't be less than or equal to 0"),
+                    );
+                  }
+
+                  return Promise.resolve();
+                },
               },
             ]}
           >
-            <InputNumber min={1} max={50000} style={{ width: "100%" }} suffix="kcal / day" />
+            <InputNumber max={50000} style={{ width: "100%" }} suffix="kcal / day" />
           </Form.Item>
         </Form>
       </Modal>
 
-      <Modal
-        title="Record consumption"
-        open={consumeModalOpen}
-        onCancel={() => setConsumeModalOpen(false)}
-        onOk={() => void submitConsumption()}
-        confirmLoading={consuming}
-        okText="Log consumption"
-      >
-        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
-          Select an item and how many units you used. Calories are calculated from each item&apos;s
-          kcal per package.
-        </Paragraph>
-        <Form form={consumeForm} layout="vertical">
-          <Form.Item
-            label="Pantry item"
-            name="itemId"
-            rules={[{ required: true, message: "Select an item" }]}
-          >
-            <Select
-              placeholder="Choose item"
-              options={pantry?.items.map((i) => ({
-                value: i.id,
-                label: `${i.name} (${i.count} available)`,
-              }))}
-              onChange={() => consumeForm.setFieldValue("quantity", 1)}
-            />
-          </Form.Item>
-          <Form.Item
-            label="Quantity consumed"
-            name="quantity"
-            rules={[
-              { required: true, message: "Enter quantity" },
-              {
-                type: "number",
-                min: 1,
-                message: "At least 1",
-              },
-            ]}
-          >
-            <InputNumber
-              min={1}
-              max={selectedConsumeItem?.count ?? undefined}
-              style={{ width: "100%" }}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
     </VirtualPantryAppShell>
   );
 }

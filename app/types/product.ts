@@ -7,6 +7,9 @@ export interface Product {
   imageUrl: string | null;
   productUrl: string | null;
   nutriScore: string | null;
+  localFallback?: boolean | null;
+  dataSource?: string | null;
+  caloriesPerPackage?: number | null;
   stores: string[] | null;
   storeTags: string[] | null;
   purchasePlaces: string[] | null;
