@@ -7,7 +7,9 @@ import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
+import type { ApplicationError } from "@/types/error";
 import {
+  App,
   Button,
   Card,
   Empty,
@@ -15,7 +17,6 @@ import {
   Table,
   Typography,
   Alert,
-  App,
   Row,
   Col,
   Tag,
@@ -27,6 +28,7 @@ import {
   ReloadOutlined,
   SearchOutlined,
   CameraOutlined,
+  FileImageOutlined,
   InboxOutlined,
   FireOutlined,
 } from "@ant-design/icons";
@@ -69,13 +71,10 @@ export default function HouseholdPantryPage() {
   const searchParams = useSearchParams();
   const api = useApi();
   const { message } = App.useApp();
-
   const { value: username } = useSessionStorage<string>("username", "");
   const { value: token } = useSessionStorage<string>("token", "");
-  const { value: cachedHouseholds } = useSessionStorage<HouseholdWithRole[]>(
-    "households",
-    [],
-  );
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
@@ -158,6 +157,13 @@ export default function HouseholdPantryPage() {
       );
       setOverview(pantryOverview);
     } catch (error) {
+      if ((error as ApplicationError).status === 404) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("This household no longer exists.");
+        router.push("/households");
+        return;
+      }
       setOverview(null);
       setErrorMessage(
         error instanceof Error
@@ -168,6 +174,7 @@ export default function HouseholdPantryPage() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, householdId]);
 
   useEffect(() => {
@@ -178,7 +185,14 @@ export default function HouseholdPantryPage() {
   const { connected: wsConnected, hasConnectedOnce } = usePantryWebSocket({
     householdId: hasValidHouseholdRoute && Number.isFinite(householdId) && householdId > 0 ? householdId : null,
     token,
-    onMessage: () => {
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED") {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("This household has been deleted.");
+        router.push("/households");
+        return;
+      }
       void fetchPantry();
     },
   });
@@ -482,8 +496,8 @@ export default function HouseholdPantryPage() {
                   </Title>
                   <Paragraph style={{ margin: 0, color: "#5f6e60" }}>
                     Choose how you want to add the next item. Use Open Food Facts
-                    for direct barcode or name lookup, or scan a package image to
-                    detect the barcode automatically.
+                    for direct barcode or name lookup, scan a package image, or
+                    upload a receipt to extract purchased items.
                   </Paragraph>
 
                   <Space wrap size="middle">
@@ -514,6 +528,20 @@ export default function HouseholdPantryPage() {
                       }
                     >
                       Scan product image
+                    </Button>
+
+                    <Button
+                      size="large"
+                      icon={<FileImageOutlined />}
+                      onClick={() =>
+                        router.push(
+                          `/pantry/add/receipt?householdId=${householdId}&householdName=${encodeURIComponent(
+                            householdName,
+                          )}`,
+                        )
+                      }
+                    >
+                      Upload receipt
                     </Button>
                   </Space>
                 </Space>

@@ -4,6 +4,9 @@ import HouseholdPantryPage from "@/households/[id]/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
+const warningMock = jest.fn();
+const setHouseholdsMock = jest.fn();
+const clearSelectedHouseholdIdMock = jest.fn();
 
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
@@ -19,11 +22,19 @@ jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock }),
 }));
 
+jest.mock("@/hooks/usePantryWebSocket", () => ({
+  usePantryWebSocket: () => ({ connected: false, hasConnectedOnce: false }),
+}));
+
+
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
   default: (key: string) => {
     if (key === "username") {
       return { value: "tingting-xu824", set: jest.fn(), clear: jest.fn() };
+    }
+    if (key === "token") {
+      return { value: "test-token", set: jest.fn(), clear: jest.fn() };
     }
     if (key === "households") {
       return {
@@ -36,9 +47,12 @@ jest.mock("@/hooks/useSessionStorage", () => ({
             role: "owner",
           },
         ],
-        set: jest.fn(),
+        set: setHouseholdsMock,
         clear: jest.fn(),
       };
+    }
+    if (key === "selectedHouseholdId") {
+      return { value: null, set: jest.fn(), clear: clearSelectedHouseholdIdMock };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
@@ -49,6 +63,12 @@ jest.mock("@/hooks/usePantryWebSocket", () => ({
 }));
 
 jest.mock("antd", () => {
+  const App = {
+    useApp: () => ({
+      message: { warning: warningMock, error: jest.fn(), success: jest.fn(), info: jest.fn() },
+    }),
+  };
+
   const Button = ({ children, onClick, loading, icon, ...props }: any) => (
     <button onClick={onClick} data-loading={loading ? "true" : "false"} {...props}>
       {icon}
@@ -98,10 +118,6 @@ jest.mock("antd", () => {
     Title: ({ children }: any) => <h1>{children}</h1>,
     Paragraph: ({ children }: any) => <p>{children}</p>,
     Text: ({ children }: any) => <span>{children}</span>,
-  };
-
-  const App = {
-    useApp: () => ({ message: { error: jest.fn(), warning: jest.fn(), success: jest.fn() } }),
   };
 
   return {
@@ -214,6 +230,28 @@ describe("Household pantry page", () => {
     );
   });
 
+  it("navigates to the receipt upload page with the active household context", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.resolve({ items: [], totalCalories: 0 });
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+
+    render(<HouseholdPantryPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households/10/pantry");
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Upload receipt/i }),
+    );
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/pantry/add/receipt?householdId=10&householdName=Test%20House",
+    );
+  });
+
   it("shows an error message when the pantry request fails", async () => {
     getMock.mockImplementation((url: string) => {
       if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
@@ -225,6 +263,24 @@ describe("Household pantry page", () => {
     await waitFor(() => {
       expect(screen.getByText("Pantry data could not be loaded")).toBeInTheDocument();
       expect(screen.getByText("pantry fetch failed")).toBeInTheDocument();
+    });
+  });
+
+  it("redirects to /households and removes the household from cache when the pantry returns 404", async () => {
+    const notFoundError = Object.assign(new Error("Not found"), { status: 404, info: "" });
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/pantry") return Promise.reject(notFoundError);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+
+    render(<HouseholdPantryPage />);
+
+    await waitFor(() => {
+      expect(setHouseholdsMock).toHaveBeenCalledWith([]);
+      expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
+      expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
+      expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });
 });

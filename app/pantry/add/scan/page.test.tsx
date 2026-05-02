@@ -80,6 +80,7 @@ jest.mock("antd", () => {
   return {
     Button,
     Card,
+    ConfigProvider,
     Space,
     Alert,
     Image,
@@ -88,7 +89,6 @@ jest.mock("antd", () => {
     Col,
     Tag,
     Typography,
-    ConfigProvider,
     theme: { defaultAlgorithm: {} },
   };
 });
