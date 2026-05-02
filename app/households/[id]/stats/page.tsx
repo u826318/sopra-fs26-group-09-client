@@ -40,6 +40,7 @@ import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
 import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
 import type { HouseholdStats } from "@/types/stats";
+import type { HealthGoal } from "@/types/healthGoal";
 import statsStyles from "@/styles/stats.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
@@ -152,6 +153,7 @@ export default function StatsPage() {
   const { value: token } = useSessionStorage<string>("token", "");
   const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const { value: userId } = useSessionStorage<string>("userId", "");
 
   const householdName = useMemo(
     () =>
@@ -185,6 +187,7 @@ export default function StatsPage() {
   const [savingBudget, setSavingBudget] = useState(false);
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
+  const [personalGoal, setPersonalGoal] = useState<HealthGoal | null>(null);
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
@@ -213,16 +216,19 @@ export default function StatsPage() {
       setStats(statsRes);
       setActivity(buildRecentActivity(pantryRes.items, logsRes));
 
-      try {
-        const b = await api.get<HouseholdBudget>(`/households/${householdId}/budget`);
-        setBudgetRecord(b);
-      } catch (error) {
-        if (isNotFound(error)) {
-          setBudgetRecord(null);
-        } else {
-          throw error;
-        }
-      }
+      await Promise.all([
+        api.get<HouseholdBudget>(`/households/${householdId}/budget`)
+          .then(setBudgetRecord)
+          .catch((error) => { if (isNotFound(error)) setBudgetRecord(null); else throw error; }),
+        userId
+          ? api.get<HealthGoal>(`/users/${userId}/health-goal`)
+              .then(setPersonalGoal)
+              .catch((error) => {
+            if (isNotFound(error)) setPersonalGoal(null);
+            else message.warning(error instanceof Error ? error.message : "Failed to load health goal.");
+          })
+          : Promise.resolve(),
+      ]);
     } catch (error) {
       setPantry(null);
       setStats(null);
@@ -232,7 +238,7 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, message, householdId, startDate, hasValidHouseholdRoute]);
+  }, [api, message, householdId, startDate, hasValidHouseholdRoute, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -642,6 +648,29 @@ export default function StatsPage() {
                   variant="borderless"
                 >
                   <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+                    <div>
+                      <Text style={{ color: MUTED }}>Your recommendation</Text>
+                      <div>
+                        {personalGoal ? (
+                          <Text strong style={{ fontSize: 16, color: FOREST }}>
+                            {Math.round(personalGoal.recommendedDailyCalories).toLocaleString()} kcal
+                          </Text>
+                        ) : (
+                          <Text style={{ color: MUTED }}>
+                            Not set ·{" "}
+                            {userId && (
+                              <Button
+                                type="link"
+                                onClick={() => router.push(`/users/${userId}/health-goal`)}
+                                style={{ color: FOREST, padding: 0, height: "auto" }}
+                              >
+                                Set goal →
+                              </Button>
+                            )}
+                          </Text>
+                        )}
+                      </div>
+                    </div>
                     <div>
                       <Text style={{ color: MUTED }}>Daily goal</Text>
                       <div>
