@@ -437,8 +437,8 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
-    expect(screen.getByRole("button", { name: /Delete Household/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Regenerate Invite Code/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Delete/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Regenerate Code/i })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /View Pantry/i })).toHaveLength(2);
   });
 
@@ -453,7 +453,7 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Delete/i }));
 
     await waitFor(() => {
       expect(mockFetch).toHaveBeenCalledWith(
@@ -477,7 +477,7 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Delete/i }));
 
     await waitFor(() => {
       expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
@@ -495,7 +495,7 @@ describe("Households page", () => {
 
     render(<HouseholdsPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Delete Household/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Delete/i }));
 
     await waitFor(() => {
       expect(errorMock).toHaveBeenCalledWith(expect.stringContaining("Not authorized"));
