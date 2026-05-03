@@ -313,11 +313,12 @@ export default function HouseholdsPage() {
                     {household.role === "owner" && (
                       <p className={styles.householdMeta}>Invite code: {household.inviteCode}</p>
                     )}
-                    <Space orientation="vertical" style={{ width: "100%" }}>
-                      <Button className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
+                    <div className={styles.cardButtons}>
+                      <Button block className={styles.outlineButton} onClick={() => handleOpenPantry(household)}>
                         View Pantry
                       </Button>
                       <Button
+                        block
                         onClick={() =>
                           router.push(
                             `/households/${household.householdId}/members?name=${encodeURIComponent(household.name)}`,
@@ -334,7 +335,7 @@ export default function HouseholdsPage() {
                             loading={regeneratingId === household.householdId}
                             onClick={() => void handleRegenerateInviteCode(household.householdId)}
                           >
-                            Regenerate Invite Code
+                            Regenerate Code
                           </Button>
                           <Button
                             danger
@@ -343,11 +344,11 @@ export default function HouseholdsPage() {
                             loading={deletingId === household.householdId}
                             onClick={() => void handleDeleteHousehold(household.householdId)}
                           >
-                            Delete Household
+                            Delete
                           </Button>
                         </>
                       )}
-                    </Space>
+                    </div>
                   </Card>
                 </Col>
               ))}
