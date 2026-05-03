@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -25,6 +26,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const FOREST = "#1b5e20";
+const MAX_SAFE_RATE = 1.0;
 
 interface FormValues {
   age: number;
@@ -33,7 +35,8 @@ interface FormValues {
   weight: number;
   activityLevel: string;
   goalType: string;
-  targetRate?: number;
+  targetWeight?: number;
+  weeksToGoal?: number;
 }
 
 export default function HealthGoalPage() {
@@ -49,6 +52,19 @@ export default function HealthGoalPage() {
   const [saving, setSaving] = useState(false);
   const [recommendation, setRecommendation] = useState<number | null>(null);
   const [goalType, setGoalType] = useState<string>("MAINTAIN");
+
+  const watchedWeight = Form.useWatch("weight", form) as number | undefined;
+  const watchedTargetWeight = Form.useWatch("targetWeight", form) as number | undefined;
+  const watchedWeeks = Form.useWatch("weeksToGoal", form) as number | undefined;
+
+  const computedRate =
+    goalType === "LOSE_WEIGHT" &&
+    watchedWeight != null &&
+    watchedTargetWeight != null &&
+    watchedWeeks != null &&
+    watchedWeeks > 0
+      ? (watchedWeight - watchedTargetWeight) / watchedWeeks
+      : null;
 
   const urlId = params.id;
 
@@ -69,7 +85,7 @@ export default function HealthGoalPage() {
           weight: goal.weight,
           activityLevel: goal.activityLevel,
           goalType: goal.goalType,
-          targetRate: goal.targetRate ?? undefined,
+          // targetWeight and weeksToGoal are not stored on the backend
         });
         setGoalType(goal.goalType);
         setRecommendation(goal.recommendedDailyCalories);
@@ -84,9 +100,19 @@ export default function HealthGoalPage() {
     if (urlId) void load();
   }, [api, urlId, form]);
 
+  const handleReset = () => {
+    form.resetFields();
+    setGoalType("MAINTAIN");
+    setRecommendation(null);
+  };
+
   const handleSave = async (values: FormValues) => {
     setSaving(true);
     try {
+      let targetRate: number | null = null;
+      if (values.goalType === "LOSE_WEIGHT" && values.targetWeight != null && values.weeksToGoal != null) {
+        targetRate = (values.weight - values.targetWeight) / values.weeksToGoal;
+      }
       const body: HealthGoalPutRequest = {
         goalType: values.goalType as HealthGoalPutRequest["goalType"],
         age: values.age,
@@ -94,7 +120,7 @@ export default function HealthGoalPage() {
         height: values.height,
         weight: values.weight,
         activityLevel: values.activityLevel as HealthGoalPutRequest["activityLevel"],
-        targetRate: values.goalType === "LOSE_WEIGHT" ? values.targetRate : null,
+        targetRate,
       };
       const saved = await api.put<HealthGoal>(`/users/${urlId}/health-goal`, body);
       setRecommendation(saved.recommendedDailyCalories);
@@ -189,13 +215,46 @@ export default function HealthGoalPage() {
           </Form.Item>
 
           {goalType === "LOSE_WEIGHT" && (
-            <Form.Item
-              name="targetRate"
-              label="Target rate (kg/week)"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <InputNumber min={0.1} max={1} step={0.1} style={{ width: "100%" }} suffix="kg/week" />
-            </Form.Item>
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <Form.Item
+                  name="targetWeight"
+                  label="Target weight (kg)"
+                  dependencies={["weight"]}
+                  rules={[
+                    { required: true, message: "Required" },
+                    ({ getFieldValue }) => ({
+                      validator(_, value: number | null | undefined) {
+                        const current = getFieldValue("weight") as number | undefined;
+                        if (value == null || current == null) return Promise.resolve();
+                        if (value >= current) {
+                          return Promise.reject(new Error("Must be less than current weight"));
+                        }
+                        return Promise.resolve();
+                      },
+                    }),
+                  ]}
+                >
+                  <InputNumber min={20} max={499} style={{ width: "100%" }} suffix="kg" />
+                </Form.Item>
+                <Form.Item
+                  name="weeksToGoal"
+                  label="Weeks to goal"
+                  rules={[{ required: true, message: "Required" }]}
+                >
+                  <InputNumber min={1} max={104} style={{ width: "100%" }} suffix="wks" />
+                </Form.Item>
+              </div>
+
+              {computedRate !== null && computedRate > MAX_SAFE_RATE && watchedWeight != null && watchedTargetWeight != null && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  description={`We recommend losing no more than 1 kg per week for sustainable results. Try at least ${Math.ceil(watchedWeight - watchedTargetWeight)} weeks to stay on track.`}
+                />
+              )}
+            </>
           )}
 
           {recommendation !== null && (
@@ -218,8 +277,11 @@ export default function HealthGoalPage() {
           )}
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={saving} style={{ width: "100%" }}>
+            <Button type="primary" htmlType="submit" loading={saving} style={{ width: "100%", marginBottom: 8 }}>
               Save Health Goal
+            </Button>
+            <Button style={{ width: "100%" }} onClick={handleReset}>
+              Reset
             </Button>
           </Form.Item>
         </Form>

@@ -87,4 +87,33 @@ describe("HealthGoalPage", () => {
     });
     expect(messageMock.success).not.toHaveBeenCalled();
   });
+
+  it("shows reset button", async () => {
+    getMock.mockRejectedValueOnce({ status: 404 });
+    render(<HealthGoalPage />);
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /reset/i })).toBeInTheDocument();
+    });
+  });
+
+  it("shows target weight and weeks fields when lose weight is selected", async () => {
+    getMock.mockResolvedValueOnce({
+      goalId: 1,
+      userId: 1,
+      goalType: "LOSE_WEIGHT",
+      targetRate: 0.5,
+      age: 30,
+      sex: "MALE",
+      height: 175,
+      weight: 85,
+      activityLevel: "LIGHT",
+      recommendedDailyCalories: 1900,
+      updatedAt: "2026-04-27T10:00:00Z",
+    });
+    render(<HealthGoalPage />);
+    await waitFor(() => {
+      expect(screen.getByText(/target weight/i)).toBeInTheDocument();
+      expect(screen.getByText(/weeks to goal/i)).toBeInTheDocument();
+    });
+  });
 });
