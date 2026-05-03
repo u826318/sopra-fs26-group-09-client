@@ -4,6 +4,7 @@ import React, { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
+  App,
   Button,
   Card,
   Col,
@@ -29,7 +30,9 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { ReceiptAnalysisResult, ReceiptUploadSession } from "@/types/receipt";
+import type { HouseholdWithRole } from "@/types/household";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -101,14 +104,37 @@ function getReceiptUploadErrorMessage(error: unknown): string {
 }
 
 function PantryReceiptUploadPageContent() {
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: antdTheme.defaultAlgorithm,
+        token: {
+          colorText: "#182418",
+          colorTextSecondary: "#566556",
+          colorBgBase: "#ffffff",
+        },
+      }}
+    >
+      <PantryReceiptUploadPageInner />
+    </ConfigProvider>
+  );
+}
+
+function PantryReceiptUploadPageInner() {
   useAuthGuard();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = useApi();
+  const { message } = App.useApp();
   const { set: setReceiptUploadSession } = useSessionStorage<ReceiptUploadSession | null>(
     "receiptUploadSession",
     null,
   );
+  const { value: token } = useSessionStorage<string>("token", "");
+  const { value: storedUserId } = useSessionStorage<string>("userId", "");
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const currentUserId = storedUserId ? Number(storedUserId) : null;
 
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -129,6 +155,19 @@ function PantryReceiptUploadPageContent() {
       householdName: searchParams.get("householdName") ?? undefined,
     };
   }, [searchParams]);
+
+  usePantryWebSocket({
+    householdId: pantryTarget?.householdId ?? null,
+    token,
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED" || (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId)) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget?.householdId));
+        clearSelectedHouseholdId();
+        message.warning(msg.eventType === "HOUSEHOLD_DELETED" ? "This household has been deleted." : "You have been removed from this household.");
+        router.push("/households");
+      }
+    },
+  });
 
   const clearSelection = () => {
     setSelectedFile(null);
@@ -237,6 +276,13 @@ function PantryReceiptUploadPageContent() {
       setReceiptUploadSession(uploadSession);
       setUploadProgress(100);
     } catch (error) {
+      if (error instanceof Error && error.message.includes("User is not a member")) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget.householdId));
+        clearSelectedHouseholdId();
+        message.warning("You have been removed from this household.");
+        router.push("/households");
+        return;
+      }
       setErrorMessage(getReceiptUploadErrorMessage(error));
     } finally {
       setIsUploading(false);
@@ -246,16 +292,6 @@ function PantryReceiptUploadPageContent() {
   const extractedItemCount = receiptResult?.items?.length ?? 0;
 
   return (
-    <ConfigProvider
-      theme={{
-        algorithm: antdTheme.defaultAlgorithm,
-        token: {
-          colorText: "#182418",
-          colorTextSecondary: "#566556",
-          colorBgBase: "#ffffff",
-        },
-      }}
-    >
       <div style={{ minHeight: "100vh", background: "#f4f6ee", padding: 24 }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
           <Card
@@ -472,7 +508,6 @@ function PantryReceiptUploadPageContent() {
           </Card>
         </div>
       </div>
-    </ConfigProvider>
   );
 }
 

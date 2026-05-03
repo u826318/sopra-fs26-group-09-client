@@ -4,7 +4,9 @@ import HouseholdMembersPage from "@/households/[id]/members/page";
 
 const pushMock = jest.fn();
 const getMock = jest.fn();
+const deleteMock = jest.fn();
 const warningMock = jest.fn();
+const successMock = jest.fn();
 const setHouseholdsMock = jest.fn();
 const clearSelectedHouseholdIdMock = jest.fn();
 
@@ -19,7 +21,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock }),
+  useApi: () => ({ get: getMock, delete: deleteMock }),
 }));
 
 jest.mock("@/hooks/usePantryWebSocket", () => ({
@@ -45,6 +47,9 @@ jest.mock("@/hooks/useSessionStorage", () => ({
     if (key === "selectedHouseholdId") {
       return { value: null, set: jest.fn(), clear: clearSelectedHouseholdIdMock };
     }
+    if (key === "userId") {
+      return { value: "1", set: jest.fn(), clear: jest.fn() };
+    }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
 }));
@@ -58,11 +63,11 @@ jest.mock("@/components/VirtualPantryAppShell", () => ({
 jest.mock("antd", () => {
   const App = {
     useApp: () => ({
-      message: { warning: warningMock, error: jest.fn(), success: jest.fn(), info: jest.fn() },
+      message: { warning: warningMock, error: jest.fn(), success: successMock, info: jest.fn() },
     }),
   };
-  const Button = ({ children, onClick }: any) => (
-    <button type="button" onClick={onClick}>{children}</button>
+  const Button = ({ children, onClick, loading }: any) => (
+    <button type="button" onClick={onClick} disabled={!!loading}>{children}</button>
   );
   const Col = ({ children }: any) => <div>{children}</div>;
   const Row = ({ children }: any) => <div>{children}</div>;
@@ -73,7 +78,13 @@ jest.mock("antd", () => {
     Text: ({ children }: any) => <span>{children}</span>,
   };
   const Card = ({ children }: any) => <div>{children}</div>;
-  return { App, Button, Card, Col, Row, Tag, Typography };
+  const Popconfirm = ({ children, onConfirm }: any) => (
+    <div>
+      {children}
+      <button type="button" data-testid="popconfirm-ok" onClick={onConfirm}>Confirm Remove</button>
+    </div>
+  );
+  return { App, Button, Card, Col, Popconfirm, Row, Tag, Typography };
 });
 
 const sampleMembers = [
@@ -158,6 +169,45 @@ describe("HouseholdMembersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Back to households" }));
     expect(pushMock).toHaveBeenCalledWith("/households");
+  });
+
+  it("shows Remove button for non-owner members when current user is owner", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+
+    render(<HouseholdMembersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("bob")).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByRole("button", { name: "Remove" })).toHaveLength(1);
+  });
+
+  it("removes member from list after confirming", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+    deleteMock.mockResolvedValueOnce(undefined);
+
+    render(<HouseholdMembersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("bob")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId("popconfirm-ok"));
+
+    await waitFor(() => {
+      expect(deleteMock).toHaveBeenCalledWith("/households/10/members/2");
+      expect(screen.queryByText("bob")).not.toBeInTheDocument();
+      expect(successMock).toHaveBeenCalledWith("Member removed.");
+    });
   });
 
   it("redirects to /households and removes the household from cache when members returns 404", async () => {

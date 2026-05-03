@@ -77,10 +77,20 @@ jest.mock("antd", () => {
 
   const ConfigProvider = ({ children }: any) => <>{children}</>;
 
+  const App = Object.assign(
+    ({ children }: any) => <>{children}</>,
+    {
+      useApp: () => ({
+        message: { warning: jest.fn(), error: jest.fn(), success: jest.fn(), info: jest.fn() },
+      }),
+    },
+  );
+
   return {
     Button,
     Card,
     ConfigProvider,
+    App,
     Space,
     Alert,
     Image,

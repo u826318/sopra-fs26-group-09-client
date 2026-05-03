@@ -7,7 +7,10 @@ import type { Product } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
 import { App, Button, Card, Empty, Input, Space, Typography } from "antd";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import useSessionStorage from "@/hooks/useSessionStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
+import type { HouseholdWithRole } from "@/types/household";
 import styles from "@/styles/openFoodFacts.module.css";
 
 const { Title, Paragraph } = Typography;
@@ -44,6 +47,11 @@ function OpenFoodFactsPortalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { message } = App.useApp();
+  const { value: token } = useSessionStorage<string>("token", "");
+  const { value: storedUserId } = useSessionStorage<string>("userId", "");
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const currentUserId = storedUserId ? Number(storedUserId) : null;
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
@@ -86,6 +94,19 @@ function OpenFoodFactsPortalContent() {
   }, [searchParams]);
 
   const pantryTarget = validatedPantryTarget;
+
+  usePantryWebSocket({
+    householdId: requestedPantryTarget?.householdId ?? null,
+    token,
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED" || (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId)) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== requestedPantryTarget?.householdId));
+        clearSelectedHouseholdId();
+        message.warning(msg.eventType === "HOUSEHOLD_DELETED" ? "This household has been deleted." : "You have been removed from this household.");
+        router.push("/households");
+      }
+    },
+  });
 
   useEffect(() => {
     let cancelled = false;

@@ -8,7 +8,7 @@ import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ApplicationError } from "@/types/error";
-import { App, Button, Col, Row, Tag, Typography } from "antd";
+import { App, Button, Col, Popconfirm, Row, Tag, Typography } from "antd";
 import styles from "@/styles/households.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
@@ -48,9 +48,11 @@ export default function HouseholdMembersPage() {
   const api = useApi();
   const { message } = App.useApp();
   const { value: token } = useSessionStorage<string>("token", "");
+  const { value: storedUserId } = useSessionStorage<string>("userId", "");
   const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const householdId = Number(params.id);
+  const currentUserId = storedUserId ? Number(storedUserId) : null;
 
   const householdName = useMemo(() => {
     const queryName = searchParams.get("name");
@@ -62,6 +64,22 @@ export default function HouseholdMembersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<number | null>(null);
+
+  const isOwner = members.some((m) => m.userId === currentUserId && m.role === "owner");
+
+  const handleRemove = async (targetUserId: number) => {
+    setRemovingMemberId(targetUserId);
+    try {
+      await api.delete(`/households/${householdId}/members/${targetUserId}`);
+      setMembers((prev) => prev.filter((m) => m.userId !== targetUserId));
+      message.success("Member removed.");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Failed to remove member.");
+    } finally {
+      setRemovingMemberId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -94,11 +112,12 @@ export default function HouseholdMembersPage() {
 
         setHasValidHouseholdRoute(true);
       } catch (error) {
-        rejectInvalidHouseholdRoute(
-          error instanceof Error && error.message.includes("User is not a member")
-            ? "You are not a member of this household."
-            : "Household ID does not exist.",
-        );
+        const notMember = error instanceof Error && error.message.includes("User is not a member");
+        if (notMember) {
+          setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+          clearSelectedHouseholdId();
+        }
+        rejectInvalidHouseholdRoute(notMember ? "You are not a member of this household." : "Household ID does not exist.");
       }
     };
 
@@ -151,6 +170,13 @@ export default function HouseholdMembersPage() {
         router.push("/households");
         return;
       }
+      if (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("You have been removed from this household.");
+        router.push("/households");
+        return;
+      }
     },
   });
 
@@ -194,9 +220,25 @@ export default function HouseholdMembersPage() {
                   {member.role.toUpperCase()}
                 </Tag>
                 <div style={{ fontWeight: 600, fontSize: 15 }}>{member.username}</div>
-                <p className={styles.householdMeta} style={{ marginBottom: 0, marginTop: 4 }}>
+                <p className={styles.householdMeta} style={{ marginBottom: 4, marginTop: 4 }}>
                   Joined: {formatDate(member.joinedAt)}
                 </p>
+                {isOwner && member.userId !== currentUserId && (
+                  <Popconfirm
+                    title={`Remove ${member.username} from this household?`}
+                    onConfirm={() => void handleRemove(member.userId)}
+                    okText="Remove"
+                    cancelText="Cancel"
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      loading={removingMemberId === member.userId}
+                    >
+                      Remove
+                    </Button>
+                  </Popconfirm>
+                )}
               </div>
             </Col>
           ))}

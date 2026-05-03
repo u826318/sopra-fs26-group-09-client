@@ -270,11 +270,12 @@ export default function StatsPage() {
 
         setHasValidHouseholdRoute(true);
       } catch (error) {
-        rejectInvalidHouseholdRoute(
-          error instanceof Error && error.message.includes("User is not a member")
-            ? "You are not a member of this household."
-            : "Household ID does not exist.",
-        );
+        const notMember = error instanceof Error && error.message.includes("User is not a member");
+        if (notMember) {
+          setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+          clearSelectedHouseholdId();
+        }
+        rejectInvalidHouseholdRoute(notMember ? "You are not a member of this household." : "Household ID does not exist.");
       }
     };
 
@@ -342,6 +343,13 @@ export default function StatsPage() {
         setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
         clearSelectedHouseholdId();
         message.warning("This household has been deleted.");
+        router.push("/households");
+        return;
+      }
+      if (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === Number(userId)) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("You have been removed from this household.");
         router.push("/households");
         return;
       }

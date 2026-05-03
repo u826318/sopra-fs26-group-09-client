@@ -73,8 +73,10 @@ export default function HouseholdPantryPage() {
   const { message } = App.useApp();
   const { value: username } = useSessionStorage<string>("username", "");
   const { value: token } = useSessionStorage<string>("token", "");
+  const { value: storedUserId } = useSessionStorage<string>("userId", "");
   const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const currentUserId = storedUserId ? Number(storedUserId) : null;
 
   const householdId = Number(params.id);
   const [overview, setOverview] = useState<PantryOverview | null>(null);
@@ -126,11 +128,12 @@ export default function HouseholdPantryPage() {
 
         setHasValidHouseholdRoute(true);
       } catch (error) {
-        rejectInvalidHouseholdRoute(
-          error instanceof Error && error.message.includes("User is not a member")
-            ? "You are not a member of this household."
-            : "Household ID does not exist.",
-        );
+        const notMember = error instanceof Error && error.message.includes("User is not a member");
+        if (notMember) {
+          setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+          clearSelectedHouseholdId();
+        }
+        rejectInvalidHouseholdRoute(notMember ? "You are not a member of this household." : "Household ID does not exist.");
       }
     };
 
@@ -190,6 +193,13 @@ export default function HouseholdPantryPage() {
         setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
         clearSelectedHouseholdId();
         message.warning("This household has been deleted.");
+        router.push("/households");
+        return;
+      }
+      if (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+        clearSelectedHouseholdId();
+        message.warning("You have been removed from this household.");
         router.push("/households");
         return;
       }

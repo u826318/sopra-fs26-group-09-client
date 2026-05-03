@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import {
   Alert,
+  App,
   Button,
   Card,
   Col,
@@ -28,6 +29,9 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import useSessionStorage from "@/hooks/useSessionStorage";
+import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
+import type { HouseholdWithRole } from "@/types/household";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -41,10 +45,24 @@ type BarcodeExtractionResponse = {
 };
 
 function PantryScanPageContent() {
+  return (
+    <ConfigProvider theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorText: "#182418", colorTextSecondary: "#566556", colorBgBase: "#ffffff" } }}>
+      <PantryScanPageInner />
+    </ConfigProvider>
+  );
+}
+
+function PantryScanPageInner() {
   useAuthGuard();
   const router = useRouter();
   const searchParams = useSearchParams();
   const api = useApi();
+  const { message } = App.useApp();
+  const { value: token } = useSessionStorage<string>("token", "");
+  const { value: storedUserId } = useSessionStorage<string>("userId", "");
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const currentUserId = storedUserId ? Number(storedUserId) : null;
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -65,6 +83,19 @@ function PantryScanPageContent() {
       householdName: searchParams.get("householdName") ?? undefined,
     };
   }, [searchParams]);
+
+  usePantryWebSocket({
+    householdId: pantryTarget?.householdId ?? null,
+    token,
+    onMessage: (msg) => {
+      if (msg.eventType === "HOUSEHOLD_DELETED" || (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId)) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget?.householdId));
+        clearSelectedHouseholdId();
+        message.warning(msg.eventType === "HOUSEHOLD_DELETED" ? "This household has been deleted." : "You have been removed from this household.");
+        router.push("/households");
+      }
+    },
+  });
 
   const updateSelectedFile = (file?: File) => {
     if (!file) {
@@ -178,7 +209,6 @@ function PantryScanPageContent() {
   };
 
   return (
-    <ConfigProvider theme={{ algorithm: antdTheme.defaultAlgorithm, token: { colorText: "#182418", colorTextSecondary: "#566556", colorBgBase: "#ffffff" } }}>
     <div
       style={{
         minHeight: "100vh",
@@ -595,7 +625,6 @@ function PantryScanPageContent() {
         </Card>
       </div>
     </div>
-    </ConfigProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-export type PantryEventType = "ITEM_ADDED" | "ITEM_CONSUMED" | "ITEM_REMOVED" | "BULK_ITEMS_ADDED" | "BUDGET_UPDATED" | "HOUSEHOLD_DELETED";
+export type PantryEventType = "ITEM_ADDED" | "ITEM_CONSUMED" | "ITEM_REMOVED" | "BULK_ITEMS_ADDED" | "BUDGET_UPDATED" | "HOUSEHOLD_DELETED" | "MEMBER_REMOVED";
 
 export interface PantryItemPayload {
   itemId: number;
@@ -19,4 +19,5 @@ export interface PantryUpdateMessage {
   timestamp: string;
   item: PantryItemPayload;
   newTotalCalories: number;
+  removedUserId?: number;
 }
