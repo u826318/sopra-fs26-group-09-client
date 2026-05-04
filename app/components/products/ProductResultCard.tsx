@@ -39,6 +39,108 @@ function readPantryContextFromUrl(): PantryContext | undefined {
   };
 }
 
+
+type MicronutrientDescriptor = {
+  displayName: string;
+  baseKeys: string[];
+};
+
+type ReportedMicronutrient = {
+  displayName: string;
+  value: unknown;
+  unit: string;
+  basis: string;
+};
+
+const MICRONUTRIENT_DESCRIPTORS: MicronutrientDescriptor[] = [
+  { displayName: "Biotin", baseKeys: ["biotin"] },
+  { displayName: "Calcium", baseKeys: ["calcium"] },
+  { displayName: "Chloride", baseKeys: ["chloride"] },
+  { displayName: "Choline", baseKeys: ["choline"] },
+  { displayName: "Chromium", baseKeys: ["chromium"] },
+  { displayName: "Copper", baseKeys: ["copper"] },
+  { displayName: "Fluoride", baseKeys: ["fluoride"] },
+  { displayName: "Folate", baseKeys: ["vitamin-b9", "folates"] },
+  { displayName: "Iodine", baseKeys: ["iodine"] },
+  { displayName: "Iron", baseKeys: ["iron"] },
+  { displayName: "Magnesium", baseKeys: ["magnesium"] },
+  { displayName: "Manganese", baseKeys: ["manganese"] },
+  { displayName: "Molybdenum", baseKeys: ["molybdenum"] },
+  { displayName: "Niacin", baseKeys: ["vitamin-pp"] },
+  { displayName: "Pantothenic Acid", baseKeys: ["pantothenic-acid"] },
+  { displayName: "Phosphorus", baseKeys: ["phosphorus"] },
+  { displayName: "Potassium", baseKeys: ["potassium"] },
+  { displayName: "Riboflavin", baseKeys: ["vitamin-b2"] },
+  { displayName: "Selenium", baseKeys: ["selenium"] },
+  { displayName: "Sodium", baseKeys: ["sodium"] },
+  { displayName: "Thiamin", baseKeys: ["vitamin-b1"] },
+  { displayName: "Vitamin A", baseKeys: ["vitamin-a"] },
+  { displayName: "Vitamin B12", baseKeys: ["vitamin-b12"] },
+  { displayName: "Vitamin B6", baseKeys: ["vitamin-b6"] },
+  { displayName: "Vitamin C", baseKeys: ["vitamin-c"] },
+  { displayName: "Vitamin D", baseKeys: ["vitamin-d"] },
+  { displayName: "Vitamin E", baseKeys: ["vitamin-e"] },
+  { displayName: "Vitamin K", baseKeys: ["vitamin-k", "phylloquinone"] },
+  { displayName: "Zinc", baseKeys: ["zinc"] },
+];
+
+const NUTRIMENT_SUFFIXES = [
+  { suffix: "_100g", basis: "per 100g" },
+  { suffix: "_100ml", basis: "per 100ml" },
+  { suffix: "_serving", basis: "per serving" },
+  { suffix: "_value", basis: "reported value" },
+  { suffix: "", basis: "reported value" },
+];
+
+function hasNutrimentValue(value: unknown): boolean {
+  return value !== null && value !== undefined && value !== "";
+}
+
+function formatNutrimentValue(value: unknown): string {
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? String(value) : value.toPrecision(6).replace(/\.?0+$/, "");
+  }
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  return String(value);
+}
+
+function readNutrimentUnit(nutriments: Record<string, unknown>, baseKey: string): string {
+  const unit = nutriments[`${baseKey}_unit`];
+  return typeof unit === "string" && unit.trim() ? unit.trim() : "";
+}
+
+function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
+  const nutriments = product.nutriments;
+  if (!nutriments) {
+    return [];
+  }
+
+  return MICRONUTRIENT_DESCRIPTORS.flatMap((descriptor) => {
+    for (const baseKey of descriptor.baseKeys) {
+      for (const { suffix, basis } of NUTRIMENT_SUFFIXES) {
+        const key = `${baseKey}${suffix}`;
+        const value = nutriments[key];
+        if (hasNutrimentValue(value)) {
+          return [
+            {
+              displayName: descriptor.displayName,
+              value,
+              unit: readNutrimentUnit(nutriments, baseKey),
+              basis,
+            },
+          ];
+        }
+      }
+    }
+
+    return [];
+  });
+}
+
 export default function ProductResultCard({
   product,
   pantryContext,
@@ -55,6 +157,7 @@ export default function ProductResultCard({
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
+  const reportedMicronutrients = useMemo(() => getReportedMicronutrients(product), [product]);
   const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback";
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
@@ -167,6 +270,35 @@ export default function ProductResultCard({
               </div>
             </div>
           </div>
+
+          {reportedMicronutrients.length > 0 ? (
+            <section className={styles.micronutrientPanel} aria-label="Reported micronutrients">
+              <div className={styles.micronutrientHeader}>
+                <div>
+                  <div className={styles.micronutrientTitle}>Reported micronutrients</div>
+                  <div className={styles.micronutrientSubtext}>
+                    Open Food Facts values shown only when reported for this product.
+                  </div>
+                </div>
+                <span className={styles.micronutrientCount}>
+                  {reportedMicronutrients.length} of 29
+                </span>
+              </div>
+
+              <div className={styles.micronutrientGrid}>
+                {reportedMicronutrients.map((nutrient) => (
+                  <div key={`${nutrient.displayName}-${nutrient.basis}`} className={styles.micronutrientCard}>
+                    <div className={styles.micronutrientName}>{nutrient.displayName}</div>
+                    <div className={styles.micronutrientValue}>
+                      {formatNutrimentValue(nutrient.value)}
+                      {nutrient.unit ? ` ${nutrient.unit}` : ""}
+                    </div>
+                    <div className={styles.micronutrientBasis}>{nutrient.basis}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <div className={styles.actionPanel}>
             <div className={styles.actionHeading}>Add this item to pantry</div>
