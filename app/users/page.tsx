@@ -40,11 +40,19 @@ type InventoryRow = {
   statusTone: "danger" | "ok";
 };
 
+const DAIRY_KEYWORDS = ["milk", "cheese", "yogurt", "cream", "butter", "dairy"];
+const PRODUCE_KEYWORDS = ["fruit", "berry", "vegetable", "lettuce", "tomato", "produce", "apple", "orange"];
+const BAKERY_KEYWORDS = ["bread", "bun", "bagel", "bakery", "toast", "croissant"];
+
+function includesAnyKeyword(value: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => value.includes(keyword));
+}
+
 function inferCategory(name: string): string {
-  const n = name.trim();
-  if (/milk|cheese|yogurt|cream|butter|dairy/i.test(n)) return "Dairy";
-  if (/fruit|berry|vegetable|lettuce|tomato|produce|apple|orange/i.test(n)) return "Produce";
-  if (/bread|bun|bagel|bakery|toast|croissant/i.test(n)) return "Bakery";
+  const n = name.trim().toLowerCase();
+  if (includesAnyKeyword(n, DAIRY_KEYWORDS)) return "Dairy";
+  if (includesAnyKeyword(n, PRODUCE_KEYWORDS)) return "Produce";
+  if (includesAnyKeyword(n, BAKERY_KEYWORDS)) return "Bakery";
   return "Pantry";
 }
 
@@ -61,7 +69,7 @@ function formatAgo(iso: string): string {
 function initialsOf(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return "?";
-  const parts = trimmed.split(/\s+/).slice(0, 2);
+  const parts = trimmed.split(" ").filter(Boolean).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 

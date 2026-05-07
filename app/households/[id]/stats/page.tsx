@@ -129,12 +129,19 @@ function comparisonTagColor(status: string): string {
   }
 }
 
+const DAIRY_CATEGORY_KEYWORDS = ["milk", "cheese", "yogurt", "cream", "butter", "dairy"];
+const PRODUCE_CATEGORY_KEYWORDS = ["fruit", "berry", "vegetable", "lettuce", "tomato", "produce", "apple", "orange"];
+
+function includesCategoryKeyword(value: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => value.includes(keyword));
+}
+
 function inferCategory(name: string): { label: string; color: string } {
-  const n = name.trim();
-  if (/milk|cheese|yogurt|cream|butter|dairy/i.test(n)) {
+  const n = name.trim().toLowerCase();
+  if (includesCategoryKeyword(n, DAIRY_CATEGORY_KEYWORDS)) {
     return { label: "DAIRY", color: "gold" };
   }
-  if (/fruit|berry|vegetable|lettuce|tomato|produce|apple|orange/i.test(n)) {
+  if (includesCategoryKeyword(n, PRODUCE_CATEGORY_KEYWORDS)) {
     return { label: "PRODUCE", color: "green" };
   }
   return { label: "PANTRY", color: "cyan" };
@@ -729,7 +736,7 @@ export default function StatsPage() {
                         <Text style={{ fontSize: 12, color: MUTED }}>Period average vs budget:</Text>
                         <div style={{ marginTop: 6 }}>
                           <Tag color={comparisonTagColor(stats.comparisonToBudget.status)}>
-                            {stats.comparisonToBudget.status.replace(/_/g, " ")}
+                            {stats.comparisonToBudget.status.split("_").join(" ")}
                           </Tag>
                           <Text style={{ marginLeft: 8, color: "#3d4f3d" }}>
                             Avg {stats.averageDailyCalories.toFixed(0)} vs target{" "}
