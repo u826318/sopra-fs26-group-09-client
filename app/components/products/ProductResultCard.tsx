@@ -96,9 +96,26 @@ function hasNutrimentValue(value: unknown): boolean {
   return value !== null && value !== undefined && value !== "";
 }
 
+function trimTrailingFractionZeros(value: string): string {
+  if (!value.includes(".")) {
+    return value;
+  }
+
+  let endIndex = value.length;
+  while (endIndex > 0 && value.charAt(endIndex - 1) === "0") {
+    endIndex -= 1;
+  }
+
+  if (endIndex > 0 && value.charAt(endIndex - 1) === ".") {
+    endIndex -= 1;
+  }
+
+  return value.slice(0, endIndex);
+}
+
 function formatNutrimentValue(value: unknown): string {
   if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toPrecision(6).replace(/\.?0+$/, "");
+    return Number.isInteger(value) ? String(value) : trimTrailingFractionZeros(value.toPrecision(6));
   }
 
   if (typeof value === "string") {
