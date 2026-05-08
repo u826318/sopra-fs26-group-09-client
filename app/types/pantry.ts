@@ -20,6 +20,6 @@ export interface PantryOverview {
 export interface ConsumePantryItemResponse {
   itemId: number;
   remainingCount: number;
-  consumedCalories: number;
+  consumedCalories: number | null;
   removed: boolean;
 }

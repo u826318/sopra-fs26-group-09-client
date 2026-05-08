@@ -24,6 +24,7 @@ import {
   CheckCircleOutlined,
   CloudUploadOutlined,
   InboxOutlined,
+  OrderedListOutlined,
   UploadOutlined,
   WarningOutlined,
 } from "@ant-design/icons";
@@ -290,6 +291,9 @@ function PantryReceiptUploadPageInner() {
   };
 
   const extractedItemCount = receiptResult?.items?.length ?? 0;
+  const handleReviewItems = () => {
+    router.push("/pantry/add/receipt/review");
+  };
 
   return (
       <div style={{ minHeight: "100vh", background: "#f4f6ee", padding: 24 }}>
@@ -461,6 +465,11 @@ function PantryReceiptUploadPageInner() {
                   icon={<CheckCircleOutlined />}
                   title="Receipt uploaded and analyzed"
                   description={`Extracted ${extractedItemCount} item${extractedItemCount === 1 ? "" : "s"}${receiptResult.merchantName ? ` from ${receiptResult.merchantName}` : ""}.`}
+                  action={
+                    <Button type="primary" icon={<OrderedListOutlined />} onClick={handleReviewItems}>
+                      Review extracted items
+                    </Button>
+                  }
                 />
               ) : null}
 

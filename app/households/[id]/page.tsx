@@ -12,6 +12,7 @@ import {
   App,
   Button,
   Card,
+  ConfigProvider,
   Empty,
   Space,
   Table,
@@ -62,6 +63,14 @@ function formatDate(value: string): string {
 
 function formatNumber(value: number): string {
   return value.toLocaleString("en-US");
+}
+
+function formatCaloriesDisplay(value: number | null | undefined): string {
+  if (!Number.isFinite(value) || Number(value) <= 0) {
+    return "—";
+  }
+
+  return formatNumber(Number(value));
 }
 
 export default function HouseholdPantryPage() {
@@ -225,39 +234,61 @@ export default function HouseholdPantryPage() {
       title: "Product",
       dataIndex: "name",
       key: "name",
-      render: (value: string) => <Text strong>{value || "Unnamed item"}</Text>,
+      render: (value: string) => (
+        <Text strong style={{ color: "#243424", fontSize: 17 }}>
+          {value || "Unnamed item"}
+        </Text>
+      ),
     },
     {
       title: "Barcode",
       dataIndex: "barcode",
       key: "barcode",
-      render: (value: string | null) => value || "—",
+      render: (value: string | null) => (
+        <Text style={{ color: "#314231" }}>{value || "—"}</Text>
+      ),
     },
     {
       title: "kcal / package",
       dataIndex: "kcalPerPackage",
       key: "kcalPerPackage",
-      render: (value: number) => formatNumber(Number(value ?? 0)),
+      render: (value: number) => (
+        <Text style={{ color: "#314231" }}>{formatCaloriesDisplay(value)}</Text>
+      ),
     },
     {
       title: "Count",
       dataIndex: "count",
       key: "count",
-      render: (value: number) => formatNumber(Number(value ?? 0)),
+      render: (value: number) => (
+        <Text style={{ color: "#314231" }}>{formatNumber(Number(value ?? 0))}</Text>
+      ),
     },
     {
       title: "Total kcal",
       key: "totalKcal",
-      render: (_value, record) =>
-        formatNumber(
-          Number(record.kcalPerPackage ?? 0) * Number(record.count ?? 0),
-        ),
+      render: (_value, record) => {
+        const perPackage = Number(record.kcalPerPackage ?? 0);
+        const count = Number(record.count ?? 0);
+        const totalCalories =
+          Number.isFinite(perPackage) && perPackage > 0 && Number.isFinite(count) && count > 0
+            ? perPackage * count
+            : null;
+
+        return (
+          <Text style={{ color: "#314231" }}>
+            {formatCaloriesDisplay(totalCalories)}
+          </Text>
+        );
+      },
     },
     {
       title: "Added",
       dataIndex: "addedAt",
       key: "addedAt",
-      render: (value: string) => formatDate(value),
+      render: (value: string) => (
+        <Text style={{ color: "#314231" }}>{formatDate(value)}</Text>
+      ),
     },
   ];
 
@@ -379,8 +410,8 @@ export default function HouseholdPantryPage() {
                 <Alert
                   type="error"
                   showIcon
-                  message="Pantry data could not be loaded"
-                  description={errorMessage}
+                  message={<span style={{ color: "#7a1f1f", fontWeight: 600 }}>Pantry data could not be loaded</span>}
+                  description={<span style={{ color: "#6a2a2a" }}>{errorMessage}</span>}
                 />
               ) : null}
 
@@ -388,8 +419,12 @@ export default function HouseholdPantryPage() {
                 <Alert
                   type="warning"
                   showIcon
-                  message="Real-time connection lost"
-                  description="Live pantry updates are paused. Reconnecting automatically — or refresh manually."
+                  message={<span style={{ color: "#7a4b00", fontWeight: 600 }}>Real-time connection lost</span>}
+                  description={
+                    <span style={{ color: "#6a5632" }}>
+                      Live pantry updates are paused. Reconnecting automatically — or refresh manually.
+                    </span>
+                  }
                 />
               ) : null}
 
@@ -581,13 +616,44 @@ export default function HouseholdPantryPage() {
                 }}
               >
                 {overview && overview.items.length > 0 ? (
-                  <Table<PantryItem>
-                    rowKey="id"
-                    dataSource={overview.items}
-                    columns={columns}
-                    pagination={{ pageSize: 8 }}
-                    scroll={{ x: 900 }}
-                  />
+                  <ConfigProvider
+                    theme={{
+                      components: {
+                        Table: {
+                          headerBg: "#f5f8ef",
+                          headerColor: "#1f2d1f",
+                          headerBorderRadius: 16,
+                          rowHoverBg: "#f7faf1",
+                          borderColor: "#dce6d0",
+                          footerBg: "#ffffff",
+                          colorBgContainer: "#ffffff",
+                          colorText: "#223222",
+                        },
+                        Pagination: {
+                          itemActiveBg: "#e5f3de",
+                          itemBg: "#ffffff",
+                          itemInputBg: "#ffffff",
+                          itemLinkBg: "#ffffff",
+                          itemSize: 40,
+                          colorPrimary: "#1f7a3f",
+                          colorPrimaryHover: "#2a8f4b",
+                          colorText: "#405240",
+                          colorTextDisabled: "#92a292",
+                          colorBgTextHover: "#f1f7ea",
+                          colorBorder: "#cdd9c1",
+                        },
+                      },
+                    }}
+                  >
+                    <Table<PantryItem>
+                      rowKey="id"
+                      dataSource={overview.items}
+                      columns={columns}
+                      pagination={{ pageSize: 8 }}
+                      scroll={{ x: 900 }}
+                      style={{ background: "#ffffff", borderRadius: 18, overflow: "hidden" }}
+                    />
+                  </ConfigProvider>
                 ) : (
                   <Empty description="No pantry items yet. Add products from Open Food Facts or use the scan flow." />
                 )}
