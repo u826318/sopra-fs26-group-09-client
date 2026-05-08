@@ -249,7 +249,7 @@ describe("StatsPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Pantry Overview|Test Home/i)).toBeInTheDocument();
-      expect(screen.getByText(/142[, ]500 kcal/i)).toBeInTheDocument();
+      expect(screen.getByText(/1[, ]860 kcal/i)).toBeInTheDocument();
       expect(screen.getByText(/2[, ]450 kcal \/ day/i)).toBeInTheDocument();
     });
   });
@@ -338,7 +338,11 @@ describe("StatsPage", () => {
     fireEvent.click(consumeButtons[0]);
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", { quantity: 1 });
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", {
+        quantity: 1,
+        kcalPerPackage: null,
+        skipCalorieLogging: false,
+      });
     });
 
     expect(messageMock.success).toHaveBeenCalledWith("Consumption recorded.");
@@ -354,7 +358,11 @@ describe("StatsPage", () => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/remove", { quantity: 1 });
     });
 
-    expect(postMock).not.toHaveBeenCalledWith("/households/1/pantry/1/consume", { quantity: 1 });
+    expect(postMock).not.toHaveBeenCalledWith("/households/1/pantry/1/consume", {
+      quantity: 1,
+      kcalPerPackage: null,
+      skipCalorieLogging: false,
+    });
     expect(messageMock.success).toHaveBeenCalledWith("One unit removed from pantry.");
   });
 
