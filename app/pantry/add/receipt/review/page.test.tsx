@@ -7,6 +7,8 @@ const pushMock = jest.fn();
 const postMock = jest.fn();
 const clearSessionMock = jest.fn();
 
+let mockSession: any;
+
 const receiptSession = {
   householdId: 7,
   householdName: "Test Household",
@@ -74,7 +76,7 @@ jest.mock("@/hooks/useApi", () => ({
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
-  default: () => ({ value: receiptSession, set: jest.fn(), clear: clearSessionMock }),
+  default: () => ({ value: mockSession, set: jest.fn(), clear: clearSessionMock }),
 }));
 
 jest.mock("antd", () => {
@@ -147,6 +149,7 @@ jest.mock("antd", () => {
 describe("ReceiptReviewPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSession = receiptSession;
   });
 
   it("renders extracted receipt items and candidate matches", async () => {
@@ -183,5 +186,51 @@ describe("ReceiptReviewPage", () => {
 
     expect(clearSessionMock).toHaveBeenCalled();
     expect(pushMock).toHaveBeenCalledWith("/households/7?name=Test%20Household");
+  });
+
+  it("prompts users to upload again when the review session is missing", async () => {
+    mockSession = null;
+
+    render(<ReceiptReviewPage />);
+
+    expect(await screen.findByText("No receipt analysis found in this browser session.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Upload a receipt first/i }));
+
+    expect(pushMock).toHaveBeenCalledWith("/pantry/add/receipt");
+  });
+
+  it("shows a validation error when selected items are incomplete", async () => {
+    mockSession = {
+      ...receiptSession,
+      result: {
+        ...receiptSession.result,
+        items: [
+          {
+            ...receiptSession.result.items[0],
+            suggestedPantryItem: {
+              ...receiptSession.result.items[0].suggestedPantryItem,
+              barcode: "",
+              readyForBulkAdd: true,
+            },
+          },
+        ],
+      },
+    };
+
+    render(<ReceiptReviewPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Add selected items to pantry/i }));
+
+    expect(await screen.findByText("Please make sure every selected item has a barcode, name, calories, and positive quantity.")).toBeInTheDocument();
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it("allows removing an extracted item before submit", async () => {
+    render(<ReceiptReviewPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Remove from review/i }));
+
+    expect(screen.queryByText("LG EGGS 12 CT")).not.toBeInTheDocument();
+    expect(screen.getByText(/0 selected, 0 ready to add/i)).toBeInTheDocument();
   });
 });

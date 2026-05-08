@@ -165,39 +165,44 @@ type UnknownConsumeState = {
   manualCalories: number | null;
 };
 
+const CALORIE_SUGGESTIONS: Array<{ keywords: string[]; kcal: number }> = [
+  { keywords: ["milk"], kcal: 640 },
+  { keywords: ["egg"], kcal: 700 },
+  { keywords: ["apple juice"], kcal: 460 },
+  { keywords: ["orange juice"], kcal: 450 },
+  { keywords: ["basmati rice", "rice"], kcal: 1800 },
+  { keywords: ["oats"], kcal: 1850 },
+  { keywords: ["granola"], kcal: 2250 },
+  { keywords: ["muesli", "cereal"], kcal: 1900 },
+  { keywords: ["spaghetti", "penne", "pasta"], kcal: 1800 },
+  { keywords: ["olive oil"], kcal: 4100 },
+  { keywords: ["coffee"], kcal: 5 },
+  { keywords: ["cheddar"], kcal: 800 },
+  { keywords: ["feta"], kcal: 530 },
+  { keywords: ["gouda"], kcal: 712 },
+  { keywords: ["parmesan"], kcal: 860 },
+  { keywords: ["cheese"], kcal: 700 },
+  { keywords: ["yogurt"], kcal: 150 },
+  { keywords: ["bread"], kcal: 1800 },
+  { keywords: ["banana"], kcal: 135 },
+  { keywords: ["chicken breast"], kcal: 600 },
+  { keywords: ["tomato sauce"], kcal: 175 },
+  { keywords: ["tomato"], kcal: 45 },
+  { keywords: ["spinach"], kcal: 46 },
+  { keywords: ["cucumber"], kcal: 50 },
+  { keywords: ["potato"], kcal: 1540 },
+];
+
 function estimateSuggestedCalories(item: PantryItem): number | null {
   const name = item.name.trim().toLowerCase();
   const barcode = (item.barcode ?? "").toLowerCase();
 
-  const pick = (value: number) => Math.round(value);
-
-  if (name.includes("milk")) return pick(640);
-  if (name.includes("egg")) return pick(700);
-  if (name.includes("apple juice")) return pick(460);
-  if (name.includes("orange juice")) return pick(450);
-  if (name.includes("basmati rice") || name.includes("rice")) return pick(1800);
-  if (name.includes("oats")) return pick(1850);
-  if (name.includes("granola")) return pick(2250);
-  if (name.includes("muesli") || name.includes("cereal")) return pick(1900);
-  if (name.includes("spaghetti") || name.includes("penne") || name.includes("pasta")) return pick(1800);
-  if (name.includes("olive oil")) return pick(4100);
-  if (name.includes("coffee")) return pick(5);
-  if (name.includes("cheddar")) return pick(800);
-  if (name.includes("feta")) return pick(530);
-  if (name.includes("gouda")) return pick(712);
-  if (name.includes("parmesan")) return pick(860);
-  if (name.includes("cheese")) return pick(700);
-  if (name.includes("yogurt")) return pick(150);
-  if (name.includes("bread")) return pick(1800);
-  if (name.includes("banana")) return pick(135);
-  if (name.includes("chicken breast")) return pick(600);
-  if (name.includes("tomato sauce")) return pick(175);
-  if (name.includes("tomato")) return pick(45);
-  if (name.includes("spinach")) return pick(46);
-  if (name.includes("cucumber")) return pick(50);
-  if (name.includes("potato")) return pick(1540);
+  const suggestion = CALORIE_SUGGESTIONS.find(({ keywords }) =>
+    keywords.some((keyword) => name.includes(keyword))
+  );
+  if (suggestion) return Math.round(suggestion.kcal);
   if (name.includes("water")) return null;
-  if (barcode.startsWith("receipt-generic:")) return pick(200);
+  if (barcode.startsWith("receipt-generic:")) return 200;
 
   return null;
 }
@@ -519,11 +524,12 @@ export default function StatsPage() {
       }
 
       if (!isKnownCalories(item.kcalPerPackage)) {
+        const suggestedCalories = estimateSuggestedCalories(item);
         setUnknownConsumeState({
           item,
-          suggestedCalories: estimateSuggestedCalories(item),
-          mode: estimateSuggestedCalories(item) !== null ? "suggested" : "manual",
-          manualCalories: estimateSuggestedCalories(item),
+          suggestedCalories,
+          mode: suggestedCalories !== null ? "suggested" : "manual",
+          manualCalories: suggestedCalories,
         });
         return;
       }
@@ -1008,7 +1014,7 @@ export default function StatsPage() {
           This item has no calorie data yet. Please confirm or enter calories before logging consumption.
         </Paragraph>
         {unknownConsumeState ? (
-          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
             <Text strong style={{ color: "#1b2a1b" }}>
               {unknownConsumeState.item.name}
             </Text>
@@ -1022,7 +1028,7 @@ export default function StatsPage() {
                 )
               }
             >
-              <Space direction="vertical" size="middle">
+              <Space orientation="vertical" size="middle">
                 <Radio value="suggested" disabled={!isKnownCalories(unknownConsumeState.suggestedCalories)}>
                   Use system suggestion
                   {isKnownCalories(unknownConsumeState.suggestedCalories)

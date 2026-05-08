@@ -3,9 +3,15 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import StatsPage from "@/households/[id]/stats/page";
 
 const pushMock = jest.fn();
+const backMock = jest.fn();
+const replaceMock = jest.fn();
 const getMock = jest.fn();
 const putMock = jest.fn();
 const postMock = jest.fn();
+const mockSearchParams = new URLSearchParams("");
+const mockApi = { get: getMock, put: putMock, post: postMock };
+const mockRouter = { push: pushMock, back: backMock, replace: replaceMock };
+let mockPantryItems: any[] = [];
 const messageMock = {
   warning: jest.fn(),
   error: jest.fn(),
@@ -17,9 +23,9 @@ jest.mock("@/hooks/useAuthGuard", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: pushMock, back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => mockRouter,
   useParams: () => ({ id: "1" }),
-  useSearchParams: () => new URLSearchParams(""),
+  useSearchParams: () => mockSearchParams,
 }));
 
 jest.mock("@/components/VirtualPantryAppShell", () => ({
@@ -29,7 +35,7 @@ jest.mock("@/components/VirtualPantryAppShell", () => ({
 }));
 
 jest.mock("@/hooks/useApi", () => ({
-  useApi: () => ({ get: getMock, put: putMock, post: postMock }),
+  useApi: () => mockApi,
 }));
 
 jest.mock("@/hooks/useSessionStorage", () => ({
@@ -123,11 +129,12 @@ jest.mock("antd", () => {
   const Row = ({ children }: any) => <div>{children}</div>;
   const Col = ({ children }: any) => <div>{children}</div>;
   const Progress = ({ format }: any) => <div>{format ? format(80) : "progress"}</div>;
-  const Modal = ({ children, open, title }: any) =>
+  const Modal = ({ children, open, title, onOk, okText }: any) =>
     open ? (
-      <div data-testid="budget-modal">
+      <div data-testid={title === "Daily calorie budget" ? "budget-modal" : "missing-calorie-modal"}>
         <div>{title}</div>
         {children}
+        {onOk ? <button type="button" onClick={onOk}>{okText ?? "OK"}</button> : null}
       </div>
     ) : null;
   const FormItem = ({ children, label }: any) => (
@@ -149,7 +156,22 @@ jest.mock("antd", () => {
       Item: FormItem,
     },
   );
-  const InputNumber = () => <input aria-label="daily-calorie-target" />;
+  const InputNumber = ({ value, onChange, "aria-label": ariaLabel }: any) => (
+    <input
+      aria-label={ariaLabel ?? "daily-calorie-target"}
+      type="number"
+      value={value ?? ""}
+      onChange={(event) => onChange?.(Number(event.target.value))}
+    />
+  );
+  const RadioOption = ({ children, value, disabled }: any) => (
+    <label>
+      <input type="radio" value={value} disabled={disabled} />
+      {children}
+    </label>
+  );
+  const RadioGroup = ({ children, onChange }: any) => <div onChange={onChange}>{children}</div>;
+  const Radio = Object.assign(RadioOption, { Group: RadioGroup });
   const Typography = {
     Title: ({ children }: any) => <h1>{children}</h1>,
     Paragraph: ({ children }: any) => <p>{children}</p>,
@@ -177,22 +199,24 @@ jest.mock("antd", () => {
     Modal,
     Form,
     InputNumber,
+    Radio,
   };
 });
 
 describe("StatsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPantryItems = [
+      { id: 1, householdId: 1, barcode: "111", name: "Milk", quantity: 1, count: 3, kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
+      { id: 2, householdId: 1, barcode: "222", name: "Rice", quantity: 1, count: 5, kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
+    ];
     postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
       if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       const today = new Date().toISOString().slice(0, 10);
       if (url.includes("/pantry")) {
         return Promise.resolve({
-          items: [
-            { id: 1, householdId: 1, barcode: "111", name: "Milk", quantity: 1, count: 3, kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
-            { id: 2, householdId: 1, barcode: "222", name: "Rice", quantity: 1, count: 5, kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
-          ],
+          items: mockPantryItems,
           totalCalories: 142500,
         });
       }
@@ -259,7 +283,7 @@ describe("StatsPage", () => {
       if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
-      if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
+      if (url.includes("/budget")) return Promise.reject({ status: 404 });
       if (url.includes("/consumption-logs")) return Promise.resolve([]);
       return Promise.reject(new Error(`unexpected ${url}`));
     });
@@ -274,7 +298,7 @@ describe("StatsPage", () => {
       if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
       if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
       if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
-      if (url.includes("/budget")) return Promise.reject(new Error("no budget"));
+      if (url.includes("/budget")) return Promise.reject({ status: 404 });
       if (url.includes("/consumption-logs")) return Promise.resolve([]);
       return Promise.reject(new Error(`unexpected ${url}`));
     });
@@ -364,6 +388,65 @@ describe("StatsPage", () => {
       skipCalorieLogging: false,
     });
     expect(messageMock.success).toHaveBeenCalledWith("One unit removed from pantry.");
+  });
+
+  it("uses suggested calories before consuming an unknown pantry item", async () => {
+    mockPantryItems = [
+      {
+        id: 7,
+        householdId: 1,
+        barcode: "receipt-generic:rice",
+        name: "Basmati Rice",
+        quantity: 1,
+        count: 1,
+        kcalPerPackage: null,
+        addedAt: "2026-04-01T00:00:00Z",
+      },
+    ];
+
+    render(<StatsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Consume/i }));
+
+    expect(await screen.findByTestId("missing-calorie-modal")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Save and consume/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/7/consume", {
+        quantity: 1,
+        kcalPerPackage: 1800,
+        skipCalorieLogging: false,
+      });
+    });
+  });
+
+  it("allows manual calories before consuming an unknown pantry item without a suggestion", async () => {
+    mockPantryItems = [
+      {
+        id: 8,
+        householdId: 1,
+        barcode: "444",
+        name: "Mystery Product",
+        quantity: 1,
+        count: 1,
+        kcalPerPackage: 0,
+        addedAt: "2026-04-01T00:00:00Z",
+      },
+    ];
+
+    render(<StatsPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /Consume/i }));
+    fireEvent.change(await screen.findByRole("spinbutton"), { target: { value: "77" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save and consume/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/8/consume", {
+        quantity: 1,
+        kcalPerPackage: 77,
+        skipCalorieLogging: false,
+      });
+    });
   });
 
 });
