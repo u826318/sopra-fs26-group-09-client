@@ -97,6 +97,7 @@ jest.mock("antd", () => {
   const Row = ({ children }: any) => <div>{children}</div>;
   const Col = ({ children }: any) => <div>{children}</div>;
   const Tag = ({ children }: any) => <span>{children}</span>;
+  const ConfigProvider = ({ children }: any) => <>{children}</>;
 
   const Table = ({ dataSource }: any) => (
     <table>
@@ -132,6 +133,7 @@ jest.mock("antd", () => {
     Row,
     Col,
     Tag,
+    ConfigProvider,
   };
 });
 
