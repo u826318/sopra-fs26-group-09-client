@@ -12,7 +12,30 @@ export interface ReceiptLineItem {
 export interface ReceiptMatchedItem extends ReceiptLineItem {
   matchStatus: string | null;
   matchSource: string | null;
+  matchConfidence?: string | null;
+  matchScore?: number | null;
+  normalizedDescription?: string | null;
   matchedProduct: Product | null;
+  candidateProducts?: ReceiptProductCandidate[] | null;
+  suggestedPantryItem?: ReceiptPantryItemSuggestion | null;
+}
+
+export interface ReceiptPantryItemSuggestion {
+  barcode: string | null;
+  name: string | null;
+  kcalPerPackage: number | null;
+  quantity: number | null;
+  packageQuantity: string | null;
+  nutriments: Record<string, unknown> | null;
+  readyForBulkAdd?: boolean | null;
+}
+
+export interface ReceiptProductCandidate {
+  product: Product | null;
+  score: number | null;
+  confidence: string | null;
+  matchSource: string | null;
+  suggestedPantryItem: ReceiptPantryItemSuggestion | null;
 }
 
 export interface ReceiptAnalysisResult {

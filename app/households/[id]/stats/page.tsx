@@ -18,6 +18,7 @@ import {
   Table,
   Tag,
   Typography,
+  Radio,
 } from "antd";
 import type { TableProps } from "antd";
 import {
@@ -68,7 +69,7 @@ type ActivityEntry = {
   id: string;
   at: string;
   productName: string;
-  deltaKcal: number;
+  deltaKcal: number | null;
   quantity: number;
   type: "ADDED" | "CONSUMED";
 };
@@ -78,7 +79,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
     id: `consume-${log.logId}`,
     at: log.consumedAt,
     productName: log.productName,
-    deltaKcal: -log.consumedCalories,
+    deltaKcal: log.consumedCalories != null ? -log.consumedCalories : null,
     quantity: log.consumedQuantity,
     type: "CONSUMED",
   }));
@@ -116,6 +117,14 @@ function formatKcal(value: number): string {
   return `${Math.round(value).toLocaleString()} kcal`;
 }
 
+function isKnownCalories(value: number | null | undefined): value is number {
+  return Number.isFinite(value) && Number(value) > 0;
+}
+
+function formatKcalDisplay(value: number | null | undefined): string {
+  return isKnownCalories(value) ? formatKcal(Number(value)) : "—";
+}
+
 function comparisonTagColor(status: string): string {
   switch (status) {
     case "OVER_BUDGET":
@@ -145,6 +154,52 @@ function inferCategory(name: string): { label: string; color: string } {
     return { label: "PRODUCE", color: "green" };
   }
   return { label: "PANTRY", color: "cyan" };
+}
+
+type UnknownConsumeMode = "suggested" | "manual" | "skip";
+
+type UnknownConsumeState = {
+  item: PantryItem;
+  suggestedCalories: number | null;
+  mode: UnknownConsumeMode;
+  manualCalories: number | null;
+};
+
+function estimateSuggestedCalories(item: PantryItem): number | null {
+  const name = item.name.trim().toLowerCase();
+  const barcode = (item.barcode ?? "").toLowerCase();
+
+  const pick = (value: number) => Math.round(value);
+
+  if (name.includes("milk")) return pick(640);
+  if (name.includes("egg")) return pick(700);
+  if (name.includes("apple juice")) return pick(460);
+  if (name.includes("orange juice")) return pick(450);
+  if (name.includes("basmati rice") || name.includes("rice")) return pick(1800);
+  if (name.includes("oats")) return pick(1850);
+  if (name.includes("granola")) return pick(2250);
+  if (name.includes("muesli") || name.includes("cereal")) return pick(1900);
+  if (name.includes("spaghetti") || name.includes("penne") || name.includes("pasta")) return pick(1800);
+  if (name.includes("olive oil")) return pick(4100);
+  if (name.includes("coffee")) return pick(5);
+  if (name.includes("cheddar")) return pick(800);
+  if (name.includes("feta")) return pick(530);
+  if (name.includes("gouda")) return pick(712);
+  if (name.includes("parmesan")) return pick(860);
+  if (name.includes("cheese")) return pick(700);
+  if (name.includes("yogurt")) return pick(150);
+  if (name.includes("bread")) return pick(1800);
+  if (name.includes("banana")) return pick(135);
+  if (name.includes("chicken breast")) return pick(600);
+  if (name.includes("tomato sauce")) return pick(175);
+  if (name.includes("tomato")) return pick(45);
+  if (name.includes("spinach")) return pick(46);
+  if (name.includes("cucumber")) return pick(50);
+  if (name.includes("potato")) return pick(1540);
+  if (name.includes("water")) return null;
+  if (barcode.startsWith("receipt-generic:")) return pick(200);
+
+  return null;
 }
 
 export default function StatsPage() {
@@ -197,8 +252,24 @@ export default function StatsPage() {
   const [personalGoal, setPersonalGoal] = useState<HealthGoal | null>(null);
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
+  const [unknownConsumeState, setUnknownConsumeState] = useState<UnknownConsumeState | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
+
+  const pantryKnownCalories = useMemo(() => {
+    return (pantry?.items ?? []).reduce((sum, item) => {
+      const kcal = item.kcalPerPackage;
+      const count = item.count;
+      if (!isKnownCalories(kcal) || !Number.isFinite(count) || count <= 0) {
+        return sum;
+      }
+      return sum + kcal * count;
+    }, 0);
+  }, [pantry?.items]);
+
+  const pantryUnknownCaloriesCount = useMemo(() => {
+    return (pantry?.items ?? []).filter((item) => !isKnownCalories(item.kcalPerPackage)).length;
+  }, [pantry?.items]);
 
   const loadDashboard = useCallback(async () => {
     if (!hasValidHouseholdRoute || !householdId || !startDate) {
@@ -408,6 +479,34 @@ export default function StatsPage() {
     }
   };
 
+  const executeConsume = useCallback(
+    async (item: PantryItem, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean }) => {
+      setConsumingItemId(item.id);
+      try {
+        const res = await api.post<ConsumePantryItemResponse>(
+          `/households/${householdId}/pantry/${item.id}/consume`,
+          {
+            quantity: 1,
+            kcalPerPackage: options?.kcalPerPackage ?? null,
+            skipCalorieLogging: options?.skipCalorieLogging ?? false,
+          },
+        );
+        message.success(
+          res.removed
+            ? "Item fully consumed and removed from pantry."
+            : "Consumption recorded.",
+        );
+        setUnknownConsumeState(null);
+        await loadDashboard();
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "Could not record consumption.");
+      } finally {
+        setConsumingItemId(null);
+      }
+    },
+    [api, householdId, loadDashboard, message],
+  );
+
   const consumeInventoryItem = useCallback(
     async (item: PantryItem) => {
       if (!item.id) {
@@ -419,25 +518,19 @@ export default function StatsPage() {
         return;
       }
 
-      setConsumingItemId(item.id);
-      try {
-        const res = await api.post<ConsumePantryItemResponse>(
-          `/households/${householdId}/pantry/${item.id}/consume`,
-          { quantity: 1 },
-        );
-        message.success(
-          res.removed
-            ? "Item fully consumed and removed from pantry."
-            : "Consumption recorded.",
-        );
-        await loadDashboard();
-      } catch (error) {
-        message.error(error instanceof Error ? error.message : "Could not record consumption.");
-      } finally {
-        setConsumingItemId(null);
+      if (!isKnownCalories(item.kcalPerPackage)) {
+        setUnknownConsumeState({
+          item,
+          suggestedCalories: estimateSuggestedCalories(item),
+          mode: estimateSuggestedCalories(item) !== null ? "suggested" : "manual",
+          manualCalories: estimateSuggestedCalories(item),
+        });
+        return;
       }
+
+      await executeConsume(item);
     },
-    [api, householdId, loadDashboard, message],
+    [executeConsume, message],
   );
 
 
@@ -512,9 +605,13 @@ export default function StatsPage() {
         title: "Calories",
         key: "cals",
         width: 120,
-        render: (_: unknown, record: PantryItem) => (
-          <Text strong>{Math.round(record.kcalPerPackage * record.count).toLocaleString()} kcal</Text>
-        ),
+        render: (_: unknown, record: PantryItem) => {
+          const totalCalories =
+            isKnownCalories(record.kcalPerPackage) && Number.isFinite(record.count) && record.count > 0
+              ? record.kcalPerPackage * record.count
+              : null;
+          return <Text strong>{formatKcalDisplay(totalCalories)}</Text>;
+        },
       },
       {
         title: "Status",
@@ -600,13 +697,19 @@ export default function StatsPage() {
                   <Space orientation="vertical" size="small" style={{ width: "100%" }}>
                     <div className={statsStyles.metricLead}>Total nutritional value in your pantry</div>
                     <Title level={3} className={statsStyles.metricValue}>
-                      {pantry ? formatKcal(pantry.totalCalories) : "—"}
+                      {pantry ? formatKcalDisplay(pantryKnownCalories) : "—"}
                     </Title>
                     <Text className={statsStyles.metricFootnote}>
                       {pantry
                         ? `${pantry.items.length} item(s) currently in your digital atelier.`
                         : ""}
                     </Text>
+                    {pantryUnknownCaloriesCount > 0 ? (
+                      <Text className={statsStyles.metricFootnote}>
+                        {pantryUnknownCaloriesCount} item{pantryUnknownCaloriesCount === 1 ? "" : "s"} excluded from the
+                        total because calorie data is unknown.
+                      </Text>
+                    ) : null}
                   </Space>
                 </Card>
               </Col>
@@ -827,7 +930,9 @@ export default function StatsPage() {
                                 </div>
                               </div>
                               <span className={`${statsStyles.activityDelta} ${isAdded ? statsStyles.deltaPos : statsStyles.deltaNeg}`}>
-                                {isAdded ? "+" : ""}{Math.round(a.deltaKcal).toLocaleString()} kcal
+                                {isKnownCalories(a.deltaKcal)
+                                  ? `${isAdded ? "+" : ""}${Math.round(a.deltaKcal).toLocaleString()} kcal`
+                                  : "—"}
                               </span>
                             </div>
                           );
@@ -861,6 +966,100 @@ export default function StatsPage() {
           </>
         )}
       </Space>
+
+      <Modal
+        title="Missing calorie data"
+        open={Boolean(unknownConsumeState)}
+        onCancel={() => setUnknownConsumeState(null)}
+        onOk={() => {
+          if (!unknownConsumeState) return;
+
+          if (unknownConsumeState.mode === "suggested") {
+            void executeConsume(unknownConsumeState.item, {
+              kcalPerPackage: unknownConsumeState.suggestedCalories,
+            });
+            return;
+          }
+
+          if (unknownConsumeState.mode === "manual") {
+            const manualCalories = unknownConsumeState.manualCalories;
+            if (!isKnownCalories(manualCalories)) {
+              message.error("Please enter a calorie value greater than 0.");
+              return;
+            }
+            void executeConsume(unknownConsumeState.item, {
+              kcalPerPackage: manualCalories,
+            });
+            return;
+          }
+
+          void executeConsume(unknownConsumeState.item, {
+            skipCalorieLogging: true,
+          });
+        }}
+        confirmLoading={unknownConsumeState ? consumingItemId === unknownConsumeState.item.id : false}
+        okText={
+          unknownConsumeState?.mode === "skip"
+            ? "Consume without calories"
+            : "Save and consume"
+        }
+      >
+        <Paragraph type="secondary">
+          This item has no calorie data yet. Please confirm or enter calories before logging consumption.
+        </Paragraph>
+        {unknownConsumeState ? (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Text strong style={{ color: "#1b2a1b" }}>
+              {unknownConsumeState.item.name}
+            </Text>
+            <Radio.Group
+              value={unknownConsumeState.mode}
+              onChange={(event) =>
+                setUnknownConsumeState((current) =>
+                  current
+                    ? { ...current, mode: event.target.value as UnknownConsumeMode }
+                    : current,
+                )
+              }
+            >
+              <Space direction="vertical" size="middle">
+                <Radio value="suggested" disabled={!isKnownCalories(unknownConsumeState.suggestedCalories)}>
+                  Use system suggestion
+                  {isKnownCalories(unknownConsumeState.suggestedCalories)
+                    ? ` (${Math.round(unknownConsumeState.suggestedCalories).toLocaleString()} kcal / package)`
+                    : " (not available)"}
+                </Radio>
+                <Radio value="manual">Enter calories manually</Radio>
+                <Radio value="skip">Skip calorie logging for this consumption</Radio>
+              </Space>
+            </Radio.Group>
+            {unknownConsumeState.mode === "manual" ? (
+              <InputNumber
+                min={1}
+                value={unknownConsumeState.manualCalories ?? undefined}
+                onChange={(value) =>
+                  setUnknownConsumeState((current) =>
+                    current
+                      ? {
+                          ...current,
+                          manualCalories:
+                            typeof value === "number" && Number.isFinite(value) ? value : null,
+                        }
+                      : current,
+                  )
+                }
+                style={{ width: "100%" }}
+                suffix="kcal / package"
+              />
+            ) : null}
+            {unknownConsumeState.mode === "skip" ? (
+              <Text type="secondary">
+                The quantity will be consumed, but this event will not contribute to calorie totals.
+              </Text>
+            ) : null}
+          </Space>
+        ) : null}
+      </Modal>
 
       <Modal
         title="Daily calorie budget"
