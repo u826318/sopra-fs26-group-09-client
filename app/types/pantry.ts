@@ -14,7 +14,7 @@ export interface PantryItemCreateRequest {
 export interface PantryItem {
   id: number;
   householdId: number;
-  barcode: string;
+  barcode: string | null;
   name: string;
   amount: number;
   amountUnit: AmountUnit;
