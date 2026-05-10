@@ -65,6 +65,8 @@ describe("HealthGoalPage", () => {
       userId: 1,
       goalType: "MAINTAIN",
       targetRate: null,
+      targetWeight: null,   // new fields now returned by backend
+      weeksToGoal: null,
       age: 28,
       sex: "FEMALE",
       height: 165,
@@ -102,6 +104,8 @@ describe("HealthGoalPage", () => {
       userId: 1,
       goalType: "LOSE_WEIGHT",
       targetRate: 0.5,
+      targetWeight: 75.0,   // new fields now returned by backend
+      weeksToGoal: 20,
       age: 30,
       sex: "MALE",
       height: 175,
