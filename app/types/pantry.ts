@@ -31,7 +31,8 @@ export interface PantryOverview {
 
 export interface ConsumePantryItemResponse {
   itemId: number;
-  remainingCount: number;
+  // Issue #133 — remainingAmount (Double) replaces remainingCount (Integer)
+  remainingAmount: number;
   consumedCalories: number | null;
   removed: boolean;
 }

@@ -178,9 +178,17 @@ type UnknownConsumeMode = "suggested" | "manual" | "skip";
 
 type UnknownConsumeState = {
   item: PantryItem;
+  // Issue #95 — amount chosen in portion modal, carried into calorie-unknown flow
+  amount: number;
   suggestedCalories: number | null;
   mode: UnknownConsumeMode;
   manualCalories: number | null;
+};
+
+// Issue #95 — portion modal state: user specifies how much to consume before confirming
+type PortionConsumeState = {
+  item: PantryItem;
+  amount: number;
 };
 
 const CALORIE_SUGGESTIONS: Array<{ keywords: string[]; kcal: number }> = [
@@ -276,6 +284,8 @@ export default function StatsPage() {
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [unknownConsumeState, setUnknownConsumeState] = useState<UnknownConsumeState | null>(null);
+  // Issue #95 — portion consume: user specifies how much to consume before confirming
+  const [portionConsumeState, setPortionConsumeState] = useState<PortionConsumeState | null>(null);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
   const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
 
@@ -498,14 +508,15 @@ export default function StatsPage() {
     }
   };
 
+  // Issue #95 — amount is user-chosen portion; options carries kcal override for package items
   const executeConsume = useCallback(
-    async (item: PantryItem, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean }) => {
+    async (item: PantryItem, amount: number, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean }) => {
       setConsumingItemId(item.id);
       try {
         const res = await api.post<ConsumePantryItemResponse>(
           `/households/${householdId}/pantry/${item.id}/consume`,
           {
-            quantity: 1,
+            amount,
             kcalPerPackage: options?.kcalPerPackage ?? null,
             skipCalorieLogging: options?.skipCalorieLogging ?? false,
           },
@@ -516,6 +527,7 @@ export default function StatsPage() {
             : "Consumption recorded.",
         );
         setUnknownConsumeState(null);
+        setPortionConsumeState(null);
         await loadDashboard();
       } catch (error) {
         message.error(error instanceof Error ? error.message : "Could not record consumption.");
@@ -526,8 +538,9 @@ export default function StatsPage() {
     [api, householdId, loadDashboard, message],
   );
 
+  // Issue #95 — open portion input modal; calorie-unknown check runs after amount is chosen
   const consumeInventoryItem = useCallback(
-    async (item: PantryItem) => {
+    (item: PantryItem) => {
       if (!item.id) {
         message.error("Selected item is missing an item ID.");
         return;
@@ -537,20 +550,10 @@ export default function StatsPage() {
         return;
       }
 
-      if (!isKnownCalories(item.kcalPerPackage)) {
-        const suggestedCalories = estimateSuggestedCalories(item);
-        setUnknownConsumeState({
-          item,
-          suggestedCalories,
-          mode: suggestedCalories !== null ? "suggested" : "manual",
-          manualCalories: suggestedCalories,
-        });
-        return;
-      }
-
-      await executeConsume(item);
+      const defaultAmount = item.amountUnit === "package" ? 1 : item.amount;
+      setPortionConsumeState({ item, amount: defaultAmount });
     },
-    [executeConsume, message],
+    [message],
   );
 
 
@@ -569,12 +572,12 @@ export default function StatsPage() {
       try {
         const res = await api.post<ConsumePantryItemResponse>(
           `/households/${householdId}/pantry/${item.id}/remove`,
-          { quantity: 1 },
+          { amount: item.amount },
         );
         message.success(
           res.removed
             ? "Item removed from pantry."
-            : "One unit removed from pantry.",
+            : "Item partially removed from pantry.",
         );
         await loadDashboard();
       } catch (error) {
@@ -985,6 +988,72 @@ export default function StatsPage() {
         )}
       </Space>
 
+      {/* Issue #95 — portion consume modal: user picks how much to consume */}
+      <Modal
+        title="How much to consume?"
+        open={Boolean(portionConsumeState)}
+        onCancel={() => setPortionConsumeState(null)}
+        onOk={() => {
+          if (!portionConsumeState) return;
+          const { item, amount } = portionConsumeState;
+          if (!Number.isFinite(amount) || amount <= 0) {
+            message.error("Amount must be greater than zero.");
+            return;
+          }
+          if (amount > item.amount) {
+            message.error(`Amount cannot exceed available quantity (${item.amount} ${item.amountUnit}).`);
+            return;
+          }
+          // For package items without calorie data, open the calorie-unknown flow
+          if (item.amountUnit === "package" && !isKnownCalories(item.kcalPerPackage)) {
+            const suggestedCalories = estimateSuggestedCalories(item);
+            setPortionConsumeState(null);
+            setUnknownConsumeState({
+              item,
+              amount,
+              suggestedCalories,
+              mode: suggestedCalories !== null ? "suggested" : "manual",
+              manualCalories: suggestedCalories,
+            });
+            return;
+          }
+          void executeConsume(item, amount);
+        }}
+        confirmLoading={portionConsumeState ? consumingItemId === portionConsumeState.item.id : false}
+        okText="Consume"
+      >
+        {portionConsumeState ? (
+          <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+            <Text strong style={{ color: "#1b2a1b" }}>
+              {portionConsumeState.item.name}
+            </Text>
+            <div>
+              <Text style={{ display: "block", marginBottom: 4 }}>
+                Amount ({portionConsumeState.item.amountUnit})
+              </Text>
+              <InputNumber
+                min={0.01}
+                max={portionConsumeState.item.amount}
+                step={portionConsumeState.item.amountUnit === "package" ? 1 : 0.1}
+                value={portionConsumeState.amount}
+                onChange={(value) =>
+                  setPortionConsumeState((cur) =>
+                    cur && typeof value === "number" && Number.isFinite(value)
+                      ? { ...cur, amount: value }
+                      : cur,
+                  )
+                }
+                style={{ width: "100%" }}
+                suffix={portionConsumeState.item.amountUnit}
+              />
+            </div>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Available: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
+            </Text>
+          </Space>
+        ) : null}
+      </Modal>
+
       <Modal
         title="Missing calorie data"
         open={Boolean(unknownConsumeState)}
@@ -993,7 +1062,7 @@ export default function StatsPage() {
           if (!unknownConsumeState) return;
 
           if (unknownConsumeState.mode === "suggested") {
-            void executeConsume(unknownConsumeState.item, {
+            void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
               kcalPerPackage: unknownConsumeState.suggestedCalories,
             });
             return;
@@ -1005,13 +1074,13 @@ export default function StatsPage() {
               message.error("Please enter a calorie value greater than 0.");
               return;
             }
-            void executeConsume(unknownConsumeState.item, {
+            void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
               kcalPerPackage: manualCalories,
             });
             return;
           }
 
-          void executeConsume(unknownConsumeState.item, {
+          void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
             skipCalorieLogging: true,
           });
         }}

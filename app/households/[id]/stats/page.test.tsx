@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import StatsPage from "@/households/[id]/stats/page";
 
 const pushMock = jest.fn();
@@ -129,14 +129,19 @@ jest.mock("antd", () => {
   const Row = ({ children }: any) => <div>{children}</div>;
   const Col = ({ children }: any) => <div>{children}</div>;
   const Progress = ({ format }: any) => <div>{format ? format(80) : "progress"}</div>;
-  const Modal = ({ children, open, title, onOk, okText }: any) =>
-    open ? (
-      <div data-testid={title === "Daily calorie budget" ? "budget-modal" : "missing-calorie-modal"}>
+  const Modal = ({ children, open, title, onOk, okText }: any) => {
+    const testId =
+      title === "Daily calorie budget" ? "budget-modal"
+        : title === "How much to consume?" ? "portion-modal"
+          : "missing-calorie-modal";
+    return open ? (
+      <div data-testid={testId}>
         <div>{title}</div>
         {children}
         {onOk ? <button type="button" onClick={onOk}>{okText ?? "OK"}</button> : null}
       </div>
     ) : null;
+  };
   const FormItem = ({ children, label }: any) => (
     <div>
       {label ? <label>{label}</label> : null}
@@ -358,12 +363,18 @@ describe("StatsPage", () => {
   it("consumes one unit from the selected inventory row", async () => {
     render(<StatsPage />);
 
-    const consumeButtons = await screen.findAllByRole("button", { name: /Consume/i });
+    // Issue #95 — clicking Consume now opens portion modal first
+    const consumeButtons = await screen.findAllByRole("button", { name: /^Consume$/i });
     fireEvent.click(consumeButtons[0]);
+
+    // Portion modal appears; click its "Consume" OK button
+    const portionModal = await screen.findByTestId("portion-modal");
+    expect(portionModal).toBeInTheDocument();
+    fireEvent.click(within(portionModal).getByRole("button", { name: /^Consume$/i }));
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", {
-        quantity: 1,
+        amount: 1,
         kcalPerPackage: null,
         skipCalorieLogging: false,
       });
@@ -378,16 +389,13 @@ describe("StatsPage", () => {
     const removeButtons = await screen.findAllByRole("button", { name: /Remove/i });
     fireEvent.click(removeButtons[0]);
 
+    // Issue #133 — remove sends full item.amount (3) instead of hardcoded quantity 1
     await waitFor(() => {
-      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/remove", { quantity: 1 });
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/remove", { amount: 3 });
     });
 
-    expect(postMock).not.toHaveBeenCalledWith("/households/1/pantry/1/consume", {
-      quantity: 1,
-      kcalPerPackage: null,
-      skipCalorieLogging: false,
-    });
-    expect(messageMock.success).toHaveBeenCalledWith("One unit removed from pantry.");
+    expect(postMock).not.toHaveBeenCalledWith("/households/1/pantry/1/consume", expect.anything());
+    expect(messageMock.success).toHaveBeenCalledWith("Item partially removed from pantry.");
   });
 
   it("uses suggested calories before consuming an unknown pantry item", async () => {
@@ -406,14 +414,17 @@ describe("StatsPage", () => {
 
     render(<StatsPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Consume/i }));
+    // Issue #95 — portion modal opens first; confirm amount to proceed to calorie modal
+    fireEvent.click(await screen.findByRole("button", { name: /^Consume$/i }));
+    const portionModal = await screen.findByTestId("portion-modal");
+    fireEvent.click(within(portionModal).getByRole("button", { name: /^Consume$/i }));
 
     expect(await screen.findByTestId("missing-calorie-modal")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Save and consume/i }));
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/7/consume", {
-        quantity: 1,
+        amount: 1,
         kcalPerPackage: 1800,
         skipCalorieLogging: false,
       });
@@ -436,13 +447,19 @@ describe("StatsPage", () => {
 
     render(<StatsPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /Consume/i }));
-    fireEvent.change(await screen.findByRole("spinbutton"), { target: { value: "77" } });
-    fireEvent.click(screen.getByRole("button", { name: /Save and consume/i }));
+    // Issue #95 — click Consume → portion modal → confirm → calorie modal
+    fireEvent.click(await screen.findByRole("button", { name: /^Consume$/i }));
+    const portionModal = await screen.findByTestId("portion-modal");
+    fireEvent.click(within(portionModal).getByRole("button", { name: /^Consume$/i }));
+
+    // Calorie-unknown modal: change manual calorie input, then confirm
+    const calorieModal = await screen.findByTestId("missing-calorie-modal");
+    fireEvent.change(within(calorieModal).getByRole("spinbutton"), { target: { value: "77" } });
+    fireEvent.click(within(calorieModal).getByRole("button", { name: /Save and consume/i }));
 
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/8/consume", {
-        quantity: 1,
+        amount: 1,
         kcalPerPackage: 77,
         skipCalorieLogging: false,
       });
