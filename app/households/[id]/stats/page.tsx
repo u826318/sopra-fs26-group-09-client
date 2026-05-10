@@ -39,7 +39,8 @@ import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
-import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
+import type { AmountUnit, ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
+import { formatQuantity } from "@/utils/pantry";
 import type { HouseholdStats } from "@/types/stats";
 import type { HealthGoal } from "@/types/healthGoal";
 import statsStyles from "@/styles/stats.module.css";
@@ -72,15 +73,9 @@ type ActivityEntry = {
   deltaKcal: number | null;
   quantity: number;
   // Issue #95 — unit stored so display can show "200g" instead of "200×" for g/ml items
-  unit?: string;
+  unit?: AmountUnit;
   type: "ADDED" | "CONSUMED";
 };
-
-// Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
-function formatQuantity(quantity: number, unit?: string): string {
-  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
-  return `${quantity}×`;
-}
 
 function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   return logs.map((log) => ({

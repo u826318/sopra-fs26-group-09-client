@@ -1,4 +1,4 @@
-import { buildPantryItemPayload, estimateKcalPerPackage } from "@/utils/pantry";
+import { buildPantryItemPayload, estimateKcalPerPackage, formatQuantity } from "@/utils/pantry";
 
 describe("pantry helpers", () => {
   it("estimates calories from 100g nutrition data and package size", () => {
@@ -94,6 +94,22 @@ describe("pantry helpers", () => {
       kcalPerPackage: null,
       kcalPer100g: null,
       kcalPer100ml: null,
+    });
+  });
+
+  // Issue #95 — formatQuantity uses unit suffix for g/ml, × for package/unknown
+  describe("formatQuantity", () => {
+    it("appends g suffix for gram unit", () => {
+      expect(formatQuantity(200, "g")).toBe("200g");
+    });
+    it("appends ml suffix for millilitre unit", () => {
+      expect(formatQuantity(250, "ml")).toBe("250ml");
+    });
+    it("uses × suffix for package unit", () => {
+      expect(formatQuantity(3, "package")).toBe("3×");
+    });
+    it("uses × suffix when unit is undefined", () => {
+      expect(formatQuantity(1, undefined)).toBe("1×");
     });
   });
 });

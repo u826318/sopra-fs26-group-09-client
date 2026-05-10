@@ -214,7 +214,7 @@ describe("Users page", () => {
   });
 
   // Issue #95 — g/ml units must show as "100g" / "250ml", not "100×" / "250×"
-  it("shows gram unit for consumed item in recent activity", async () => {
+  it("shows ml unit for consumed item in recent activity", async () => {
     routeApi({
       pantry: { items: [], totalCalories: 0 },
       logs: [

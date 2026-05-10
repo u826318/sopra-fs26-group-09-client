@@ -9,6 +9,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import type { PantryOverview } from "@/types/pantry";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
+import { formatQuantity } from "@/utils/pantry";
 import { App, Button, Card, Spin, Tag, Typography } from "antd";
 import {
   AppstoreOutlined,
@@ -64,12 +65,6 @@ function formatAgo(iso: string): string {
   if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days > 1 ? "s" : ""} ago`;
-}
-
-// Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
-function formatQuantity(quantity: number, unit?: string): string {
-  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
-  return `${quantity}×`;
 }
 
 function initialsOf(text: string): string {
