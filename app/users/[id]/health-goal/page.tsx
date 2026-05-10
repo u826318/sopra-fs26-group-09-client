@@ -85,7 +85,9 @@ export default function HealthGoalPage() {
           weight: goal.weight,
           activityLevel: goal.activityLevel,
           goalType: goal.goalType,
-          // targetWeight and weeksToGoal are not stored on the backend
+          // Restore loss-specific fields now that they are persisted on the backend
+          targetWeight: goal.targetWeight ?? undefined,
+          weeksToGoal: goal.weeksToGoal ?? undefined,
         });
         setGoalType(goal.goalType);
         setRecommendation(goal.recommendedDailyCalories);
@@ -109,10 +111,7 @@ export default function HealthGoalPage() {
   const handleSave = async (values: FormValues) => {
     setSaving(true);
     try {
-      let targetRate: number | null = null;
-      if (values.goalType === "LOSE_WEIGHT" && values.targetWeight != null && values.weeksToGoal != null) {
-        targetRate = (values.weight - values.targetWeight) / values.weeksToGoal;
-      }
+      // Send targetWeight and weeksToGoal directly — backend derives targetRate
       const body: HealthGoalPutRequest = {
         goalType: values.goalType as HealthGoalPutRequest["goalType"],
         age: values.age,
@@ -120,7 +119,8 @@ export default function HealthGoalPage() {
         height: values.height,
         weight: values.weight,
         activityLevel: values.activityLevel as HealthGoalPutRequest["activityLevel"],
-        targetRate,
+        targetWeight: values.goalType === "LOSE_WEIGHT" ? (values.targetWeight ?? null) : null,
+        weeksToGoal: values.goalType === "LOSE_WEIGHT" ? (values.weeksToGoal ?? null) : null,
       };
       const saved = await api.put<HealthGoal>(`/users/${urlId}/health-goal`, body);
       setRecommendation(saved.recommendedDailyCalories);

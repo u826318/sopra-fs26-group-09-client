@@ -7,6 +7,9 @@ export interface HealthGoal {
   userId: number;
   goalType: GoalType;
   targetRate: number | null;
+  // targetWeight and weeksToGoal are stored so the form can be restored on reload
+  targetWeight: number | null;
+  weeksToGoal: number | null;
   age: number;
   sex: Sex;
   height: number;
@@ -18,7 +21,9 @@ export interface HealthGoal {
 
 export interface HealthGoalPutRequest {
   goalType: GoalType;
-  targetRate?: number | null;
+  // targetWeight and weeksToGoal replace targetRate — the backend derives targetRate from them
+  targetWeight?: number | null;
+  weeksToGoal?: number | null;
   age: number;
   sex: Sex;
   height: number;
