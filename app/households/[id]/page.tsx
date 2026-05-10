@@ -222,8 +222,8 @@ export default function HouseholdPantryPage() {
     }
 
     return overview.items.reduce((sum, item) => {
-      const count = Number(item.count);
-      return sum + (Number.isFinite(count) && count > 0 ? count : 0);
+      const amount = Number(item.amount);
+      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
     }, 0);
   }, [overview]);
 
@@ -257,23 +257,32 @@ export default function HouseholdPantryPage() {
       ),
     },
     {
-      title: "Count",
-      dataIndex: "count",
-      key: "count",
-      render: (value: number) => (
-        <Text style={{ color: "#314231" }}>{formatNumber(Number(value ?? 0))}</Text>
+      title: "Amount",
+      dataIndex: "amount",
+      key: "amount",
+      render: (_value: number, record) => (
+        <Text style={{ color: "#314231" }}>{formatNumber(Number(record.amount ?? 0))} {record.amountUnit}</Text>
       ),
     },
     {
       title: "Total kcal",
       key: "totalKcal",
       render: (_value, record) => {
-        const perPackage = Number(record.kcalPerPackage ?? 0);
-        const count = Number(record.count ?? 0);
-        const totalCalories =
-          Number.isFinite(perPackage) && perPackage > 0 && Number.isFinite(count) && count > 0
-            ? perPackage * count
-            : null;
+        // Issue #114 — unit-aware calorie computation
+        let totalCalories: number | null = null;
+        const amount = Number(record.amount ?? 0);
+        if (Number.isFinite(amount) && amount > 0) {
+          if (record.amountUnit === "package") {
+            const perPackage = Number(record.kcalPerPackage ?? 0);
+            if (Number.isFinite(perPackage) && perPackage > 0) totalCalories = perPackage * amount;
+          } else if (record.amountUnit === "g") {
+            const per100g = Number(record.kcalPer100g ?? 0);
+            if (Number.isFinite(per100g) && per100g > 0) totalCalories = (per100g * amount) / 100;
+          } else if (record.amountUnit === "ml") {
+            const per100ml = Number(record.kcalPer100ml ?? 0);
+            if (Number.isFinite(per100ml) && per100ml > 0) totalCalories = (per100ml * amount) / 100;
+          }
+        }
 
         return (
           <Text style={{ color: "#314231" }}>

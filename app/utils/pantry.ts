@@ -1,4 +1,4 @@
-import type { PantryItemCreateRequest } from "@/types/pantry";
+import type { AmountUnit, PantryItemCreateRequest } from "@/types/pantry";
 import type { Product } from "@/types/product";
 
 type QuantityUnit = "kg" | "g" | "l" | "ml";
@@ -129,15 +129,54 @@ export function estimateKcalPerPackage(product: Product): number | null {
   return null;
 }
 
+// Issue #114 — returns only units that have usable nutrition data for this product
+// package is always available as fallback; g/ml only shown when product has the data
+export function detectAvailableUnits(product: Product): AmountUnit[] {
+  const units: AmountUnit[] = ["package"];
+  const amountInfo = parsePackageAmount(product.quantity);
+  const nutriments = product.nutriments ?? {};
+
+  if (amountInfo?.basis === "100g" && parseNumber(nutriments["energy-kcal_100g"]) !== null) {
+    units.unshift("g");
+  }
+  if (amountInfo?.basis === "100ml" && parseNumber(nutriments["energy-kcal_100ml"]) !== null) {
+    units.unshift("ml");
+  }
+
+  return units;
+}
+
+// Issue #114 — default amount pre-filled when user selects a unit
+// package → 1; g/ml → the parsed package weight/volume so user doesn't have to type it
+export function getDefaultAmount(product: Product, unit: AmountUnit): number {
+  if (unit === "package") return 1;
+  const amountInfo = parsePackageAmount(product.quantity);
+  return amountInfo?.amount ?? 1;
+}
+
+// Issue #114 — extract per-100g kcal value from product nutriments
+export function getKcalPer100g(product: Product): number | null {
+  return parseNumber((product.nutriments ?? {})["energy-kcal_100g"]);
+}
+
+// Issue #114 — extract per-100ml kcal value from product nutriments
+export function getKcalPer100ml(product: Product): number | null {
+  return parseNumber((product.nutriments ?? {})["energy-kcal_100ml"]);
+}
+
+// Issue #114 — build payload with amount, amountUnit, and the relevant kcal field for the chosen unit
 export function buildPantryItemPayload(
   product: Product,
-  quantity: number,
-  kcalPerPackage: number,
+  amount: number,
+  unit: AmountUnit,
 ): PantryItemCreateRequest {
   return {
     barcode: (product.barcode ?? "").trim(),
     name: (product.name ?? "").trim(),
-    quantity,
-    kcalPerPackage,
+    amount,
+    amountUnit: unit,
+    kcalPerPackage: unit === "package" ? estimateKcalPerPackage(product) : null,
+    kcalPer100g: unit === "g" ? getKcalPer100g(product) : null,
+    kcalPer100ml: unit === "ml" ? getKcalPer100ml(product) : null,
   };
 }

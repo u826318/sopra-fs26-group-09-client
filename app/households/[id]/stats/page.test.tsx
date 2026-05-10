@@ -207,8 +207,8 @@ describe("StatsPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPantryItems = [
-      { id: 1, householdId: 1, barcode: "111", name: "Milk", quantity: 1, count: 3, kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
-      { id: 2, householdId: 1, barcode: "222", name: "Rice", quantity: 1, count: 5, kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
+      { id: 1, householdId: 1, barcode: "111", name: "Milk", amount: 3, amountUnit: "package", kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
+      { id: 2, householdId: 1, barcode: "222", name: "Rice", amount: 5, amountUnit: "package", kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
     ];
     postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
@@ -397,8 +397,8 @@ describe("StatsPage", () => {
         householdId: 1,
         barcode: "receipt-generic:rice",
         name: "Basmati Rice",
-        quantity: 1,
-        count: 1,
+        amount: 1,
+        amountUnit: "package",
         kcalPerPackage: null,
         addedAt: "2026-04-01T00:00:00Z",
       },
@@ -427,8 +427,8 @@ describe("StatsPage", () => {
         householdId: 1,
         barcode: "444",
         name: "Mystery Product",
-        quantity: 1,
-        count: 1,
+        amount: 1,
+        amountUnit: "package",
         kcalPerPackage: 0,
         addedAt: "2026-04-01T00:00:00Z",
       },

@@ -1,14 +1,21 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
-import type { PantryItem } from "@/types/pantry";
+import type { AmountUnit, PantryItem } from "@/types/pantry";
 import type { Product } from "@/types/product";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ApplicationError } from "@/types/error";
-import { buildPantryItemPayload, estimateKcalPerPackage } from "@/utils/pantry";
+import {
+  buildPantryItemPayload,
+  detectAvailableUnits,
+  getDefaultAmount,
+  getKcalPer100g,
+  getKcalPer100ml,
+  estimateKcalPerPackage,
+} from "@/utils/pantry";
 import { App, Card, Image } from "antd";
 import styles from "@/styles/productResultCard.module.css";
 
@@ -173,7 +180,6 @@ export default function ProductResultCard({
   const { message } = App.useApp();
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
-  const estimatedKcal = useMemo(() => estimateKcalPerPackage(product), [product]);
   const reportedMicronutrients = useMemo(() => getReportedMicronutrients(product), [product]);
   const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback";
   const effectivePantryContext = useMemo(
@@ -181,9 +187,38 @@ export default function ProductResultCard({
     [pantryContext],
   );
 
-  const [packageCount, setPackageCount] = useState(1);
+  // Issue #114 — unit selector: detect which units are available from product data
+  const availableUnits = useMemo(() => detectAvailableUnits(product), [product]);
+  // Issue #114 — runtime guard: only pass valid AmountUnit values from the select
+  const VALID_UNITS: AmountUnit[] = availableUnits;
+  const [selectedUnit, setSelectedUnit] = useState<AmountUnit>(() => availableUnits[0]);
+  const [amount, setAmount] = useState<number>(() => getDefaultAmount(product, availableUnits[0]));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Issue #114 — switching unit resets amount to the sensible default for that unit
+  // Issue #114 — useCallback prevents unnecessary re-renders if parent memoizes ProductResultCard
+  const handleUnitChange = useCallback((unit: AmountUnit) => {
+    setSelectedUnit(unit);
+    setAmount(getDefaultAmount(product, unit));
+  }, [product]);
+
+  // Issue #114 — real-time calorie estimate shown as user adjusts amount and unit
+  const liveKcal = useMemo(() => {
+    if (selectedUnit === "package") {
+      const perPackage = estimateKcalPerPackage(product);
+      return perPackage !== null ? Number((perPackage * amount).toFixed(1)) : null;
+    }
+    if (selectedUnit === "g") {
+      const per100g = getKcalPer100g(product);
+      return per100g !== null ? Number(((per100g * amount) / 100).toFixed(1)) : null;
+    }
+    if (selectedUnit === "ml") {
+      const per100ml = getKcalPer100ml(product);
+      return per100ml !== null ? Number(((per100ml * amount) / 100).toFixed(1)) : null;
+    }
+    return null;
+  }, [product, selectedUnit, amount]);
 
   const handleAddToPantry = async (): Promise<void> => {
     if (!effectivePantryContext) {
@@ -203,13 +238,8 @@ export default function ProductResultCard({
       return;
     }
 
-    if (!Number.isInteger(packageCount) || packageCount < 1) {
-      message.warning("Quantity to add must be at least 1.");
-      return;
-    }
-
-    if (estimatedKcal === null) {
-      message.warning("Calories per package could not be estimated for this product.");
+    if (!Number.isFinite(amount) || amount <= 0) {
+      message.warning("Amount must be greater than zero.");
       return;
     }
 
@@ -217,7 +247,7 @@ export default function ProductResultCard({
     setIsSubmitting(true);
 
     try {
-      const payload = buildPantryItemPayload(product, packageCount, estimatedKcal);
+      const payload = buildPantryItemPayload(product, amount, selectedUnit);
       await api.post<PantryItem>(
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
@@ -278,7 +308,7 @@ export default function ProductResultCard({
             </div>
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Estimated kcal / package</div>
-              <div className={styles.metaValue}>{estimatedKcal ?? "—"}</div>
+              <div className={styles.metaValue}>{estimateKcalPerPackage(product) ?? "—"}</div>
             </div>
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Data source</div>
@@ -323,19 +353,50 @@ export default function ProductResultCard({
               Review the product details, choose the number of packages, then save the item to the current household pantry.
             </div>
 
+            {/* Issue #114 — unit selector and amount input; unit options appear only when product has nutrition data for that unit */}
             <div className={styles.controls}>
+              {availableUnits.length > 1 && (
+                <label className={styles.quantityField}>
+                  <span className={styles.quantityLabel}>Unit</span>
+                  <select
+                    value={selectedUnit}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if ((VALID_UNITS as string[]).includes(v)) {
+                        handleUnitChange(v as AmountUnit);
+                      }
+                    }}
+                    aria-label="Unit"
+                    className={styles.quantityInput}
+                  >
+                    {availableUnits.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <label className={styles.quantityField}>
-                <span className={styles.quantityLabel}>Quantity to add</span>
+                <span className={styles.quantityLabel}>
+                  Amount ({selectedUnit})
+                </span>
                 <input
-                  aria-label="Quantity to add"
+                  aria-label={`Amount in ${selectedUnit}`}
                   type="number"
-                  min={1}
-                  step={1}
-                  value={packageCount}
-                  onChange={(event) => setPackageCount(Number(event.target.value))}
+                  min={0.01}
+                  step={selectedUnit === "package" ? 1 : 0.1}
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
                   className={styles.quantityInput}
                 />
               </label>
+
+              {liveKcal !== null && (
+                <div className={styles.metaCard}>
+                  <div className={styles.metaLabel}>Estimated kcal</div>
+                  <div className={styles.metaValue}>{liveKcal}</div>
+                </div>
+              )}
 
               <button
                 type="button"

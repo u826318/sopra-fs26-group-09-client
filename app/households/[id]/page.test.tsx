@@ -107,7 +107,7 @@ jest.mock("antd", () => {
             <td>{row.name}</td>
             <td>{row.barcode}</td>
             <td>{row.kcalPerPackage}</td>
-            <td>{row.count}</td>
+            <td>{row.amount}</td>
             <td>{row.addedAt}</td>
           </tr>
         ))}
@@ -152,7 +152,8 @@ describe("Household pantry page", () => {
           barcode: "7613035974685",
           name: "Chocolate Bar",
           kcalPerPackage: 250,
-          count: 2,
+          amount: 2,
+          amountUnit: "package",
           addedAt: "2026-04-12T10:00:00Z",
         },
         {
@@ -161,7 +162,8 @@ describe("Household pantry page", () => {
           barcode: "7613031234567",
           name: "Granola",
           kcalPerPackage: 250,
-          count: 1,
+          amount: 1,
+          amountUnit: "package",
           addedAt: "2026-04-13T10:00:00Z",
         },
       ],

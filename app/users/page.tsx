@@ -141,11 +141,11 @@ const DashboardPage: React.FC = () => {
   }, [members]);
 
   const lowStockCount = useMemo(() => {
-    return (pantry?.items ?? []).filter((item) => item.count <= 2).length;
+    return (pantry?.items ?? []).filter((item) => item.amount <= 2).length;
   }, [pantry?.items]);
 
   const totalUnits = useMemo(() => {
-    return (pantry?.items ?? []).reduce((sum, item) => sum + item.count, 0);
+    return (pantry?.items ?? []).reduce((sum, item) => sum + item.amount, 0);
   }, [pantry?.items]);
 
   const oneWeekAgo = useMemo(() => dayjs().subtract(7, "day"), []);
@@ -179,15 +179,15 @@ const DashboardPage: React.FC = () => {
   const inventoryRows = useMemo<InventoryRow[]>(() => {
     return (pantry?.items ?? [])
       .slice()
-      .sort((a, b) => a.count - b.count)
+      .sort((a, b) => a.amount - b.amount)
       .slice(0, 6)
       .map((item) => ({
         id: item.id,
         product: item.name,
-        quantity: `${item.count} unit${item.count > 1 ? "s" : ""}`,
+        quantity: `${item.amount} ${item.amountUnit}`,
         category: inferCategory(item.name),
-        status: item.count <= 2 ? "LOW STOCK" : "FRESH",
-        statusTone: item.count <= 2 ? "danger" : "ok",
+        status: item.amount <= 2 ? "LOW STOCK" : "FRESH",
+        statusTone: item.amount <= 2 ? "danger" : "ok",
       }));
   }, [pantry?.items]);
 

@@ -82,7 +82,7 @@ describe("ProductResultCard", () => {
     expect(screen.getByText("Barcode")).toBeInTheDocument();
     expect(screen.getByText("123456789")).toBeInTheDocument();
     expect(screen.getByText("Estimated kcal / package")).toBeInTheDocument();
-    expect(screen.getByText("396")).toBeInTheDocument();
+    expect(screen.getAllByText("396").length).toBeGreaterThan(0);
     expect(screen.queryByText("Export full return as TXT")).not.toBeInTheDocument();
     expect(screen.queryByText("Nutri-Score computation data")).not.toBeInTheDocument();
   });
@@ -93,8 +93,9 @@ describe("ProductResultCard", () => {
       householdId: 10,
       barcode: "123456789",
       name: "Plant Based Caprese",
-      kcalPerPackage: 396,
-      count: 2,
+      amount: 2,
+      amountUnit: "g",
+      kcalPer100g: 220,
       addedAt: "2026-04-12T10:00:00Z",
     });
 
@@ -107,7 +108,7 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Quantity to add"), {
+    fireEvent.change(screen.getByLabelText("Amount in g"), {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
@@ -116,8 +117,11 @@ describe("ProductResultCard", () => {
       expect(postMock).toHaveBeenCalledWith("/households/10/pantry", {
         barcode: "123456789",
         name: "Plant Based Caprese",
-        quantity: 2,
-        kcalPerPackage: 396,
+        amount: 2,
+        amountUnit: "g",
+        kcalPerPackage: null,
+        kcalPer100g: 220,
+        kcalPer100ml: null,
       });
     });
 
@@ -132,8 +136,9 @@ describe("ProductResultCard", () => {
       householdId: 12,
       barcode: "123456789",
       name: "Plant Based Caprese",
-      kcalPerPackage: 396,
-      count: 1,
+      amount: 180,
+      amountUnit: "g",
+      kcalPer100g: 220,
       addedAt: "2026-04-12T10:00:00Z",
     });
 
@@ -151,8 +156,11 @@ describe("ProductResultCard", () => {
       expect(postMock).toHaveBeenCalledWith("/households/12/pantry", {
         barcode: "123456789",
         name: "Plant Based Caprese",
-        quantity: 1,
-        kcalPerPackage: 396,
+        amount: 180,
+        amountUnit: "g",
+        kcalPerPackage: null,
+        kcalPer100g: 220,
+        kcalPer100ml: null,
       });
     });
 
@@ -171,13 +179,13 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Quantity to add"), {
+    fireEvent.change(screen.getByLabelText("Amount in g"), {
       target: { value: "0" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
 
     expect(postMock).not.toHaveBeenCalled();
-    expect(warningMock).toHaveBeenCalledWith("Quantity to add must be at least 1.");
+    expect(warningMock).toHaveBeenCalledWith("Amount must be greater than zero.");
   });
 
   it("shows the API error message when adding the pantry item fails", async () => {

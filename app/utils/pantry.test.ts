@@ -83,14 +83,17 @@ describe("pantry helpers", () => {
         rawProduct: null,
       },
       3,
-      250,
+      "package",
     );
 
     expect(payload).toEqual({
       barcode: "7613035974685",
       name: "Chocolate Bar",
-      quantity: 3,
-      kcalPerPackage: 250,
+      amount: 3,
+      amountUnit: "package",
+      kcalPerPackage: null,
+      kcalPer100g: null,
+      kcalPer100ml: null,
     });
   });
 });

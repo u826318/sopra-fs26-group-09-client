@@ -85,6 +85,24 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   }));
 }
 
+function computeItemKcal(item: PantryItem): number | null {
+  const amount = Number(item.amount ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  if (item.amountUnit === "package") {
+    const per = Number(item.kcalPerPackage ?? 0);
+    return Number.isFinite(per) && per > 0 ? per * amount : null;
+  }
+  if (item.amountUnit === "g") {
+    const per = Number(item.kcalPer100g ?? 0);
+    return Number.isFinite(per) && per > 0 ? (per * amount) / 100 : null;
+  }
+  if (item.amountUnit === "ml") {
+    const per = Number(item.kcalPer100ml ?? 0);
+    return Number.isFinite(per) && per > 0 ? (per * amount) / 100 : null;
+  }
+  return null;
+}
+
 function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
   return items
     .filter((item) => Boolean(item.addedAt))
@@ -92,8 +110,8 @@ function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
       id: `add-${item.id}`,
       at: item.addedAt,
       productName: item.name,
-      deltaKcal: item.kcalPerPackage * item.count,
-      quantity: item.count,
+      deltaKcal: computeItemKcal(item),
+      quantity: item.amount,
       type: "ADDED",
     }));
 }
@@ -263,12 +281,8 @@ export default function StatsPage() {
 
   const pantryKnownCalories = useMemo(() => {
     return (pantry?.items ?? []).reduce((sum, item) => {
-      const kcal = item.kcalPerPackage;
-      const count = item.count;
-      if (!isKnownCalories(kcal) || !Number.isFinite(count) || count <= 0) {
-        return sum;
-      }
-      return sum + kcal * count;
+      const kcal = computeItemKcal(item);
+      return kcal !== null ? sum + kcal : sum;
     }, 0);
   }, [pantry?.items]);
 
@@ -518,7 +532,7 @@ export default function StatsPage() {
         message.error("Selected item is missing an item ID.");
         return;
       }
-      if (!item.count || item.count <= 0) {
+      if (!item.amount || item.amount <= 0) {
         message.error("This item is no longer available in the pantry.");
         return;
       }
@@ -546,7 +560,7 @@ export default function StatsPage() {
         message.error("Selected item is missing an item ID.");
         return;
       }
-      if (!item.count || item.count <= 0) {
+      if (!item.amount || item.amount <= 0) {
         message.error("This item is no longer available in the pantry.");
         return;
       }
@@ -598,12 +612,12 @@ export default function StatsPage() {
         },
       },
       {
-        title: "Quantity",
-        key: "count",
+        title: "Amount",
+        key: "amount",
         width: 110,
         render: (_: unknown, record: PantryItem) => (
           <span>
-            {record.count} × unit
+            {record.amount} {record.amountUnit}
           </span>
         ),
       },
@@ -612,10 +626,8 @@ export default function StatsPage() {
         key: "cals",
         width: 120,
         render: (_: unknown, record: PantryItem) => {
-          const totalCalories =
-            isKnownCalories(record.kcalPerPackage) && Number.isFinite(record.count) && record.count > 0
-              ? record.kcalPerPackage * record.count
-              : null;
+          // Issue #114 — unit-aware calorie computation
+          const totalCalories = computeItemKcal(record);
           return <Text strong>{formatKcalDisplay(totalCalories)}</Text>;
         },
       },
@@ -624,7 +636,7 @@ export default function StatsPage() {
         key: "status",
         width: 120,
         render: (_: unknown, record: PantryItem) =>
-          record.count <= 2 ? (
+          record.amount <= 2 ? (
             <Tag color="orange">Low stock</Tag>
           ) : (
             <Tag color="success">In stock</Tag>
@@ -641,7 +653,7 @@ export default function StatsPage() {
               size="small"
               icon={<RestOutlined />}
               loading={consumingItemId === record.id}
-              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.amount <= 0}
               onClick={() => void consumeInventoryItem(record)}
             >
               Consume
@@ -650,7 +662,7 @@ export default function StatsPage() {
               size="small"
               danger
               loading={removingItemId === record.id}
-              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.count <= 0}
+              disabled={Boolean(consumingItemId) || Boolean(removingItemId) || record.amount <= 0}
               onClick={() => void removeInventoryItem(record)}
             >
               Remove
