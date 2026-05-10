@@ -5,6 +5,8 @@ export interface ConsumptionLogEntry {
   pantryItemId: number;
   productName: string;
   consumedQuantity: number;
+  /** Issue #95 — unit stored alongside quantity so activity feed can display "200g" instead of "200×" */
+  consumedUnit?: string;
   consumedCalories: number;
   userId: number;
   /** Added in the `feature/consumption-log-include-username` server change. Optional for backwards-compat. */

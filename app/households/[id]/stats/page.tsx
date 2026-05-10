@@ -71,8 +71,16 @@ type ActivityEntry = {
   productName: string;
   deltaKcal: number | null;
   quantity: number;
+  // Issue #95 — unit stored so display can show "200g" instead of "200×" for g/ml items
+  unit?: string;
   type: "ADDED" | "CONSUMED";
 };
+
+// Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
+function formatQuantity(quantity: number, unit?: string): string {
+  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
+  return `${quantity}×`;
+}
 
 function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   return logs.map((log) => ({
@@ -81,6 +89,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
     productName: log.productName,
     deltaKcal: log.consumedCalories != null ? -log.consumedCalories : null,
     quantity: log.consumedQuantity,
+    unit: log.consumedUnit,
     type: "CONSUMED",
   }));
 }
@@ -112,6 +121,7 @@ function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
       productName: item.name,
       deltaKcal: computeItemKcal(item),
       quantity: item.amount,
+      unit: item.amountUnit,
       type: "ADDED",
     }));
 }
@@ -943,7 +953,7 @@ export default function StatsPage() {
                                     <MinusCircleOutlined style={{ color: DANGER }} />
                                   )}
                                   <Text strong style={{ color: "#1b2a1b" }}>
-                                    {isAdded ? "Added" : "Consumed"} {a.quantity}× {a.productName}
+                                    {isAdded ? "Added" : "Consumed"} {formatQuantity(a.quantity, a.unit)} {a.productName}
                                   </Text>
                                 </Space>
                                 <div className={statsStyles.activityMeta}>

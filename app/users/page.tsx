@@ -66,6 +66,12 @@ function formatAgo(iso: string): string {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
+// Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
+function formatQuantity(quantity: number, unit?: string): string {
+  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
+  return `${quantity}×`;
+}
+
 function initialsOf(text: string): string {
   const trimmed = text.trim();
   if (!trimmed) return "?";
@@ -399,7 +405,7 @@ const DashboardPage: React.FC = () => {
                           <div className={dashboardStyles.activityText}>
                             <span className={dashboardStyles.activityActor}>{actor}</span>
                             <span className={dashboardStyles.activityVerb}> consumed </span>
-                            <span className={dashboardStyles.activityAmount}>{entry.consumedQuantity}×</span>{" "}
+                            <span className={dashboardStyles.activityAmount}>{formatQuantity(entry.consumedQuantity, entry.consumedUnit)}</span>{" "}
                             {isRemoved ? (
                               <span className={dashboardStyles.activityRemoved}>an item no longer in pantry</span>
                             ) : (

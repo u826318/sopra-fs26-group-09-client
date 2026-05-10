@@ -212,4 +212,30 @@ describe("Users page", () => {
       expect(errorMock).toHaveBeenCalled();
     });
   });
+
+  // Issue #95 — g/ml units must show as "100g" / "250ml", not "100×" / "250×"
+  it("shows gram unit for consumed item in recent activity", async () => {
+    routeApi({
+      pantry: { items: [], totalCalories: 0 },
+      logs: [
+        {
+          logId: 5,
+          consumedAt: new Date().toISOString(),
+          productName: "Oat Milk",
+          consumedQuantity: 250,
+          consumedUnit: "ml",
+          consumedCalories: 130,
+          pantryItemId: 1,
+          userId: 5,
+        },
+      ],
+      members: [{ userId: 5, username: "alice", role: "owner", joinedAt: "2026-01-01T00:00:00Z" }],
+    });
+
+    render(<UsersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("250ml")).toBeInTheDocument();
+    });
+  });
 });
