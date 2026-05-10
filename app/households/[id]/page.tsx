@@ -29,6 +29,7 @@ import {
   ReloadOutlined,
   SearchOutlined,
   CameraOutlined,
+  EditOutlined,
   FileImageOutlined,
   InboxOutlined,
   FireOutlined,
@@ -596,6 +597,21 @@ export default function HouseholdPantryPage() {
                       }
                     >
                       Upload receipt
+                    </Button>
+
+                    {/* Issue #114 — manual add entry alongside scan/receipt/OFF flows */}
+                    <Button
+                      size="large"
+                      icon={<EditOutlined />}
+                      onClick={() =>
+                        router.push(
+                          `/pantry/add/manual?householdId=${householdId}&householdName=${encodeURIComponent(
+                            householdName,
+                          )}`,
+                        )
+                      }
+                    >
+                      Add manually
                     </Button>
                   </Space>
                 </Space>

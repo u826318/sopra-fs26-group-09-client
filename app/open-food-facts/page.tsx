@@ -287,6 +287,19 @@ function OpenFoodFactsPortalContent() {
               >
                 Back to pantry stats
               </Button>
+              {/* Issue #114 — manual add entry point; only shown when browsing with a household context */}
+              {pantryTarget ? (
+                <Button
+                  className={styles.secondaryBtn}
+                  onClick={() =>
+                    router.push(
+                      `/pantry/add/manual?householdId=${pantryTarget.householdId}&householdName=${encodeURIComponent(pantryTarget.householdName ?? "")}`,
+                    )
+                  }
+                >
+                  Add manually
+                </Button>
+              ) : null}
               <Button
                 type="primary"
                 className={styles.primaryBtn}
