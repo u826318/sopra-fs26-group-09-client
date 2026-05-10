@@ -360,6 +360,43 @@ describe("StatsPage", () => {
     expect(await screen.findByText(/Consumed 1× Milk/i)).toBeInTheDocument();
   });
 
+  // Issue #95 — g/ml units must show as "100g" / "250ml", not "100×" / "250×"
+  it("shows gram unit for added item in recent activity", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
+      if (url.includes("/pantry")) return Promise.resolve({
+        items: [{ id: 3, householdId: 1, barcode: "333", name: "Flour", amount: 500, amountUnit: "g", kcalPer100g: 364, addedAt: "2026-04-01T00:00:00Z" }],
+        totalCalories: 0,
+      });
+      if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
+      if (url.includes("/budget")) return Promise.reject({ status: 404 });
+      if (url.includes("/consumption-logs")) return Promise.resolve([]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+
+    render(<StatsPage />);
+
+    expect(await screen.findByText(/Added 500g Flour/i)).toBeInTheDocument();
+  });
+
+  // Issue #95 — consumedUnit field from API must be used for display
+  it("shows gram unit for consumed item in recent activity", async () => {
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
+      if (url.includes("/pantry")) return Promise.resolve({ items: [], totalCalories: 0 });
+      if (url.includes("/stats")) return Promise.resolve({ startDate: "2026-04-07", endDate: "2026-04-19", dailyCalorieTarget: null, averageDailyCalories: 0, totalCaloriesConsumed: 0, dailyBreakdown: [], comparisonToBudget: null });
+      if (url.includes("/budget")) return Promise.reject({ status: 404 });
+      if (url.includes("/consumption-logs")) return Promise.resolve([
+        { logId: 10, consumedAt: "2026-04-02T00:00:00Z", pantryItemId: 3, productName: "Flour", consumedQuantity: 200, consumedUnit: "g", consumedCalories: 728, userId: 99 },
+      ]);
+      return Promise.reject(new Error(`unexpected ${url}`));
+    });
+
+    render(<StatsPage />);
+
+    expect(await screen.findByText(/Consumed 200g Flour/i)).toBeInTheDocument();
+  });
+
   it("consumes one unit from the selected inventory row", async () => {
     render(<StatsPage />);
 

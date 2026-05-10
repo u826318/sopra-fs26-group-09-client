@@ -9,6 +9,7 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import type { PantryOverview } from "@/types/pantry";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
+import { formatQuantity } from "@/utils/pantry";
 import { App, Button, Card, Spin, Tag, Typography } from "antd";
 import {
   AppstoreOutlined,
@@ -399,7 +400,7 @@ const DashboardPage: React.FC = () => {
                           <div className={dashboardStyles.activityText}>
                             <span className={dashboardStyles.activityActor}>{actor}</span>
                             <span className={dashboardStyles.activityVerb}> consumed </span>
-                            <span className={dashboardStyles.activityAmount}>{entry.consumedQuantity}×</span>{" "}
+                            <span className={dashboardStyles.activityAmount}>{formatQuantity(entry.consumedQuantity, entry.consumedUnit)}</span>{" "}
                             {isRemoved ? (
                               <span className={dashboardStyles.activityRemoved}>an item no longer in pantry</span>
                             ) : (

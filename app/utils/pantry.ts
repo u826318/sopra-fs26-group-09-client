@@ -129,6 +129,12 @@ export function estimateKcalPerPackage(product: Product): number | null {
   return null;
 }
 
+// Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
+export function formatQuantity(quantity: number, unit: AmountUnit | undefined): string {
+  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
+  return `${quantity}×`;
+}
+
 // Issue #114 — returns only units that have usable nutrition data for this product
 // package is always available as fallback; g/ml only shown when product has the data
 export function detectAvailableUnits(product: Product): AmountUnit[] {

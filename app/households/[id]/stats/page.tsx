@@ -39,7 +39,8 @@ import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
-import type { ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
+import type { AmountUnit, ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
+import { formatQuantity } from "@/utils/pantry";
 import type { HouseholdStats } from "@/types/stats";
 import type { HealthGoal } from "@/types/healthGoal";
 import statsStyles from "@/styles/stats.module.css";
@@ -71,6 +72,8 @@ type ActivityEntry = {
   productName: string;
   deltaKcal: number | null;
   quantity: number;
+  // Issue #95 — unit stored so display can show "200g" instead of "200×" for g/ml items
+  unit?: AmountUnit;
   type: "ADDED" | "CONSUMED";
 };
 
@@ -81,6 +84,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
     productName: log.productName,
     deltaKcal: log.consumedCalories != null ? -log.consumedCalories : null,
     quantity: log.consumedQuantity,
+    unit: log.consumedUnit,
     type: "CONSUMED",
   }));
 }
@@ -112,6 +116,7 @@ function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
       productName: item.name,
       deltaKcal: computeItemKcal(item),
       quantity: item.amount,
+      unit: item.amountUnit,
       type: "ADDED",
     }));
 }
@@ -943,7 +948,7 @@ export default function StatsPage() {
                                     <MinusCircleOutlined style={{ color: DANGER }} />
                                   )}
                                   <Text strong style={{ color: "#1b2a1b" }}>
-                                    {isAdded ? "Added" : "Consumed"} {a.quantity}× {a.productName}
+                                    {isAdded ? "Added" : "Consumed"} {formatQuantity(a.quantity, a.unit)} {a.productName}
                                   </Text>
                                 </Space>
                                 <div className={statsStyles.activityMeta}>
