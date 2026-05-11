@@ -88,7 +88,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
     id: `consume-${log.logId}`,
     at: log.consumedAt,
     productName: log.productName,
-    deltaKcal: log.consumedCalories != null ? -log.consumedCalories : null,
+    deltaKcal: log.consumedCalories ?? null,
     quantity: log.consumedQuantity,
     unit: log.consumedUnit,
     type: "CONSUMED",
@@ -121,7 +121,7 @@ function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
       at: item.addedAt,
       productName: item.name,
       deltaKcal: computeItemKcal(item),
-      quantity: item.amount,
+      quantity: item.initialAmount ?? item.amount,
       unit: item.amountUnit,
       type: "ADDED",
     }));
@@ -1034,7 +1034,7 @@ export default function StatsPage() {
                               </div>
                               <span className={`${statsStyles.activityDelta} ${isAdded ? statsStyles.deltaPos : statsStyles.deltaNeg}`}>
                                 {isKnownCalories(a.deltaKcal)
-                                  ? `${isAdded ? "+" : ""}${Math.round(a.deltaKcal).toLocaleString()} kcal`
+                                  ? `${isAdded ? "+" : "-"}${Math.round(a.deltaKcal).toLocaleString()} kcal`
                                   : "—"}
                               </span>
                             </div>
