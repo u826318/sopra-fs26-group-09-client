@@ -176,8 +176,9 @@ describe("ReceiptReviewPage", () => {
             expect.objectContaining({
               barcode: "111",
               name: "Large Eggs 12 Count",
+              amount: 1,
+              amountUnit: "package",
               kcalPerPackage: 840,
-              quantity: 1,
             }),
           ],
         },

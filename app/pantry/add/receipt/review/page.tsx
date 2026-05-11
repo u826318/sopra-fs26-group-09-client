@@ -36,6 +36,7 @@ import type {
   ReceiptProductCandidate,
   ReceiptUploadSession,
 } from "@/types/receipt";
+import type { AmountUnit } from "@/types/pantry";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -74,8 +75,9 @@ type EditableReviewItem = {
 type PantryBulkAddItem = {
   barcode: string;
   name: string;
+  amount: number;
+  amountUnit: AmountUnit;
   kcalPerPackage: number;
-  quantity: number;
   packageQuantity?: string | null;
   nutriments?: Record<string, unknown> | null;
 };
@@ -198,8 +200,9 @@ function ReceiptReviewPageInner() {
       .map((item) => ({
         barcode: item.barcode.trim(),
         name: item.name.trim(),
+        amount: item.quantity,
+        amountUnit: "package",
         kcalPerPackage: item.kcalPerPackage,
-        quantity: item.quantity,
         packageQuantity: item.packageQuantity || null,
         nutriments: item.nutriments,
       }));
@@ -208,7 +211,7 @@ function ReceiptReviewPageInner() {
       setErrorMessage("Please select at least one item to add to the pantry.");
       return;
     }
-    if (items.some((item) => !item.barcode || !item.name || item.quantity <= 0 || item.kcalPerPackage < 0)) {
+    if (items.some((item) => !item.barcode || !item.name || item.amount <= 0 || item.kcalPerPackage < 0)) {
       setErrorMessage("Please make sure every selected item has a barcode, name, calories, and positive quantity.");
       return;
     }
