@@ -575,8 +575,8 @@ export default function StatsPage() {
       );
 
       const suggestedAmount =
-        typeof estimate.suggestedAmount === "number" && Number.isFinite(estimate.suggestedAmount)
-          ? estimate.suggestedAmount
+        typeof estimate.suggestedMinAmount === "number" && Number.isFinite(estimate.suggestedMinAmount)
+          ? estimate.suggestedMinAmount
           : null;
 
       setPortionConsumeState((current) =>

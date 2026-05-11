@@ -217,9 +217,10 @@ describe("StatsPage", () => {
       { id: 2, householdId: 1, barcode: "222", name: "Rice", amount: 5, amountUnit: "package", kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
     ];
     postFormDataMock.mockResolvedValue({
-    suggestedAmount: 2,
-    estimatedRange: "1.5–2.5 package",
-    message: "Suggested portion loaded. Please confirm or edit the amount before saving.",
+      suggestedMinAmount: 2,
+      suggestedMaxAmount: 2.5,
+      estimatedRange: "2–2.5 package",
+      message: "Suggested portion loaded. Please confirm or edit the amount before saving.",
     });
     postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
