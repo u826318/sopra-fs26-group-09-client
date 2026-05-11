@@ -42,5 +42,7 @@ export interface PortionEstimateResponse {
   message: string;
   suggestedMinAmount: number | null;
   suggestedMaxAmount: number | null;
+  suggestedAmount?: number | null;
+  estimatedRange?: string | null;
   unit: AmountUnit | null;
 }
