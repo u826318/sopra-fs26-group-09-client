@@ -17,6 +17,7 @@ export interface PantryItem {
   barcode: string | null;
   name: string;
   amount: number;
+  initialAmount?: number;
   amountUnit: AmountUnit;
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
