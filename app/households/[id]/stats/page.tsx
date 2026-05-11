@@ -39,12 +39,18 @@ import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
 import type { HouseholdWithRole } from "@/types/household";
 import type { ConsumptionLogEntry } from "@/types/consumption";
-import type { AmountUnit, ConsumePantryItemResponse, PantryItem, PantryOverview } from "@/types/pantry";
 import { formatQuantity } from "@/utils/pantry";
 import type { HouseholdStats } from "@/types/stats";
 import type { HealthGoal } from "@/types/healthGoal";
 import statsStyles from "@/styles/stats.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
+import type {
+  AmountUnit,
+  ConsumePantryItemResponse,
+  PantryItem,
+  PantryOverview,
+  PortionEstimateResponse,
+} from "@/types/pantry";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -194,6 +200,10 @@ type UnknownConsumeState = {
 type PortionConsumeState = {
   item: PantryItem;
   amount: number;
+  mealPhoto: File | null;
+  estimateMessage: string | null;
+  estimatedRange: string | null;
+  isEstimating: boolean;
 };
 
 const CALORIE_SUGGESTIONS: Array<{ keywords: string[]; kcal: number }> = [
@@ -543,6 +553,66 @@ export default function StatsPage() {
     [api, householdId, loadDashboard, message],
   );
 
+  const estimatePortionFromPhoto = useCallback(async () => {
+    if (!portionConsumeState?.mealPhoto) {
+      message.error("Please select a meal photo first.");
+      return;
+    }
+
+    const { item, mealPhoto } = portionConsumeState;
+
+    setPortionConsumeState((current) =>
+      current ? { ...current, isEstimating: true, estimateMessage: null, estimatedRange: null } : current,
+    );
+
+    try {
+      const formData = new FormData();
+      formData.append("image", mealPhoto);
+
+      const estimate = await api.postFormData<PortionEstimateResponse>(
+        `/households/${householdId}/pantry/${item.id}/consume/portion-estimate`,
+        formData,
+      );
+
+      const suggestedAmount =
+        typeof estimate.suggestedAmount === "number" && Number.isFinite(estimate.suggestedAmount)
+          ? estimate.suggestedAmount
+          : null;
+
+      setPortionConsumeState((current) =>
+        current
+          ? {
+              ...current,
+              amount:
+                suggestedAmount !== null
+                  ? Math.min(Math.max(suggestedAmount, 0.01), current.item.amount)
+                  : current.amount,
+              estimatedRange: estimate.estimatedRange ?? null,
+              estimateMessage:
+                estimate.message ??
+                "Suggested portion loaded. Please confirm or edit the amount before saving.",
+              isEstimating: false,
+            }
+          : current,
+      );
+    } catch (error) {
+      setPortionConsumeState((current) =>
+        current
+          ? {
+              ...current,
+              estimateMessage:
+                error instanceof Error
+                  ? `${error.message}. You can still enter the portion manually.`
+                  : "Could not estimate the portion. You can still enter it manually.",
+              estimatedRange: null,
+              isEstimating: false,
+            }
+          : current,
+      );
+    }
+  }, [api, householdId, message, portionConsumeState]);
+
+
   // Issue #95 — open portion input modal; calorie-unknown check runs after amount is chosen
   const consumeInventoryItem = useCallback(
     (item: PantryItem) => {
@@ -556,7 +626,14 @@ export default function StatsPage() {
       }
 
       const defaultAmount = item.amountUnit === "package" ? 1 : item.amount;
-      setPortionConsumeState({ item, amount: defaultAmount });
+      setPortionConsumeState({
+      item,
+      amount: defaultAmount,
+      mealPhoto: null,
+      estimateMessage: null,
+      estimatedRange: null,
+      isEstimating: false,
+    });
     },
     [message],
   );
@@ -1055,6 +1132,49 @@ export default function StatsPage() {
             <Text type="secondary" style={{ fontSize: 12 }}>
               Available: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
             </Text>
+            <div>
+              <Text style={{ display: "block", marginBottom: 4 }}>
+                Optional meal photo for portion suggestion
+              </Text>
+              <input
+                aria-label="Meal photo"
+                type="file"
+                accept="image/jpeg,image/png"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  setPortionConsumeState((current) =>
+                    current
+                      ? {
+                          ...current,
+                          mealPhoto: file,
+                          estimateMessage: null,
+                          estimatedRange: null,
+                        }
+                      : current,
+                  );
+                }}
+              />
+            </div>
+
+            <Button
+              onClick={() => void estimatePortionFromPhoto()}
+              loading={portionConsumeState.isEstimating}
+              disabled={!portionConsumeState.mealPhoto || portionConsumeState.isEstimating}
+            >
+              Estimate portion from photo
+            </Button>
+
+            {portionConsumeState.estimatedRange ? (
+              <Text strong>
+                Suggested range: {portionConsumeState.estimatedRange}
+              </Text>
+            ) : null}
+
+            {portionConsumeState.estimateMessage ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {portionConsumeState.estimateMessage}
+              </Text>
+            ) : null}
           </Space>
         ) : null}
       </Modal>
