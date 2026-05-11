@@ -102,6 +102,7 @@ reason).
 | **Maxim Emelianov [maxim451]** | 24.04.2026 | [server commit cf384f6](https://github.com/u826318/sopra-fs26-group-09-server/commit/cf384f6) | #120 Added pantry and household backend test coverage for access control, membership validation, and protected endpoint behavior across pantry/statistics workflows. | Improves backend reliability and security by verifying that only authorized household members can access pantry and household resources. |
 ---
 | **Maxim Emelianov [maxim451]** | 24.04.2026 | [client commit 7144952](https://github.com/u826318/sopra-fs26-group-09-client/commit/7144952) | #120 Added frontend tests for pantry and household access control, including shared pantry visibility between members, join failure handling, and redirect behavior after household creation. | Strengthens frontend reliability by verifying household membership flows and ensuring pantry pages behave correctly for shared-household scenarios. |
+| **Maxim Emelianov [maxim451]** | 24.04.2026 | [server commit cf384f6](https://github.com/u826318/sopra-fs26-group-09-server/commit/cf384f6) | #120 Added pantry and household backend test coverage for access control, membership validation, and protected endpoint behavior across pantry/statistics workflows. | Improves backend reliability and security by verifying that only authorized household members can access pantry and household resources. |
 
 
 ## Contributions Week 5 - [27.04.2026] to [04.05.2026]
