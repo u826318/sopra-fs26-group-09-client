@@ -9,7 +9,8 @@ const getMock = jest.fn();
 const putMock = jest.fn();
 const postMock = jest.fn();
 const mockSearchParams = new URLSearchParams("");
-const mockApi = { get: getMock, put: putMock, post: postMock };
+const postFormDataMock = jest.fn();
+const mockApi = { get: getMock, put: putMock, post: postMock, postFormData: postFormDataMock };
 const mockRouter = { push: pushMock, back: backMock, replace: replaceMock };
 let mockPantryItems: any[] = [];
 const messageMock = {
@@ -215,6 +216,12 @@ describe("StatsPage", () => {
       { id: 1, householdId: 1, barcode: "111", name: "Milk", amount: 3, amountUnit: "package", kcalPerPackage: 120, addedAt: "2026-04-01T00:00:00Z" },
       { id: 2, householdId: 1, barcode: "222", name: "Rice", amount: 5, amountUnit: "package", kcalPerPackage: 300, addedAt: "2026-04-01T00:00:00Z" },
     ];
+    postFormDataMock.mockResolvedValue({
+      suggestedMinAmount: 2,
+      suggestedMaxAmount: 2.5,
+      estimatedRange: "2–2.5 package",
+      message: "Suggested portion loaded. Please confirm or edit the amount before saving.",
+    });
     postMock.mockResolvedValue({ itemId: 1, remainingCount: 2, consumedCalories: 120, removed: false });
     getMock.mockImplementation((url: string) => {
       if (url === "/households/1") return Promise.resolve({ householdId: 1, name: "Test Home" });
@@ -502,5 +509,40 @@ describe("StatsPage", () => {
       });
     });
   });
+    it("uploads a meal photo and applies the suggested portion before consume", async () => {
+    render(<StatsPage />);
 
+    const consumeButtons = await screen.findAllByRole("button", { name: /^Consume$/i });
+    fireEvent.click(consumeButtons[0]);
+
+    const portionModal = await screen.findByTestId("portion-modal");
+    const file = new File(["fake-image"], "meal.png", { type: "image/png" });
+
+    fireEvent.change(within(portionModal).getByLabelText("Meal photo"), {
+      target: { files: [file] },
+    });
+
+    fireEvent.click(
+      within(portionModal).getByRole("button", { name: /Estimate portion from photo/i }),
+    );
+
+    await waitFor(() => {
+      expect(postFormDataMock).toHaveBeenCalledWith(
+        "/households/1/pantry/1/consume/portion-estimate",
+        expect.any(FormData),
+      );
+    });
+
+    expect(await within(portionModal).findByText("Suggested range: 1.5–2.5 package")).toBeInTheDocument();
+
+    fireEvent.click(within(portionModal).getByRole("button", { name: /^Consume$/i }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", {
+        amount: 2,
+        kcalPerPackage: null,
+        skipCalorieLogging: false,
+      });
+    });
+  });
 });

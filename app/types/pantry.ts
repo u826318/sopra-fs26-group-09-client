@@ -36,3 +36,13 @@ export interface ConsumePantryItemResponse {
   consumedCalories: number | null;
   removed: boolean;
 }
+
+export interface PortionEstimateResponse {
+  status: "ESTIMATED" | "MANUAL_FALLBACK";
+  message: string;
+  suggestedMinAmount: number | null;
+  suggestedMaxAmount: number | null;
+  suggestedAmount?: number | null;
+  estimatedRange?: string | null;
+  unit: AmountUnit | null;
+}
