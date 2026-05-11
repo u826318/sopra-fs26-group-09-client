@@ -533,7 +533,7 @@ describe("StatsPage", () => {
       );
     });
 
-    expect(await within(portionModal).findByText("Suggested range: 1.5–2.5 package")).toBeInTheDocument();
+    expect(await within(portionModal).findByText("Suggested range: 2–2.5 package")).toBeInTheDocument();
 
     fireEvent.click(within(portionModal).getByRole("button", { name: /^Consume$/i }));
 
