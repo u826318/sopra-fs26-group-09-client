@@ -96,7 +96,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
 }
 
 function computeItemKcal(item: PantryItem): number | null {
-  const amount = Number(item.amount ?? 0);
+  const amount = Number(item.initialAmount ?? item.amount ?? 0);
   if (!Number.isFinite(amount) || amount <= 0) return null;
   if (item.amountUnit === "package") {
     const per = Number(item.kcalPerPackage ?? 0);
