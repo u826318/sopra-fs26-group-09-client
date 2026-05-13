@@ -34,7 +34,7 @@ jest.mock("@/hooks/usePantryWebSocket", () => ({
 
 jest.mock("@/hooks/useSessionStorage", () => ({
   __esModule: true,
-  default: (key: string) => {
+  default: (key: string, defaultValue: unknown) => {
     if (key === "token") {
       return { value: "test-token", set: jest.fn(), clear: jest.fn() };
     }
@@ -53,7 +53,7 @@ jest.mock("@/hooks/useSessionStorage", () => ({
     if (key === "userId") {
       return { value: currentUserIdMock, set: jest.fn(), clear: jest.fn() };
     }
-    return { value: "", set: jest.fn(), clear: jest.fn() };
+    return { value: defaultValue, set: jest.fn(), clear: jest.fn() };
   },
 }));
 
