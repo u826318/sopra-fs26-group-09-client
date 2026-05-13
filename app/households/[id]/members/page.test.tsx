@@ -10,6 +10,9 @@ const successMock = jest.fn();
 const setHouseholdsMock = jest.fn();
 const clearSelectedHouseholdIdMock = jest.fn();
 
+// Mutable so individual tests can set a different current user (client #118)
+let currentUserIdMock = "1";
+
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
 }));
@@ -48,7 +51,7 @@ jest.mock("@/hooks/useSessionStorage", () => ({
       return { value: null, set: jest.fn(), clear: clearSelectedHouseholdIdMock };
     }
     if (key === "userId") {
-      return { value: "1", set: jest.fn(), clear: jest.fn() };
+      return { value: currentUserIdMock, set: jest.fn(), clear: jest.fn() };
     }
     return { value: "", set: jest.fn(), clear: jest.fn() };
   },
@@ -95,6 +98,7 @@ const sampleMembers = [
 describe("HouseholdMembersPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    currentUserIdMock = "1"; // reset to owner perspective for each test
   });
 
   it("renders household name and members on success", async () => {
@@ -224,6 +228,50 @@ describe("HouseholdMembersPage", () => {
       expect(setHouseholdsMock).toHaveBeenCalledWith([]);
       expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
       expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
+      expect(pushMock).toHaveBeenCalledWith("/households");
+    });
+  });
+
+  // Leave button tests (client #118)
+  it("shows Leave button for current user when they are a non-owner member", async () => {
+    currentUserIdMock = "2"; // bob is the current user (non-owner)
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+
+    render(<HouseholdMembersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("bob")).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole("button", { name: "Leave" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+  });
+
+  it("calls DELETE /households/10/members/2 and redirects to /households on leave confirm", async () => {
+    currentUserIdMock = "2"; // bob leaves
+    getMock.mockImplementation((url: string) => {
+      if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
+      if (url === "/households/10/members") return Promise.resolve(sampleMembers);
+      return Promise.reject(new Error("unexpected: " + url));
+    });
+    deleteMock.mockResolvedValueOnce(undefined);
+
+    render(<HouseholdMembersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("bob")).toBeInTheDocument();
+    });
+
+    // The Popconfirm mock renders a confirm button with data-testid="popconfirm-ok"
+    // Only the Leave Popconfirm is in the DOM when current user is non-owner
+    fireEvent.click(screen.getByTestId("popconfirm-ok"));
+
+    await waitFor(() => {
+      expect(deleteMock).toHaveBeenCalledWith("/households/10/members/2");
       expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });

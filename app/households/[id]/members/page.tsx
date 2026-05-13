@@ -65,6 +65,7 @@ export default function HouseholdMembersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [hasValidHouseholdRoute, setHasValidHouseholdRoute] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<number | null>(null);
+  const [isLeavingHousehold, setIsLeavingHousehold] = useState(false);
 
   const isOwner = members.some((m) => m.userId === currentUserId && m.role === "owner");
 
@@ -78,6 +79,22 @@ export default function HouseholdMembersPage() {
       message.error(error instanceof Error ? error.message : "Failed to remove member.");
     } finally {
       setRemovingMemberId(null);
+    }
+  };
+
+  // Allows the current non-owner member to voluntarily leave this household (client #118)
+  const handleLeave = async () => {
+    if (currentUserId === null) return;
+    setIsLeavingHousehold(true);
+    try {
+      await api.delete(`/households/${householdId}/members/${currentUserId}`);
+      setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
+      clearSelectedHouseholdId();
+      router.push("/households");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "Failed to leave household.");
+    } finally {
+      setIsLeavingHousehold(false);
     }
   };
 
@@ -236,6 +253,23 @@ export default function HouseholdMembersPage() {
                       loading={removingMemberId === member.userId}
                     >
                       Remove
+                    </Button>
+                  </Popconfirm>
+                )}
+                {/* Leave button for current non-owner member (client #118) */}
+                {!isOwner && member.userId === currentUserId && (
+                  <Popconfirm
+                    title="Leave this household?"
+                    onConfirm={() => void handleLeave()}
+                    okText="Leave"
+                    cancelText="Cancel"
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      loading={isLeavingHousehold}
+                    >
+                      Leave
                     </Button>
                   </Popconfirm>
                 )}
