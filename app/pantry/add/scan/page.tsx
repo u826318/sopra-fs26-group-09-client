@@ -31,6 +31,7 @@ import {
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { HouseholdWithRole } from "@/types/household";
 
 const { Title, Paragraph, Text } = Typography;
@@ -43,6 +44,19 @@ type PantryTarget = {
 type BarcodeExtractionResponse = {
   barcode: string;
 };
+
+function getBarcodeUploadErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Barcode detection failed. Please enter the barcode manually.";
+  }
+  if (error.message.includes("422") || error.message.includes("No barcode detected")) {
+    return "No barcode was detected. Please use a clear, well-lit photo where the whole barcode is visible, or enter the barcode manually.";
+  }
+  if (error.message.includes("Failed to fetch")) {
+    return "Could not reach the backend. Please make sure the server is running, then try again or enter the barcode manually.";
+  }
+  return error.message;
+}
 
 function PantryScanPageContent() {
   return (
@@ -198,38 +212,20 @@ function PantryScanPageInner() {
 
       router.push(`/open-food-facts?${barcodeQuery}${pantryQuery}`);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Barcode detection failed. Please enter the barcode manually.",
-      );
+      setErrorMessage(getBarcodeUploadErrorMessage(error));
     } finally {
       setIsDetecting(false);
     }
   };
 
   return (
+    <VirtualPantryAppShell activeNav="pantry">
     <div
       style={{
-        minHeight: "100vh",
-        background: "#f4f6ee",
-        padding: 24,
+        paddingBottom: 24,
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <Card
-          style={{
-            borderRadius: 24,
-            borderColor: "#d9e2cf",
-            background: "#ffffff",
-            boxShadow: "0 8px 24px rgba(24, 36, 24, 0.06)",
-          }}
-          styles={{
-            body: {
-              padding: 32,
-            },
-          }}
-        >
           <Space
             orientation="vertical"
             size="large"
@@ -245,6 +241,14 @@ function PantryScanPageInner() {
               }}
             >
               <div>
+                <Button
+                  size="middle"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={handleBackToPantry}
+                  style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+                >
+                  Pantry
+                </Button>
                 <Tag
                   color="green"
                   style={{
@@ -294,18 +298,11 @@ function PantryScanPageInner() {
 
               <Space wrap size="middle">
                 <Button
-                  size="large"
-                  icon={<ArrowLeftOutlined />}
-                  onClick={handleBackToPantry}
-                >
-                  Back to pantry
-                </Button>
-                <Button
-                  size="large"
+                  size="middle"
                   icon={<BarcodeOutlined />}
                   onClick={handleManualBarcode}
                 >
-                  Enter barcode manually
+                  Manual barcode
                 </Button>
               </Space>
             </Space>
@@ -571,21 +568,19 @@ function PantryScanPageInner() {
 
             {errorMessage ? (
               <Alert
-                type="error"
+                type="warning"
                 showIcon
-                title="Barcode detection failed"
+                title="Barcode not detected"
                 description={errorMessage}
+                action={
+                  <Button size="small" icon={<BarcodeOutlined />} onClick={handleManualBarcode}>
+                    Enter manually
+                  </Button>
+                }
               />
             ) : null}
 
-            <Card
-              style={{
-                borderRadius: 24,
-                borderColor: "#d9e2cf",
-                background: "linear-gradient(180deg, #fbfcf7 0%, #f3f6ec 100%)",
-              }}
-              styles={{ body: { padding: 24 } }}
-            >
+            <section style={{ paddingTop: 4 }}>
               <Space
                 orientation="vertical"
                 size="middle"
@@ -620,11 +615,11 @@ function PantryScanPageInner() {
                   </Button>
                 </Space>
               </Space>
-            </Card>
+            </section>
           </Space>
-        </Card>
       </div>
     </div>
+    </VirtualPantryAppShell>
   );
 }
 

@@ -12,6 +12,7 @@ import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { HouseholdWithRole } from "@/types/household";
 import styles from "@/styles/openFoodFacts.module.css";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
 
@@ -242,6 +243,14 @@ function OpenFoodFactsPortalContent() {
   return (
     <VirtualPantryAppShell activeNav="pantry">
       <header className={styles.pageHeader}>
+        <Button
+          size="middle"
+          icon={<ArrowLeftOutlined />}
+          onClick={backToPantryStats}
+          style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+        >
+          {pantryTarget ? "Pantry stats" : "Households"}
+        </Button>
         <Title level={1} className={styles.pageTitle}>
           Product Lookup Portal
         </Title>
@@ -281,12 +290,6 @@ function OpenFoodFactsPortalContent() {
             </label>
 
             <div className={styles.lookupActions}>
-              <Button
-                className={styles.secondaryBtn}
-                onClick={backToPantryStats}
-              >
-                Back to pantry stats
-              </Button>
               {/* Issue #114 — manual add entry point; only shown when browsing with a household context */}
               {pantryTarget ? (
                 <Button

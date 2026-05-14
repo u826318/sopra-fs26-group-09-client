@@ -6,6 +6,7 @@ const postMock = jest.fn();
 const pushMock = jest.fn();
 const warningMock = jest.fn();
 const errorMock = jest.fn();
+const successMock = jest.fn();
 const setHouseholdsMock = jest.fn();
 const clearSelectedHouseholdIdMock = jest.fn();
 
@@ -39,7 +40,7 @@ jest.mock("antd", () => {
   const Card = ({ children }: any) => <div>{children}</div>;
   const App = {
     useApp: () => ({
-      message: { warning: warningMock, error: errorMock, success: jest.fn(), info: jest.fn() },
+      message: { warning: warningMock, error: errorMock, success: successMock, info: jest.fn() },
     }),
   };
   return { Card, Image, App };
@@ -125,7 +126,8 @@ describe("ProductResultCard", () => {
       });
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to Test House.");
+    expect(successMock).toHaveBeenCalledWith("Item successfully added to Test House.");
+    expect(pushMock).toHaveBeenCalledWith("/households/10/stats");
   });
 
   it("uses the householdId from the URL when pantryContext is not passed", async () => {
@@ -164,7 +166,8 @@ describe("ProductResultCard", () => {
       });
     });
 
-    expect(screen.getByRole("status")).toHaveTextContent("Item successfully added to URL House.");
+    expect(successMock).toHaveBeenCalledWith("Item successfully added to URL House.");
+    expect(pushMock).toHaveBeenCalledWith("/households/12/stats");
 
     window.history.pushState({}, "", "/");
   });
@@ -225,7 +228,7 @@ describe("ProductResultCard", () => {
     await waitFor(() => {
       expect(setHouseholdsMock).toHaveBeenCalledWith([]);
       expect(clearSelectedHouseholdIdMock).toHaveBeenCalled();
-      expect(warningMock).toHaveBeenCalledWith("This household no longer exists.");
+      expect(warningMock).toHaveBeenCalledWith("This household is no longer available.");
       expect(pushMock).toHaveBeenCalledWith("/households");
     });
   });

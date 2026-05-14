@@ -513,11 +513,11 @@ export default function StatsPage() {
         dailyCalorieTarget: values.dailyCalorieTarget,
       });
       setBudgetRecord(updated);
-      message.success("Budget saved.");
+      message.success("Daily calorie target saved.");
       setBudgetModalOpen(false);
       await loadDashboard();
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "Could not save budget.");
+      message.error(error instanceof Error ? error.message : "Could not save daily calorie target.");
     } finally {
       setSavingBudget(false);
     }
@@ -766,19 +766,19 @@ export default function StatsPage() {
   return (
     <VirtualPantryAppShell activeNav="pantry">
       <div className={statsStyles.pageHeader}>
-        <Space style={{ marginBottom: 12 }}>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => router.push(`/households/${householdId}`)}
-          >
-            Back to pantry
-          </Button>
-        </Space>
+        <Button
+          size="middle"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.push(`/households/${householdId}`)}
+          style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+        >
+          Pantry
+        </Button>
         <Title level={2} className={statsStyles.pageTitle}>
-          {householdName} — Overview
+          {householdName} — Pantry stats
         </Title>
         <Paragraph className={statsStyles.pageSubtitle}>
-          Energy reservoir, consumption flow, and budget control — with current inventory and a record of
+          Energy reservoir, consumption flow, and daily calorie target — with current inventory and a record of
           what you use from the pantry.
         </Paragraph>
       </div>
@@ -851,7 +851,7 @@ export default function StatsPage() {
               <Col xs={24} md={8}>
                 <Card
                   className={statsStyles.metricCard}
-                  title={<span className={statsStyles.cardTitle}>Budget control</span>}
+                  title={<span className={statsStyles.cardTitle}>Daily calorie target</span>}
                   extra={
                     isOwner ? (
                       <Button
@@ -859,7 +859,7 @@ export default function StatsPage() {
                         size="small"
                         icon={<EditOutlined />}
                         onClick={openBudgetModal}
-                        aria-label="Edit daily calorie budget"
+                        aria-label="Edit daily calorie target"
                         style={{ color: FOREST, fontWeight: 600 }}
                       >
                         Edit
@@ -933,13 +933,13 @@ export default function StatsPage() {
                       </>
                     ) : (
                       <Text style={{ color: MUTED }}>
-                        Set a daily calorie budget to enable comparisons.
+                        Set a daily calorie target to enable comparisons.
                       </Text>
                     )}
 
                     {stats?.comparisonToBudget ? (
                       <div>
-                        <Text style={{ fontSize: 12, color: MUTED }}>Period average vs budget:</Text>
+                        <Text style={{ fontSize: 12, color: MUTED }}>Period average vs target:</Text>
                         <div style={{ marginTop: 6 }}>
                           <Tag color={comparisonTagColor(stats.comparisonToBudget.status)}>
                             {stats.comparisonToBudget.status.split("_").join(" ")}
@@ -1274,7 +1274,7 @@ export default function StatsPage() {
       </Modal>
 
       <Modal
-        title="Daily calorie budget"
+        title="Daily calorie target"
         open={budgetModalOpen}
         onCancel={() => setBudgetModalOpen(false)}
         onOk={() => void submitBudget()}

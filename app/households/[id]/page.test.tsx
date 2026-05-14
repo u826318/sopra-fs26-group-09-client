@@ -8,6 +8,12 @@ const warningMock = jest.fn();
 const setHouseholdsMock = jest.fn();
 const clearSelectedHouseholdIdMock = jest.fn();
 
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
+
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
 }));
@@ -190,7 +196,7 @@ describe("Household pantry page", () => {
     });
   });
 
-  it("navigates to the OFF portal with the active household context", async () => {
+  it("navigates to Open Food Facts with the active household context", async () => {
     getMock.mockImplementation((url: string) => {
       if (url === "/households/10") return Promise.resolve({ householdId: 10, name: "Test House" });
       if (url === "/households/10/pantry") return Promise.resolve({ items: [], totalCalories: 0 });
@@ -204,7 +210,7 @@ describe("Household pantry page", () => {
     });
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Add item from OFF portal/i }),
+      screen.getByRole("button", { name: /Add from Open Food Facts/i }),
     );
 
     expect(pushMock).toHaveBeenCalledWith(
