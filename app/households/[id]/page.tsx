@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
 import type { ApplicationError } from "@/types/error";
@@ -307,97 +308,73 @@ export default function HouseholdPantryPage() {
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#f4f6ee",
-        padding: 24,
-      }}
-    >
+    <VirtualPantryAppShell activeNav="pantry">
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <Space
           orientation="vertical"
           size="large"
           style={{ width: "100%", display: "flex" }}
         >
-          <Card
-            loading={isLoading}
-            style={{
-              borderRadius: 24,
-              borderColor: "#d9e2cf",
-              background: "#ffffff",
-              boxShadow: "0 8px 24px rgba(24, 36, 24, 0.06)",
-            }}
-            styles={{
-              body: {
-                padding: 32,
-              },
-            }}
-          >
-            <Space
-              orientation="vertical"
-              size="large"
-              style={{ width: "100%", display: "flex" }}
-            >
-              <Space
+              <div>
+                <Button
+                  size="middle"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => router.push("/households")}
+                  style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+                >
+                  Households
+                </Button>
+                <Tag
+                  color="green"
+                  style={{
+                    marginBottom: 12,
+                    borderRadius: 999,
+                    paddingInline: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Household pantry
+                </Tag>
+                <Title
+                  level={1}
+                  style={{
+                    margin: 0,
+                    color: "#18351f",
+                    fontSize: 48,
+                    lineHeight: 1.05,
+                  }}
+                >
+                  {householdName}
+                </Title>
+                <Paragraph
+                  style={{
+                    marginTop: 12,
+                    marginBottom: 0,
+                    maxWidth: 760,
+                    fontSize: 20,
+                    lineHeight: 1.55,
+                    color: "#5f6e60",
+                  }}
+                >
+                  Pantry overview for {username?.trim() || "the current user"}.
+                  Add products through Open Food Facts or use the barcode scan
+                  flow for faster household inventory updates.
+                </Paragraph>
+              </div>
+
+              <div
                 style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-start",
                   gap: 16,
+                  flexWrap: "wrap",
+                  paddingTop: 4,
                 }}
               >
-                <div>
-                  <Tag
-                    color="green"
-                    style={{
-                      marginBottom: 12,
-                      borderRadius: 999,
-                      paddingInline: 12,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Household pantry
-                  </Tag>
-                  <Title
-                    level={1}
-                    style={{
-                      margin: 0,
-                      color: "#18351f",
-                      fontSize: 48,
-                      lineHeight: 1.05,
-                    }}
-                  >
-                    {householdName}
-                  </Title>
-                  <Paragraph
-                    style={{
-                      marginTop: 12,
-                      marginBottom: 0,
-                      maxWidth: 760,
-                      fontSize: 20,
-                      lineHeight: 1.55,
-                      color: "#5f6e60",
-                    }}
-                  >
-                    Pantry overview for {username?.trim() || "the current user"}.
-                    Add products through Open Food Facts or use the barcode scan
-                    flow for faster household inventory updates.
-                  </Paragraph>
-                </div>
-
-                <Space wrap size="middle">
-                  <Button
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => router.push("/households")}
-                    size="large"
-                  >
-                    Back to households
-                  </Button>
+                <Space wrap size="small">
                   <Button
                     icon={<ReloadOutlined />}
-                    size="large"
                     loading={isRefreshing}
                     onClick={() => {
                       setIsRefreshing(true);
@@ -408,13 +385,12 @@ export default function HouseholdPantryPage() {
                   </Button>
                   <Button
                     icon={<BarChartOutlined />}
-                    size="large"
                     onClick={() => router.push(`/households/${householdId}/stats`)}
                   >
-                    View stats
+                    Pantry stats
                   </Button>
                 </Space>
-              </Space>
+              </div>
 
               {errorMessage ? (
                 <Alert
@@ -533,32 +509,30 @@ export default function HouseholdPantryPage() {
                 </Col>
               </Row>
 
-              <Card
+              <section
                 style={{
-                  borderRadius: 24,
-                  borderColor: "#d9e2cf",
-                  background: "linear-gradient(180deg, #fbfcf7 0%, #f3f6ec 100%)",
+                  paddingTop: 8,
+                  paddingBottom: 8,
                 }}
-                styles={{ body: { padding: 24 } }}
               >
                 <Space
                   orientation="vertical"
-                  size="middle"
+                  size="small"
                   style={{ width: "100%", display: "flex" }}
                 >
-                  <Title level={3} style={{ margin: 0, color: "#18351f" }}>
+                  <Title level={3} style={{ margin: 0, color: "#18351f", fontSize: 24 }}>
                     Add products to pantry
                   </Title>
-                  <Paragraph style={{ margin: 0, color: "#5f6e60" }}>
+                  <Paragraph style={{ margin: 0, color: "#5f6e60", maxWidth: 980 }}>
                     Choose how you want to add the next item. Use Open Food Facts
                     for direct barcode or name lookup, scan a package image, or
                     upload a receipt to extract purchased items.
                   </Paragraph>
 
-                  <Space wrap size="middle">
+                  <Space wrap size="small" style={{ paddingTop: 8 }}>
                     <Button
                       type="primary"
-                      size="large"
+                      size="middle"
                       icon={<SearchOutlined />}
                       onClick={() =>
                         router.push(
@@ -568,11 +542,11 @@ export default function HouseholdPantryPage() {
                         )
                       }
                     >
-                      Add item from OFF portal
+                      Add from Open Food Facts
                     </Button>
 
                     <Button
-                      size="large"
+                      size="middle"
                       icon={<CameraOutlined />}
                       onClick={() =>
                         router.push(
@@ -586,7 +560,7 @@ export default function HouseholdPantryPage() {
                     </Button>
 
                     <Button
-                      size="large"
+                      size="middle"
                       icon={<FileImageOutlined />}
                       onClick={() =>
                         router.push(
@@ -601,7 +575,7 @@ export default function HouseholdPantryPage() {
 
                     {/* Issue #114 — manual add entry alongside scan/receipt/OFF flows */}
                     <Button
-                      size="large"
+                      size="middle"
                       icon={<EditOutlined />}
                       onClick={() =>
                         router.push(
@@ -615,7 +589,7 @@ export default function HouseholdPantryPage() {
                     </Button>
                   </Space>
                 </Space>
-              </Card>
+              </section>
 
               <Card
                 title={
@@ -683,10 +657,8 @@ export default function HouseholdPantryPage() {
                   <Empty description="No pantry items yet. Add products from Open Food Facts or use the scan flow." />
                 )}
               </Card>
-            </Space>
-          </Card>
         </Space>
       </div>
-    </div>
+    </VirtualPantryAppShell>
   );
 }

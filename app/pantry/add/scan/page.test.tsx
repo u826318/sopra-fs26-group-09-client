@@ -6,6 +6,12 @@ import PantryScanPage from "@/pantry/add/scan/page";
 const pushMock = jest.fn();
 const postFormDataMock = jest.fn();
 
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
+
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
 }));
@@ -141,7 +147,7 @@ describe("PantryScanPage", () => {
   it("navigates back to pantry", () => {
     render(<PantryScanPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Back to pantry/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pantry/i }));
 
     expect(pushMock).toHaveBeenCalledWith(
       "/households/7?name=Test%20Household",
@@ -151,7 +157,7 @@ describe("PantryScanPage", () => {
   it("navigates to manual barcode entry", () => {
     render(<PantryScanPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Enter barcode manually/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Manual barcode/i })[0]);
 
     expect(pushMock).toHaveBeenCalledWith(
       "/open-food-facts?householdId=7&householdName=Test%20Household",
@@ -191,11 +197,11 @@ describe("PantryScanPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Detect barcode from image/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Barcode detection failed")).toBeInTheDocument();
+      expect(screen.getByText("Barcode not detected")).toBeInTheDocument();
     });
 
     expect(
-      screen.getByText("No barcode detected in uploaded image."),
+      screen.getByText("No barcode was detected. Please use a clear, well-lit photo where the whole barcode is visible, or enter the barcode manually."),
     ).toBeInTheDocument();
   });
 });

@@ -7,9 +7,11 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
+import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 import type { HouseholdWithRole } from "@/types/household";
 import type { AmountUnit, PantryItem, PantryItemCreateRequest } from "@/types/pantry";
 import { App, Button, Card, Input, Space, Typography } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
 
@@ -19,10 +21,7 @@ type PantryTarget = {
 };
 
 function formatHouseholdValidationError(error: unknown): string {
-  if (error instanceof Error && error.message.includes("User is not a member")) {
-    return "You are not a member of this household.";
-  }
-  return "Household ID does not exist.";
+  return getStaleHouseholdMessage(error);
 }
 
 export default function ManualAddPantryItemPage() {
@@ -55,7 +54,6 @@ function ManualAddPantryItemContent() {
   const [amount, setAmount] = useState<number>(1);
   const [calories, setCalories] = useState<number | "">("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
 
   const requestedHouseholdId = useMemo(() => {
     const param = searchParams.get("householdId");
@@ -72,6 +70,12 @@ function ManualAddPantryItemContent() {
   messageRef.current = message;
   const routerRef = useRef(router);
   routerRef.current = router;
+  const cachedHouseholdsRef = useRef(cachedHouseholds);
+  cachedHouseholdsRef.current = cachedHouseholds;
+  const setHouseholdsRef = useRef(setHouseholds);
+  setHouseholdsRef.current = setHouseholds;
+  const clearSelectedHouseholdIdRef = useRef(clearSelectedHouseholdId);
+  clearSelectedHouseholdIdRef.current = clearSelectedHouseholdId;
 
   usePantryWebSocket({
     householdId: requestedHouseholdId,
@@ -101,11 +105,11 @@ function ManualAddPantryItemContent() {
       setValidatedPantryTarget(null);
       setValidatingPantryTarget(false);
       messageRef.current.error(text);
-      if (globalThis.window.history.length > 1) {
-        routerRef.current.back();
-      } else {
-        routerRef.current.replace("/households");
+      if (requestedHouseholdId) {
+        setHouseholdsRef.current(cachedHouseholdsRef.current.filter((h) => h.householdId !== requestedHouseholdId));
+        clearSelectedHouseholdIdRef.current();
       }
+      routerRef.current.replace("/households");
     };
 
     const validate = async () => {
@@ -168,27 +172,34 @@ function ManualAddPantryItemContent() {
       kcalPer100ml: unit === "ml" ? calories : null,
     };
 
-    setSuccessMessage("");
     setIsSubmitting(true);
     try {
       await api.post<PantryItem>(
         `/households/${validatedPantryTarget.householdId}/pantry`,
         payload,
       );
-      setSuccessMessage(`Item added to ${validatedPantryTarget.householdName}.`);
+      message.success(`Item added to ${validatedPantryTarget.householdName}.`);
       setName("");
       setBarcode("");
       setUnit("package");
       setAmount(1);
       setCalories("");
+      router.push(`/households/${validatedPantryTarget.householdId}/stats`);
     } catch (error) {
+      if (isStaleHouseholdError(error)) {
+        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== validatedPantryTarget.householdId));
+        clearSelectedHouseholdId();
+        message.warning(getStaleHouseholdMessage(error));
+        router.push("/households");
+        return;
+      }
       message.error(
         error instanceof Error ? error.message : "Failed to add the item to the pantry.",
       );
     } finally {
       setIsSubmitting(false);
     }
-  }, [api, amount, barcode, calories, message, name, unit, validatedPantryTarget]);
+  }, [api, amount, barcode, cachedHouseholds, calories, clearSelectedHouseholdId, message, name, router, setHouseholds, unit, validatedPantryTarget]);
 
   if (validatingPantryTarget || !validatedPantryTarget) {
     return null;
@@ -197,6 +208,14 @@ function ManualAddPantryItemContent() {
   return (
     <VirtualPantryAppShell activeNav="pantry">
       <header style={{ marginBottom: 24 }}>
+        <Button
+          size="middle"
+          icon={<ArrowLeftOutlined />}
+          onClick={() => router.back()}
+          style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+        >
+          Back
+        </Button>
         <Title level={1}>Add Item Manually</Title>
         <Paragraph>
           Add a product directly to {validatedPantryTarget.householdName}.
@@ -264,7 +283,6 @@ function ManualAddPantryItemContent() {
           </label>
 
           <Space>
-            <Button onClick={() => router.back()}>Back</Button>
             <Button
               type="primary"
               onClick={() => void handleSubmit()}
@@ -273,10 +291,6 @@ function ManualAddPantryItemContent() {
               {isSubmitting ? "Adding..." : "Add to pantry"}
             </Button>
           </Space>
-
-          {successMessage ? (
-            <div role="status">{successMessage}</div>
-          ) : null}
         </Space>
       </Card>
     </VirtualPantryAppShell>

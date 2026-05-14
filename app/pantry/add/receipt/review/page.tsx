@@ -30,6 +30,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type {
   ReceiptMatchedItem,
   ReceiptPantryItemSuggestion,
@@ -40,7 +41,6 @@ import type { AmountUnit } from "@/types/pantry";
 
 const { Title, Paragraph, Text } = Typography;
 
-const pageBackground = "#f4f6ee";
 const cardBorder = "#d9e2cf";
 const textPrimary = "#182418";
 const textSecondary = "#566556";
@@ -233,40 +233,42 @@ function ReceiptReviewPageInner() {
 
   if (!session) {
     return (
-      <div style={{ minHeight: "100vh", background: pageBackground, padding: 24 }}>
+      <VirtualPantryAppShell activeNav="pantry">
         <Card style={{ ...cardStyle, maxWidth: 860, margin: "0 auto" }} styles={{ body: cardBodyStyle }}>
           <Empty description="No receipt analysis found in this browser session." />
           <Button type="primary" onClick={() => router.push("/pantry/add/receipt")} style={{ marginTop: 16 }}>
             Upload a receipt first
           </Button>
         </Card>
-      </div>
+      </VirtualPantryAppShell>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: pageBackground, padding: 24 }}>
+    <VirtualPantryAppShell activeNav="pantry">
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <Space orientation="vertical" size="large" style={{ width: "100%", display: "flex" }}>
-          <Card style={cardStyle} styles={{ body: { ...cardBodyStyle, padding: 32 } }}>
-            <Space style={{ width: "100%", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
-              <div>
-                <Tag color="green" style={{ borderRadius: 999, paddingInline: 12, fontWeight: 600 }}>
-                  Receipt review
-                </Tag>
-                <Title level={1} style={{ margin: "12px 0 0", color: headingGreen }}>
-                  Review extracted items
-                </Title>
-                <Paragraph style={{ maxWidth: 760, marginBottom: 0, color: textSecondary, fontSize: 18 }}>
-                  Confirm the best product match for each receipt line, edit anything that looks off,
-                  then add selected items to your pantry in one bulk action.
-                </Paragraph>
-              </div>
-              <Button icon={<ArrowLeftOutlined />} onClick={() => router.push("/pantry/add/receipt")}>
-                Back to upload
-              </Button>
-            </Space>
-          </Card>
+          <header>
+            <Button
+              icon={<ArrowLeftOutlined />}
+              onClick={() => router.push("/pantry/add/receipt")}
+              style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+            >
+              Back to upload
+            </Button>
+            <div>
+              <Tag color="green" style={{ borderRadius: 999, paddingInline: 12, fontWeight: 600 }}>
+                Receipt review
+              </Tag>
+              <Title level={1} style={{ margin: "12px 0 0", color: headingGreen }}>
+                Review extracted items
+              </Title>
+              <Paragraph style={{ maxWidth: 760, marginBottom: 0, color: textSecondary, fontSize: 18 }}>
+                Confirm the best product match for each receipt line, edit anything that looks off,
+                then add selected items to your pantry in one bulk action.
+              </Paragraph>
+            </div>
+          </header>
 
           {errorMessage ? <Alert type="error" showIcon title="Review issue" description={errorMessage} /> : null}
 
@@ -382,7 +384,7 @@ function ReceiptReviewPageInner() {
           </Card>
         </Space>
       </div>
-    </div>
+    </VirtualPantryAppShell>
   );
 }
 

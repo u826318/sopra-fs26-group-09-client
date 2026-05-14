@@ -9,6 +9,12 @@ const setReceiptUploadSessionMock = jest.fn();
 
 let mockUploadFile = new File(["receipt-content"], "receipt.png", { type: "image/png" });
 
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
+
 jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
 }));
@@ -189,7 +195,7 @@ describe("PantryReceiptUploadPage", () => {
   });
 
   it("shows upload errors from the API", async () => {
-    postFormDataMock.mockRejectedValueOnce(new Error("Azure Document Intelligence is not configured."));
+    postFormDataMock.mockRejectedValueOnce(new Error("Receipt scanning is currently unavailable."));
 
     render(<PantryReceiptUploadPage />);
 
@@ -198,14 +204,14 @@ describe("PantryReceiptUploadPage", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Receipt upload issue")).toBeInTheDocument();
-      expect(screen.getByText("Azure Document Intelligence is not configured.")).toBeInTheDocument();
+      expect(screen.getByText("Receipt scanning is currently unavailable. Please add items manually or try again later.")).toBeInTheDocument();
     });
   });
 
   it("navigates back to the pantry page", () => {
     render(<PantryReceiptUploadPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: /Back to pantry/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pantry/i }));
 
     expect(pushMock).toHaveBeenCalledWith(
       "/households/7?name=Test%20Household",

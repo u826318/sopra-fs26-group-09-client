@@ -32,8 +32,10 @@ import { useApi } from "@/hooks/useApi";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
+import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ReceiptAnalysisResult, ReceiptUploadSession } from "@/types/receipt";
 import type { HouseholdWithRole } from "@/types/household";
+import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -99,6 +101,10 @@ function getReceiptUploadErrorMessage(error: unknown): string {
 
   if (error.message.includes("413")) {
     return "The receipt image is too large. Please upload a JPG or PNG up to 5 MB.";
+  }
+
+  if (error.message.includes("503") || error.message.includes("Receipt scanning is currently unavailable")) {
+    return "Receipt scanning is currently unavailable. Please add items manually or try again later.";
   }
 
   return error.message;
@@ -277,10 +283,10 @@ function PantryReceiptUploadPageInner() {
       setReceiptUploadSession(uploadSession);
       setUploadProgress(100);
     } catch (error) {
-      if (error instanceof Error && error.message.includes("User is not a member")) {
+      if (isStaleHouseholdError(error)) {
         setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget.householdId));
         clearSelectedHouseholdId();
-        message.warning("You have been removed from this household.");
+        message.warning(getStaleHouseholdMessage(error));
         router.push("/households");
         return;
       }
@@ -296,17 +302,9 @@ function PantryReceiptUploadPageInner() {
   };
 
   return (
-      <div style={{ minHeight: "100vh", background: "#f4f6ee", padding: 24 }}>
+    <VirtualPantryAppShell activeNav="pantry">
+      <div style={{ paddingBottom: 24 }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-          <Card
-            style={{
-              borderRadius: 24,
-              borderColor: "#d9e2cf",
-              background: "#ffffff",
-              boxShadow: "0 8px 24px rgba(24, 36, 24, 0.06)",
-            }}
-            styles={{ body: { background: "#ffffff", padding: 32 } }}
-          >
             <Space orientation="vertical" size="large" style={{ width: "100%", display: "flex" }}>
               <Space
                 style={{
@@ -318,6 +316,14 @@ function PantryReceiptUploadPageInner() {
                 }}
               >
                 <div>
+                  <Button
+                    size="middle"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={handleBackToPantry}
+                    style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+                  >
+                    Pantry
+                  </Button>
                   <Tag color="green" style={{ marginBottom: 12, borderRadius: 999, paddingInline: 12, fontWeight: 600 }}>
                     Receipt upload
                   </Tag>
@@ -341,10 +347,6 @@ function PantryReceiptUploadPageInner() {
                     </Paragraph>
                   )}
                 </div>
-
-                <Button size="large" icon={<ArrowLeftOutlined />} onClick={handleBackToPantry}>
-                  Back to pantry
-                </Button>
               </Space>
 
               <Row gutter={[16, 16]}>
@@ -473,14 +475,7 @@ function PantryReceiptUploadPageInner() {
                 />
               ) : null}
 
-              <Card
-                style={{
-                  borderRadius: 24,
-                  borderColor: "#d9e2cf",
-                  background: "linear-gradient(180deg, #fbfcf7 0%, #f3f6ec 100%)",
-                }}
-                styles={{ body: { background: "transparent", padding: 24 } }}
-              >
+              <section style={{ paddingTop: 4 }}>
                 <Space orientation="vertical" size="middle" style={{ width: "100%", display: "flex" }}>
                   <Title level={3} style={{ margin: 0, color: "#18351f" }}>
                     Upload receipt
@@ -512,11 +507,11 @@ function PantryReceiptUploadPageInner() {
                     the upcoming extracted-items review screen.
                   </Text>
                 </Space>
-              </Card>
+              </section>
             </Space>
-          </Card>
         </div>
       </div>
+    </VirtualPantryAppShell>
   );
 }
 

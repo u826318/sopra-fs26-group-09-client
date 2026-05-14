@@ -9,6 +9,7 @@ import type { HouseholdWithRole } from "@/types/household";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ApplicationError } from "@/types/error";
 import { App, Button, Col, Popconfirm, Row, Tag, Typography } from "antd";
+import { ArrowLeftOutlined } from "@ant-design/icons";
 import styles from "@/styles/households.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 
@@ -205,10 +206,17 @@ export default function HouseholdMembersPage() {
     <VirtualPantryAppShell activeNav="households">
       <div className={styles.header}>
         <div>
+          <Button
+            size="middle"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => router.push("/households")}
+            style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
+          >
+            Back to households
+          </Button>
           <Title level={1} className={styles.title}>{householdName}</Title>
           <Paragraph className={styles.subtitle}>Members of this household</Paragraph>
         </div>
-        <Button onClick={() => router.push("/households")}>Back to households</Button>
       </div>
 
       <section className={styles.section}>

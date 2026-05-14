@@ -132,7 +132,7 @@ jest.mock("antd", () => {
   const Progress = ({ format }: any) => <div>{format ? format(80) : "progress"}</div>;
   const Modal = ({ children, open, title, onOk, okText }: any) => {
     const testId =
-      title === "Daily calorie budget" ? "budget-modal"
+      title === "Daily calorie target" ? "budget-modal"
         : title === "How much to consume?" ? "portion-modal"
           : "missing-calorie-modal";
     return open ? (
@@ -284,7 +284,7 @@ describe("StatsPage", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/Pantry Overview|Test Home/i)).toBeInTheDocument();
+      expect(screen.getByText(/Test Home — Pantry stats/i)).toBeInTheDocument();
       expect(screen.getByText(/1[, ]860 kcal/i)).toBeInTheDocument();
       expect(screen.getByText(/2[, ]450 kcal \/ day/i)).toBeInTheDocument();
     });

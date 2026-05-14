@@ -7,7 +7,6 @@ import useSessionStorage from "@/hooks/useSessionStorage";
 import type { AmountUnit, PantryItem } from "@/types/pantry";
 import type { Product } from "@/types/product";
 import type { HouseholdWithRole } from "@/types/household";
-import type { ApplicationError } from "@/types/error";
 import {
   buildPantryItemPayload,
   detectAvailableUnits,
@@ -16,6 +15,7 @@ import {
   getKcalPer100ml,
   estimateKcalPerPackage,
 } from "@/utils/pantry";
+import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 import { App, Card, Image } from "antd";
 import styles from "@/styles/productResultCard.module.css";
 
@@ -194,7 +194,6 @@ export default function ProductResultCard({
   const [selectedUnit, setSelectedUnit] = useState<AmountUnit>(() => availableUnits[0]);
   const [amount, setAmount] = useState<number>(() => getDefaultAmount(product, availableUnits[0]));
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
 
   // Issue #114 — switching unit resets amount to the sensible default for that unit
   // Issue #114 — useCallback prevents unnecessary re-renders if parent memoizes ProductResultCard
@@ -243,7 +242,6 @@ export default function ProductResultCard({
       return;
     }
 
-    setSuccessMessage("");
     setIsSubmitting(true);
 
     try {
@@ -252,12 +250,13 @@ export default function ProductResultCard({
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
       );
-      setSuccessMessage(`Item successfully added to ${getPantryTargetLabel(effectivePantryContext)}.`);
+      message.success(`Item successfully added to ${getPantryTargetLabel(effectivePantryContext)}.`);
+      router.push(`/households/${effectivePantryContext.householdId}/stats`);
     } catch (error) {
-      if ((error as ApplicationError).status === 404) {
+      if (isStaleHouseholdError(error)) {
         setHouseholds(households.filter((h) => h.householdId !== effectivePantryContext.householdId));
         if (selectedHouseholdId === effectivePantryContext.householdId) clearSelectedHouseholdId();
-        message.warning("This household no longer exists.");
+        message.warning(getStaleHouseholdMessage(error));
         router.push("/households");
         return;
       }
@@ -408,11 +407,6 @@ export default function ProductResultCard({
               </button>
             </div>
 
-            {successMessage ? (
-              <div role="status" className={styles.successMessage}>
-                {successMessage}
-              </div>
-            ) : null}
           </div>
         </div>
       </div>

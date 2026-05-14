@@ -66,6 +66,12 @@ jest.mock("@/hooks/useAuthGuard", () => ({
   useAuthGuard: () => ({ isAuthenticated: true }),
 }));
 
+jest.mock("@/components/VirtualPantryAppShell", () => ({
+  VirtualPantryAppShell: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="shell">{children}</div>
+  ),
+}));
+
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));

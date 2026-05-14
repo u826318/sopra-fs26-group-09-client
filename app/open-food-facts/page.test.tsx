@@ -149,7 +149,7 @@ describe("Open Food Facts page", () => {
   it("navigates back to the household page", async () => {
     render(<OpenFoodFactsPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Back to pantry stats" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Households" }));
 
     expect(pushMock).toHaveBeenCalledWith("/households");
   });

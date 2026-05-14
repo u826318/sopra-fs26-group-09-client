@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, react/display-name */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ManualAddPantryItemPage from "./page";
@@ -16,6 +16,7 @@ const backMock = jest.fn();
 const replaceMock = jest.fn();
 const warningMock = jest.fn();
 const errorMock = jest.fn();
+const successMock = jest.fn();
 
 jest.mock("@/hooks/useApi", () => ({
   useApi: () => ({ get: getMock, post: postMock }),
@@ -56,7 +57,7 @@ jest.mock("antd", () => {
     Paragraph: ({ children }: any) => <p>{children}</p>,
   };
   const App = {
-    useApp: () => ({ message: { error: errorMock, warning: warningMock, success: jest.fn() } }),
+    useApp: () => ({ message: { error: errorMock, warning: warningMock, success: successMock } }),
   };
   return { App, Button, Card, Input, Space, Typography };
 });
@@ -142,7 +143,8 @@ describe("ManualAddPantryItemPage", () => {
         kcalPer100ml: null,
       });
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Item added to Test Home.");
+    expect(successMock).toHaveBeenCalledWith("Item added to Test Home.");
+    expect(pushMock).toHaveBeenCalledWith("/households/7/stats");
   });
 
   it("posts kcalPer100g when unit is g", async () => {

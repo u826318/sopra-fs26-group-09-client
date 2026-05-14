@@ -38,6 +38,10 @@ export class ApiService {
         const errorInfo = await res.json();
         if (errorInfo?.message) {
           errorDetail = errorInfo.message;
+        } else if (errorInfo?.detail) {
+          errorDetail = errorInfo.detail;
+        } else if (errorInfo?.title) {
+          errorDetail = errorInfo.title;
         } else {
           errorDetail = JSON.stringify(errorInfo);
         }
