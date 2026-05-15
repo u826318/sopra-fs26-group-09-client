@@ -50,6 +50,23 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
     );
   };
 
+  const handleSidebarRecipes = () => {
+    if (households.length === 0) {
+      message.info("Create or join a household first, then open Recipes.");
+      return;
+    }
+    const id =
+      selectedHouseholdId !== null &&
+      households.some((h) => h.householdId === selectedHouseholdId)
+        ? selectedHouseholdId
+        : households[0].householdId;
+    const household = households.find((h) => h.householdId === id);
+    setSelectedHouseholdId(id);
+    router.push(
+      `/recipes?householdId=${id}&name=${encodeURIComponent(household?.name ?? `Household ${id}`)}`,
+    );
+  };
+
   const handleLogout = () => {
     clearToken();
     clearUsername();
@@ -113,7 +130,7 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
             <button
               type="button"
               className={navBtn("recipes")}
-              onClick={() => message.info("Recipes are coming soon.")}
+              onClick={handleSidebarRecipes}
             >
               <ReadOutlined className={styles.menuIcon} />
               <span className={styles.menuText}>Recipes</span>
