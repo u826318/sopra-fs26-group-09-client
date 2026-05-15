@@ -19,6 +19,7 @@ import {
   Tag,
   Typography,
   Radio,
+  Select,   // Issue #121
 } from "antd";
 import type { TableProps } from "antd";
 import {
@@ -37,7 +38,7 @@ import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
-import type { HouseholdWithRole } from "@/types/household";
+import type { HouseholdWithRole, HouseholdMember } from "@/types/household";  // Issue #121
 import type { ConsumptionLogEntry } from "@/types/consumption";
 import { formatQuantity } from "@/utils/pantry";
 import type { HouseholdStats } from "@/types/stats";
@@ -263,6 +264,9 @@ export default function StatsPage() {
   const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const { value: userId } = useSessionStorage<string>("userId", "");
 
+  // Issue #121 — numeric form of userId for member picker default
+  const numericUserId = useMemo(() => (userId ? Number(userId) : null), [userId]);
+
   const householdName = useMemo(
     () =>
       cachedHouseholds.find((h) => h.householdId === householdId)?.name ??
@@ -296,6 +300,9 @@ export default function StatsPage() {
   const [budgetForm] = Form.useForm<{ dailyCalorieTarget: number }>();
 
   const [personalGoal, setPersonalGoal] = useState<HealthGoal | null>(null);
+  // Issue #121 — household members for the consume-on-behalf picker
+  const [members, setMembers] = useState<HouseholdMember[]>([]);
+  const [selectedConsumerId, setSelectedConsumerId] = useState<number | null>(null);
   const [consumingItemId, setConsumingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [unknownConsumeState, setUnknownConsumeState] = useState<UnknownConsumeState | null>(null);
@@ -325,7 +332,7 @@ export default function StatsPage() {
 
     setLoading(true);
     try {
-      const [pantryRes, statsRes, logsRes] = await Promise.all([
+      const [pantryRes, statsRes, logsRes, membersRes] = await Promise.all([
         api.get<PantryOverview>(`/households/${householdId}/pantry`),
         api.get<HouseholdStats>(
           `/households/${householdId}/stats?startDate=${startStr}&endDate=${endStr}`,
@@ -333,10 +340,14 @@ export default function StatsPage() {
         api.get<ConsumptionLogEntry[]>(
           `/households/${householdId}/consumption-logs?limit=30`,
         ),
+        api.get<HouseholdMember[]>(`/households/${householdId}/members`).catch(() => [] as HouseholdMember[]),  // Issue #121
       ]);
       setPantry(pantryRes);
       setStats(statsRes);
       setActivity(buildRecentActivity(pantryRes.items, logsRes));
+      // Issue #121
+      setMembers(membersRes);
+      setSelectedConsumerId((prev) => prev ?? numericUserId);
 
       await Promise.all([
         api.get<HouseholdBudget>(`/households/${householdId}/budget`)
@@ -360,7 +371,7 @@ export default function StatsPage() {
     } finally {
       setLoading(false);
     }
-  }, [api, message, householdId, startDate, hasValidHouseholdRoute, userId]);
+  }, [api, message, householdId, startDate, hasValidHouseholdRoute, userId, numericUserId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -525,7 +536,7 @@ export default function StatsPage() {
 
   // Issue #95 — amount is user-chosen portion; options carries kcal override for package items
   const executeConsume = useCallback(
-    async (item: PantryItem, amount: number, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean }) => {
+    async (item: PantryItem, amount: number, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean; consumedForUserId?: number }) => {
       setConsumingItemId(item.id);
       try {
         const res = await api.post<ConsumePantryItemResponse>(
@@ -534,6 +545,9 @@ export default function StatsPage() {
             amount,
             kcalPerPackage: options?.kcalPerPackage ?? null,
             skipCalorieLogging: options?.skipCalorieLogging ?? false,
+            ...(options?.consumedForUserId !== undefined
+              ? { consumedForUserId: options.consumedForUserId }  // Issue #121
+              : {}),
           },
         );
         message.success(
@@ -1086,6 +1100,11 @@ export default function StatsPage() {
             message.error(`Amount cannot exceed available quantity (${item.amount} ${item.amountUnit}).`);
             return;
           }
+          // Issue #121
+          const consumedForUserId =
+            selectedConsumerId !== null && selectedConsumerId !== numericUserId
+              ? selectedConsumerId
+              : undefined;
           // For package items without calorie data, open the calorie-unknown flow
           if (item.amountUnit === "package" && !isKnownCalories(item.kcalPerPackage)) {
             const suggestedCalories = estimateSuggestedCalories(item);
@@ -1099,7 +1118,7 @@ export default function StatsPage() {
             });
             return;
           }
-          void executeConsume(item, amount);
+          void executeConsume(item, amount, { consumedForUserId });
         }}
         confirmLoading={portionConsumeState ? consumingItemId === portionConsumeState.item.id : false}
         okText="Consume"
@@ -1132,6 +1151,18 @@ export default function StatsPage() {
             <Text type="secondary" style={{ fontSize: 12 }}>
               Available: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
             </Text>
+            {/* Issue #121 — attribute consumption to a specific member */}
+            {members.length > 1 && (
+              <div>
+                <Text style={{ display: "block", marginBottom: 4 }}>Who consumed?</Text>
+                <Select
+                  style={{ width: "100%" }}
+                  value={selectedConsumerId ?? numericUserId ?? undefined}
+                  onChange={(val: number) => setSelectedConsumerId(val)}
+                  options={members.map((m) => ({ value: m.userId, label: m.username }))}
+                />
+              </div>
+            )}
             <div>
               <Text style={{ display: "block", marginBottom: 4 }}>
                 Optional meal photo for portion suggestion
@@ -1186,9 +1217,16 @@ export default function StatsPage() {
         onOk={() => {
           if (!unknownConsumeState) return;
 
+          // Issue #121
+          const consumedForUserId =
+            selectedConsumerId !== null && selectedConsumerId !== numericUserId
+              ? selectedConsumerId
+              : undefined;
+
           if (unknownConsumeState.mode === "suggested") {
             void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
               kcalPerPackage: unknownConsumeState.suggestedCalories,
+              consumedForUserId,
             });
             return;
           }
@@ -1201,12 +1239,14 @@ export default function StatsPage() {
             }
             void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
               kcalPerPackage: manualCalories,
+              consumedForUserId,
             });
             return;
           }
 
           void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
             skipCalorieLogging: true,
+            consumedForUserId,
           });
         }}
         confirmLoading={unknownConsumeState ? consumingItemId === unknownConsumeState.item.id : false}
