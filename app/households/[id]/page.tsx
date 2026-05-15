@@ -36,7 +36,6 @@ import {
   FireOutlined,
 } from "@ant-design/icons";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 
 const { Title, Paragraph, Text } = Typography;
 
