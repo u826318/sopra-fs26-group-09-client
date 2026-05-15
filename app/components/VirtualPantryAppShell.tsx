@@ -61,9 +61,11 @@ export function VirtualPantryAppShell({ activeNav, children }: VirtualPantryAppS
         ? selectedHouseholdId
         : households[0].householdId;
     const household = households.find((h) => h.householdId === id);
+    const fallbackName = `Household ${id}`;
+    const recipeHouseholdName = household?.name ?? fallbackName;
     setSelectedHouseholdId(id);
     router.push(
-      `/recipes?householdId=${id}&name=${encodeURIComponent(household?.name ?? `Household ${id}`)}`,
+      `/recipes?householdId=${id}&name=${encodeURIComponent(recipeHouseholdName)}`,
     );
   };
 

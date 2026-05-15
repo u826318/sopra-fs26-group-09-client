@@ -31,7 +31,7 @@ import styles from "@/styles/recipes.module.css";
 const { Title, Paragraph, Text } = Typography;
 
 function formatAmount(value: number, unit: string): string {
-  const rounded = Number.isInteger(value) ? value.toString() : value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  const rounded = Number.isInteger(value) ? value.toString() : Number(value.toFixed(2)).toString();
   return `${rounded} ${unit}`;
 }
 
@@ -53,6 +53,12 @@ function ingredientStatus(ingredient: RecipeIngredient): "success" | "warning" |
   if (ingredient.matched && ingredient.enoughAvailable) return "success";
   if (ingredient.matched) return "warning";
   return "error";
+}
+
+function ingredientAvailabilityLabel(ingredient: RecipeIngredient): string {
+  if (ingredient.matched && ingredient.enoughAvailable) return "available";
+  if (ingredient.matched) return "not enough";
+  return "missing";
 }
 
 function RecipesPageContent() {
@@ -242,7 +248,7 @@ function RecipesPageContent() {
         <Alert
           type="error"
           showIcon
-          message="Could not load recipes"
+          title="Could not load recipes"
           description={errorMessage}
           style={{ marginBottom: 16 }}
         />
@@ -348,7 +354,7 @@ function RecipesPageContent() {
               <Alert
                 type="warning"
                 showIcon
-                message="Not ready to cook yet"
+                title="Not ready to cook yet"
                 description="Review is still available, but cooking is disabled until all required ingredients are available in the pantry."
                 style={{ marginBottom: 16 }}
               />
@@ -386,11 +392,7 @@ function RecipesPageContent() {
                         </div>
                       </div>
                       <Tag color={ingredientStatus(ingredient)}>
-                        {ingredient.matched && ingredient.enoughAvailable
-                          ? "available"
-                          : ingredient.matched
-                            ? "not enough"
-                            : "missing"}
+                        {ingredientAvailabilityLabel(ingredient)}
                       </Tag>
                     </div>
                   ))}
