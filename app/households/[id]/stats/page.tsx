@@ -1080,6 +1080,33 @@ export default function StatsPage() {
                 />
               </Card>
             ) : null}
+            {/* Issue #121 — per-member daily average calorie breakdown */}
+            {stats?.memberBreakdown && stats.memberBreakdown.length > 0 && (
+              <Card
+                title={<span style={{ fontSize: 20, fontWeight: 700, color: "#1f2d1f" }}>Calorie breakdown by member</span>}
+                style={{ borderRadius: 16, borderColor: "#d9e2cf", background: "#ffffff" }}
+                styles={{ body: { padding: 24 } }}
+              >
+                <Table
+                  rowKey="userId"
+                  dataSource={stats.memberBreakdown}
+                  pagination={false}
+                  columns={[
+                    {
+                      title: "Member",
+                      dataIndex: "username",
+                      key: "username",
+                    },
+                    {
+                      title: "Daily average",
+                      dataIndex: "averageDailyCalories",
+                      key: "averageDailyCalories",
+                      render: (v: number) => `${Math.round(v).toLocaleString()} kcal/day`,
+                    },
+                  ]}
+                />
+              </Card>
+            )}
           </>
         )}
       </Space>

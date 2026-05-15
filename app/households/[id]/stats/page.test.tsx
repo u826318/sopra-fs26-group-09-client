@@ -245,7 +245,17 @@ describe("StatsPage", () => {
             differenceFromTarget: 250,
             percentageOfTarget: 111,
           },
+          memberBreakdown: [                                              // Issue #121
+            { userId: 99, username: "alice", totalCalories: 7000, averageDailyCalories: 1000 },
+            { userId: 77, username: "bob",   totalCalories: 3000, averageDailyCalories: 428.6 },
+          ],
         });
+      }
+      if (url.includes("/members")) {                                    // Issue #121
+        return Promise.resolve([
+          { userId: 99, username: "alice", role: "owner", joinedAt: "2026-01-01T00:00:00Z" },
+          { userId: 77, username: "bob",   role: "member", joinedAt: "2026-01-01T00:00:00Z" },
+        ]);
       }
       if (url.includes("/budget")) {
         return Promise.resolve({
@@ -544,5 +554,20 @@ describe("StatsPage", () => {
         skipCalorieLogging: false,
       });
     });
+  });
+
+  // Issue #121 — member picker appears in portion modal when household has multiple members
+  it("fetches members and shows member picker when consume is opened", async () => {
+    render(<StatsPage />);
+
+    await waitFor(() => {
+      expect(getMock).toHaveBeenCalledWith("/households/1/members");
+    });
+
+    const consumeButtons = await screen.findAllByRole("button", { name: /^Consume$/i });
+    fireEvent.click(consumeButtons[0]);
+
+    const portionModal = await screen.findByTestId("portion-modal");
+    expect(within(portionModal).getByText("Who consumed?")).toBeInTheDocument();
   });
 });
