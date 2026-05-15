@@ -16,3 +16,11 @@ export interface HouseholdInviteCodeResponse {
   inviteCode: string;
   expiresAt?: string | null;
 }
+
+// Issue #121 — member entry returned by GET /households/{id}/members
+export interface HouseholdMember {
+  userId: number;
+  username: string;
+  role: "owner" | "member";
+  joinedAt: string;
+}

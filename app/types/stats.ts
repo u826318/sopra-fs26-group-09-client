@@ -9,6 +9,14 @@ export interface BudgetComparison {
   percentageOfTarget: number;
 }
 
+// Issue #121 — per-member calorie summary within the stats response
+export interface MemberCalorieEntry {
+  userId: number;
+  username: string;
+  totalCalories: number;
+  averageDailyCalories: number;
+}
+
 export interface HouseholdStats {
   startDate: string;
   endDate: string;
@@ -17,4 +25,5 @@ export interface HouseholdStats {
   totalCaloriesConsumed: number;
   dailyBreakdown: DailyBreakdownEntry[];
   comparisonToBudget: BudgetComparison | null;
+  memberBreakdown?: MemberCalorieEntry[];  // Issue #121
 }
