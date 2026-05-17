@@ -7,6 +7,7 @@ import {
   Card,
   Col,
   DatePicker,
+  Divider,
   Empty,
   Form,
   InputNumber,
@@ -22,6 +23,16 @@ import {
   Select,   // Issue #121
 } from "antd";
 import type { TableProps } from "antd";
+// Issue #124 — recharts for calorie charts
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ReferenceLine,
+  Cell,
+} from "recharts";
 import {
   ArrowLeftOutlined,
   EditOutlined,
@@ -510,6 +521,30 @@ export default function StatsPage() {
     return `+${pct}% OVER BUDGET (today)`;
   }, [actualToday, dailyGoal]);
 
+  // Issue #124 — null when the field is absent (old API), 0 when present but nothing consumed today
+  const myActualToday = useMemo(() => {
+    if (!stats?.myDailyBreakdown) return null;
+    const row = stats.myDailyBreakdown.find((d) => d.date === todayStr);
+    return row?.caloriesConsumed ?? 0;
+  }, [stats, todayStr]);
+
+  const myPersonalGoal = personalGoal?.recommendedDailyCalories ?? null;
+  // Issue #124 — fixed 7-day slices for the two daily charts
+  const myLast7Days = useMemo(() => (stats?.myDailyBreakdown ?? []).slice(-7), [stats]);
+  const householdLast7Days = useMemo(() => (stats?.dailyBreakdown ?? []).slice(-7), [stats]);
+
+  const myTodayVsGoalPercent = useMemo(() => {
+    if (myActualToday === null || !myPersonalGoal || myPersonalGoal <= 0) return 0;
+    return (myActualToday / myPersonalGoal) * 100;
+  }, [myActualToday, myPersonalGoal]);
+
+  const myTodayOverLabel = useMemo(() => {
+    if (myActualToday === null || !myPersonalGoal || myPersonalGoal <= 0) return null;
+    if (myActualToday <= myPersonalGoal) return null;
+    const pct = ((myActualToday / myPersonalGoal) * 100 - 100).toFixed(0);
+    return `+${pct}% over your personal goal (today)`;
+  }, [myActualToday, myPersonalGoal]);
+
   const openBudgetModal = () => {
     const initial = dailyGoal ?? 2200;
     budgetForm.setFieldsValue({ dailyCalorieTarget: initial });
@@ -882,74 +917,99 @@ export default function StatsPage() {
                   }
                   variant="borderless"
                 >
+                  {/* Issue #124 — two clearly labelled progress rows so users know what each one measures */}
                   <Space orientation="vertical" size="middle" style={{ width: "100%" }}>
+
+                    {/* Row 1: household total today vs household daily target (set by admin) */}
                     <div>
-                      <Text style={{ color: MUTED }}>Your recommendation</Text>
-                      <div>
-                        {personalGoal ? (
-                          <Text strong style={{ fontSize: 16, color: FOREST }}>
-                            {Math.round(personalGoal.recommendedDailyCalories).toLocaleString()} kcal
-                          </Text>
-                        ) : (
-                          <Text style={{ color: MUTED }}>
-                            Not set ·{" "}
-                            {userId && (
-                              <Button
-                                type="link"
-                                onClick={() => router.push(`/users/${userId}/health-goal`)}
-                                style={{ color: FOREST, padding: 0, height: "auto" }}
-                              >
-                                Set goal →
-                              </Button>
-                            )}
-                          </Text>
-                        )}
-                      </div>
-                    </div>
-                    <div>
-                      <Text style={{ color: MUTED }}>Daily goal</Text>
-                      <div>
-                        <Text strong style={{ fontSize: 16, color: "#1b2a1b" }}>
-                          {dailyGoal !== null ? formatKcal(dailyGoal) : "Not set"}
-                        </Text>
-                      </div>
-                    </div>
-                    <div>
-                      <Text style={{ color: MUTED }}>Actual today</Text>
-                      <div>
-                        <Text
-                          strong
-                          style={{
-                            fontSize: 16,
-                            color: todayVsGoalPercent > 100 ? DANGER : FOREST,
-                          }}
-                        >
+                      <Text style={{ color: MUTED, fontSize: 12 }}>
+                        🏠 Household total today
+                        <Text style={{ color: MUTED, fontSize: 11, fontWeight: 400 }}> — all members combined, vs the household daily target set by admin</Text>
+                      </Text>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "4px 0" }}>
+                        <Text strong style={{ fontSize: 15, color: todayVsGoalPercent > 100 ? DANGER : FOREST }}>
                           {stats ? formatKcal(actualToday) : "—"}
                         </Text>
+                        {dailyGoal !== null && (
+                          <Text style={{ color: MUTED, fontSize: 12 }}>/ {formatKcal(dailyGoal)} target</Text>
+                        )}
                       </div>
+                      {dailyGoal !== null && dailyGoal > 0 ? (
+                        <>
+                          <Progress
+                            percent={Math.min(Math.round(todayVsGoalPercent), 100)}
+                            status={todayVsGoalPercent > 100 ? "exception" : "active"}
+                            strokeColor={todayVsGoalPercent > 100 ? DANGER : FOREST}
+                            railColor="#e8efe4"
+                            showInfo
+                            format={(p) => `${p ?? 0}%`}
+                          />
+                          {todayOverLabel && (
+                            <Tag color="error" icon={<WarningOutlined />} style={{ marginTop: 4 }}>
+                              {todayOverLabel}
+                            </Tag>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={{ color: MUTED, fontSize: 12 }}>
+                          No household target set
+                          {/* Issue #124 — only owners can set the household target */}
+                          {isOwner && (
+                            <> —{" "}
+                              <Button type="link" onClick={openBudgetModal} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 12 }}>
+                                Set target →
+                              </Button>
+                            </>
+                          )}
+                        </Text>
+                      )}
                     </div>
 
-                    {dailyGoal !== null && dailyGoal > 0 ? (
-                      <>
-                        <Progress
-                          percent={Math.min(Math.round(todayVsGoalPercent), 100)}
-                          status={todayVsGoalPercent > 100 ? "exception" : "active"}
-                          strokeColor={todayVsGoalPercent > 100 ? DANGER : FOREST}
-                          railColor="#e8efe4"
-                          showInfo
-                          format={(p) => `${p ?? 0}% of daily goal (today)`}
-                        />
-                        {todayOverLabel ? (
-                          <Tag color="error" icon={<WarningOutlined />}>
-                            {todayOverLabel}
-                          </Tag>
-                        ) : null}
-                      </>
-                    ) : (
-                      <Text style={{ color: MUTED }}>
-                        Set a daily calorie target to enable comparisons.
+                    <Divider style={{ margin: "4px 0" }} />
+
+                    {/* Row 2: my personal intake today vs my personal health goal */}
+                    <div>
+                      <Text style={{ color: MUTED, fontSize: 12 }}>
+                        👤 Your intake today
+                        <Text style={{ color: MUTED, fontSize: 11, fontWeight: 400 }}> — your consumption only, vs your personal health goal</Text>
                       </Text>
-                    )}
+                      {myPersonalGoal ? (
+                        <>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "4px 0" }}>
+                            <Text strong style={{ fontSize: 15, color: myTodayVsGoalPercent > 100 ? DANGER : FOREST }}>
+                              {stats && myActualToday !== null ? formatKcal(myActualToday) : "—"}
+                            </Text>
+                            <Text style={{ color: MUTED, fontSize: 12 }}>/ {formatKcal(myPersonalGoal)} personal goal</Text>
+                          </div>
+                          <Progress
+                            percent={Math.min(Math.round(myTodayVsGoalPercent), 100)}
+                            status={myTodayVsGoalPercent > 100 ? "exception" : "active"}
+                            strokeColor={myTodayVsGoalPercent > 100 ? DANGER : FOREST}
+                            railColor="#e8efe4"
+                            showInfo
+                            format={(p) => `${p ?? 0}%`}
+                          />
+                          {myTodayOverLabel && (
+                            <Tag color="error" icon={<WarningOutlined />} style={{ marginTop: 4 }}>
+                              {myTodayOverLabel}
+                            </Tag>
+                          )}
+                        </>
+                      ) : (
+                        <Text style={{ color: MUTED, fontSize: 12 }}>
+                          No personal health goal set —{" "}
+                          {userId && (
+                            <Button
+                              type="link"
+                              onClick={() => router.push(`/users/${userId}/health-goal`)}
+                              style={{ color: FOREST, padding: 0, height: "auto", fontSize: 12 }}
+                            >
+                              Set goal →
+                            </Button>
+                          )}
+                        </Text>
+                      )}
+                    </div>
 
                     {stats?.comparisonToBudget ? (
                       <div>
@@ -1061,50 +1121,139 @@ export default function StatsPage() {
               </Col>
             </Row>
 
-            {stats ? (
-              <Card title="Daily breakdown" className={statsStyles.breakdownCard}>
-                <Table
-                  rowKey="date"
-                  pagination={false}
-                  size="small"
-                  dataSource={stats.dailyBreakdown}
-                  columns={[
-                    { title: "Date", dataIndex: "date", key: "date" },
-                    {
-                      title: "Calories consumed",
-                      dataIndex: "caloriesConsumed",
-                      key: "caloriesConsumed",
-                      render: (value: number) => value.toFixed(1),
-                    },
-                  ]}
-                />
+            {/* Issue #124 — Chart 1: my personal daily calorie intake, last 7 days.
+                Always shown; goal line and color coding only appear when personal goal is set. */}
+            {myLast7Days.length > 0 && (
+              <Card
+                title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>My daily calorie intake</span>}
+                style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
+              >
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  Your personal consumption · last 7 days
+                </Typography.Text>
+                {myPersonalGoal ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0 12px" }}>
+                    <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={FOREST} strokeWidth="2" strokeDasharray="5 3" /></svg>
+                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                      Your personal health goal · {Math.round(myPersonalGoal).toLocaleString()} kcal/day (set in your profile)
+                    </Typography.Text>
+                  </div>
+                ) : (
+                  <div style={{ margin: "6px 0 12px" }}>
+                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                      No personal goal set —{" "}
+                      {userId && (
+                        <Button type="link" onClick={() => router.push(`/users/${userId}/health-goal`)} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 11 }}>
+                          Set goal to enable comparison →
+                        </Button>
+                      )}
+                    </Typography.Text>
+                  </div>
+                )}
+                <div style={{ overflowX: "auto" }}>
+                  <BarChart
+                    width={Math.max(myLast7Days.length * 100 + 64, 300)}
+                    height={220}
+                    data={myLast7Days}
+                    margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
+                    barCategoryGap="35%"
+                  >
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
+                    <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
+                    {myPersonalGoal && (
+                      <ReferenceLine y={myPersonalGoal} stroke={FOREST} strokeDasharray="5 3" strokeWidth={2} label={{ value: "goal", position: "insideTopRight", fontSize: 10, fill: FOREST }} />
+                    )}
+                    <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
+                      {myLast7Days.map((entry) => (
+                        <Cell key={entry.date} fill={myPersonalGoal && entry.caloriesConsumed > myPersonalGoal ? DANGER : "#7cb87e"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </div>
+                {myPersonalGoal && (
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
+                    <span><span style={{ color: DANGER }}>■</span> Exceeds your personal goal</span>
+                    <span><span style={{ color: "#7cb87e" }}>■</span> Within your personal goal</span>
+                  </div>
+                )}
               </Card>
-            ) : null}
-            {/* Issue #121 — per-member daily average calorie breakdown */}
+            )}
+
+            {/* Issue #124 — Chart 3: household daily total, last 7 days with target reference line */}
+            {householdLast7Days.length > 0 && (
+              <Card
+                title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>Household daily calorie consumption</span>}
+                style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
+              >
+                <Typography.Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: dailyGoal ? 4 : 12 }}>
+                  Total kcal consumed by all members combined · last 7 days
+                </Typography.Text>
+                {dailyGoal && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                    <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={DANGER} strokeWidth="2" strokeDasharray="5 3" /></svg>
+                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                      Household daily target · {Math.round(dailyGoal).toLocaleString()} kcal/day (set by admin)
+                    </Typography.Text>
+                  </div>
+                )}
+                <div style={{ overflowX: "auto" }}>
+                  <BarChart
+                    width={Math.max(householdLast7Days.length * 100 + 64, 300)}
+                    height={220}
+                    data={householdLast7Days}
+                    margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
+                    barCategoryGap="35%"
+                  >
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
+                    <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
+                    {dailyGoal && (
+                      <ReferenceLine y={dailyGoal} stroke={DANGER} strokeDasharray="5 3" strokeWidth={2} label={{ value: "target", position: "insideTopRight", fontSize: 10, fill: DANGER }} />
+                    )}
+                    <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
+                      {householdLast7Days.map((entry) => (
+                        <Cell key={entry.date} fill={dailyGoal && entry.caloriesConsumed > dailyGoal ? DANGER : FOREST} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </div>
+                {dailyGoal && (
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
+                    <span><span style={{ color: DANGER }}>■</span> Exceeds household target</span>
+                    <span><span style={{ color: FOREST }}>■</span> Within target</span>
+                  </div>
+                )}
+              </Card>
+            )}
+
+            {/* Issue #124 — Chart 2: member average daily intake, placed last; horizontal scroll for large households */}
             {stats?.memberBreakdown && stats.memberBreakdown.length > 0 && (
               <Card
-                title={<span style={{ fontSize: 20, fontWeight: 700, color: "#1f2d1f" }}>Calorie breakdown by member</span>}
-                style={{ borderRadius: 16, borderColor: "#d9e2cf", background: "#ffffff" }}
-                styles={{ body: { padding: 24 } }}
+                title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>Average daily intake per member</span>}
+                style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
               >
-                <Table
-                  rowKey="userId"
-                  dataSource={stats.memberBreakdown}
-                  pagination={false}
-                  columns={[
-                    {
-                      title: "Member",
-                      dataIndex: "username",
-                      key: "username",
-                    },
-                    {
-                      title: "Daily average",
-                      dataIndex: "averageDailyCalories",
-                      key: "averageDailyCalories",
-                      render: (v: number) => `${Math.round(v).toLocaleString()} kcal/day`,
-                    },
-                  ]}
-                />
+                <Typography.Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: 12 }}>
+                  Each member&apos;s average kcal consumed per day during the selected period
+                </Typography.Text>
+                <div style={{ overflowX: "auto" }}>
+                  <BarChart
+                    width={Math.max(stats.memberBreakdown.length * 120, 400)}
+                    height={220}
+                    data={stats.memberBreakdown.map((m) => ({
+                      ...m,
+                      label: String(m.userId) === userId ? "You" : m.username,
+                    }))}
+                    margin={{ top: 10, right: 16, left: 0, bottom: 0 }}
+                    barCategoryGap="35%"
+                  >
+                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
+                    <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal/day`} />
+                    <Bar dataKey="averageDailyCalories" fill={FOREST} maxBarSize={56} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </div>
+                <Typography.Text style={{ fontSize: 11, color: MUTED }}>kcal / day average</Typography.Text>
               </Card>
             )}
           </>

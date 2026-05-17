@@ -26,4 +26,5 @@ export interface HouseholdStats {
   dailyBreakdown: DailyBreakdownEntry[];
   comparisonToBudget: BudgetComparison | null;
   memberBreakdown?: MemberCalorieEntry[];  // Issue #121
+  myDailyBreakdown?: DailyBreakdownEntry[];  // Issue #124 — requesting user's per-day data
 }

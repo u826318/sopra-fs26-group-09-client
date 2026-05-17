@@ -186,6 +186,8 @@ jest.mock("antd", () => {
   const App = {
     useApp: () => ({ message: messageMock }),
   };
+  // Issue #124 — Divider added to antd imports in stats page
+  const Divider = () => <hr />;
 
   return {
     Button,
@@ -206,8 +208,21 @@ jest.mock("antd", () => {
     Form,
     InputNumber,
     Radio,
+    Divider,
   };
 });
+
+// Issue #124 — mock recharts so chart components render as no-ops in jsdom
+jest.mock("recharts", () => ({
+  BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+  Bar: () => null,
+  XAxis: () => null,
+  YAxis: () => null,
+  Tooltip: () => null,
+  ReferenceLine: () => null,
+  ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
+  Cell: () => null,
+}));
 
 describe("StatsPage", () => {
   beforeEach(() => {
