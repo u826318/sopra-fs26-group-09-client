@@ -521,9 +521,9 @@ export default function StatsPage() {
     return `+${pct}% OVER BUDGET (today)`;
   }, [actualToday, dailyGoal]);
 
-  // Issue #124 — my personal intake today, from the per-user breakdown returned by the backend
+  // Issue #124 — null when the field is absent (old API), 0 when present but nothing consumed today
   const myActualToday = useMemo(() => {
-    if (!stats?.myDailyBreakdown?.length) return 0;
+    if (!stats?.myDailyBreakdown) return null;
     const row = stats.myDailyBreakdown.find((d) => d.date === todayStr);
     return row?.caloriesConsumed ?? 0;
   }, [stats, todayStr]);
@@ -534,12 +534,12 @@ export default function StatsPage() {
   const householdLast7Days = useMemo(() => (stats?.dailyBreakdown ?? []).slice(-7), [stats]);
 
   const myTodayVsGoalPercent = useMemo(() => {
-    if (!myPersonalGoal || myPersonalGoal <= 0) return 0;
+    if (myActualToday === null || !myPersonalGoal || myPersonalGoal <= 0) return 0;
     return (myActualToday / myPersonalGoal) * 100;
   }, [myActualToday, myPersonalGoal]);
 
   const myTodayOverLabel = useMemo(() => {
-    if (!myPersonalGoal || myPersonalGoal <= 0) return null;
+    if (myActualToday === null || !myPersonalGoal || myPersonalGoal <= 0) return null;
     if (myActualToday <= myPersonalGoal) return null;
     const pct = ((myActualToday / myPersonalGoal) * 100 - 100).toFixed(0);
     return `+${pct}% over your personal goal (today)`;
@@ -952,10 +952,15 @@ export default function StatsPage() {
                         </>
                       ) : (
                         <Text style={{ color: MUTED, fontSize: 12 }}>
-                          No household target set —{" "}
-                          <Button type="link" onClick={openBudgetModal} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 12 }}>
-                            Set target →
-                          </Button>
+                          No household target set
+                          {/* Issue #124 — only owners can set the household target */}
+                          {isOwner && (
+                            <> —{" "}
+                              <Button type="link" onClick={openBudgetModal} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 12 }}>
+                                Set target →
+                              </Button>
+                            </>
+                          )}
                         </Text>
                       )}
                     </div>
@@ -972,7 +977,7 @@ export default function StatsPage() {
                         <>
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "4px 0" }}>
                             <Text strong style={{ fontSize: 15, color: myTodayVsGoalPercent > 100 ? DANGER : FOREST }}>
-                              {stats ? formatKcal(myActualToday) : "—"}
+                              {stats && myActualToday !== null ? formatKcal(myActualToday) : "—"}
                             </Text>
                             <Text style={{ color: MUTED, fontSize: 12 }}>/ {formatKcal(myPersonalGoal)} personal goal</Text>
                           </div>
