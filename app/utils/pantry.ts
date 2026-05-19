@@ -95,7 +95,38 @@ function parsePackageAmount(quantity: string | null): ParsedPackageAmount | null
   return singleAmount ? toAmountBasis(singleAmount.amount, singleAmount.unit) : null;
 }
 
+function packageAmountFromLocalDataset(product: Product): ParsedPackageAmount | null {
+  const amount = parseNumber(product.packageQuantity);
+  const unit = product.packageQuantityUnit?.toLowerCase().trim();
+
+  if (amount === null || !unit) {
+    return null;
+  }
+
+  if (unit === "g" || unit === "kg" || unit === "ml" || unit === "l") {
+    return toAmountBasis(amount, unit as QuantityUnit);
+  }
+
+  return null;
+}
+
+function getPackageAmount(product: Product): ParsedPackageAmount | null {
+  return packageAmountFromLocalDataset(product) ?? parsePackageAmount(product.quantity);
+}
+
+function readLocalEnergyPer100(product: Product): number | null {
+  return parseNumber(product.nutrition?.coreNutrition?.["energy-kcal"]?.value);
+}
+
 export function estimateKcalPerPackage(product: Product): number | null {
+  const localEnergyPer100 = readLocalEnergyPer100(product);
+  const localAmountInfo = packageAmountFromLocalDataset(product);
+
+  if (localEnergyPer100 !== null && localAmountInfo) {
+    const estimatedCalories = (localEnergyPer100 * localAmountInfo.amount) / 100;
+    return Number(estimatedCalories.toFixed(2));
+  }
+
   const nutriments = product.nutriments ?? {};
   const amountInfo = parsePackageAmount(product.quantity);
 
@@ -135,54 +166,57 @@ export function formatQuantity(quantity: number, unit: AmountUnit | undefined): 
   return `${quantity}×`;
 }
 
-// Issue #114 — returns only units that have usable nutrition data for this product
-// package is always available as fallback; g/ml only shown when product has the data
-export function detectAvailableUnits(product: Product): AmountUnit[] {
-  const units: AmountUnit[] = ["package"];
-  const amountInfo = parsePackageAmount(product.quantity);
-  const nutriments = product.nutriments ?? {};
-
-  if (amountInfo?.basis === "100g" && parseNumber(nutriments["energy-kcal_100g"]) !== null) {
-    units.unshift("g");
-  }
-  if (amountInfo?.basis === "100ml" && parseNumber(nutriments["energy-kcal_100ml"]) !== null) {
-    units.unshift("ml");
-  }
-
-  return units;
+// Add-to-pantry is still package-count based on the backend.
+// Grams/ml/servings should be introduced in the later consume flow, not here.
+export function detectAvailableUnits(_product: Product): AmountUnit[] {
+  return ["package"];
 }
 
-// Issue #114 — default amount pre-filled when user selects a unit
-// package → 1; g/ml → the parsed package weight/volume so user doesn't have to type it
-export function getDefaultAmount(product: Product, unit: AmountUnit): number {
-  if (unit === "package") return 1;
-  const amountInfo = parsePackageAmount(product.quantity);
-  return amountInfo?.amount ?? 1;
+// Package → 1. Later consume UI can use grams/ml/servings defaults.
+export function getDefaultAmount(_product: Product, _unit: AmountUnit): number {
+  return 1;
 }
 
-// Issue #114 — extract per-100g kcal value from product nutriments
+// Issue #114 — extract per-100g kcal value from product data
 export function getKcalPer100g(product: Product): number | null {
+  if (product.nutrition?.basisUnit === "g") {
+    return readLocalEnergyPer100(product);
+  }
+
   return parseNumber((product.nutriments ?? {})["energy-kcal_100g"]);
 }
 
-// Issue #114 — extract per-100ml kcal value from product nutriments
+// Issue #114 — extract per-100ml kcal value from product data
 export function getKcalPer100ml(product: Product): number | null {
+  if (product.nutrition?.basisUnit === "ml") {
+    return readLocalEnergyPer100(product);
+  }
+
   return parseNumber((product.nutriments ?? {})["energy-kcal_100ml"]);
 }
 
-// Issue #114 — build payload with amount, amountUnit, and the relevant kcal field for the chosen unit
+// Add-to-pantry now lets the backend source all trusted product details from the local dataset.
+// The backend only needs barcode + quantity for this Path A snapshot flow.
 export function buildPantryItemPayload(
   product: Product,
   amount: number,
-  unit: AmountUnit,
+  _unit: AmountUnit,
 ): PantryItemCreateRequest {
   return {
     barcode: (product.barcode ?? "").trim(),
-    name: (product.name ?? "").trim(),
-    amount,
-    amountUnit: unit,
-    kcalPerPackage: unit === "package" ? estimateKcalPerPackage(product) : null,
-    kcalPer100g: unit === "g" ? getKcalPer100g(product) : null,
-    kcalPer100ml: unit === "ml" ? getKcalPer100ml(product) : null,
+    quantity: amount,
   };
+}
+
+export function getDisplayQuantity(product: Product): string | null {
+  if (product.productQuantity && product.productQuantityUnit) {
+    return `${product.productQuantity}${product.productQuantityUnit}`;
+  }
+
+  const amountInfo = getPackageAmount(product);
+  if (amountInfo) {
+    return amountInfo.basis === "100g" ? `${amountInfo.amount}g` : `${amountInfo.amount}ml`;
+  }
+
+  return product.quantity;
 }

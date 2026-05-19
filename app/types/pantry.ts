@@ -1,14 +1,9 @@
-// Issue #114 — amount unit chosen by the user when adding an item to the pantry
+// Issue #114 — amount unit chosen by the user when adding or consuming pantry items
 export type AmountUnit = "g" | "ml" | "package";
 
 export interface PantryItemCreateRequest {
   barcode: string;
-  name: string;
-  amount: number;
-  amountUnit: AmountUnit;
-  kcalPerPackage?: number | null;
-  kcalPer100g?: number | null;
-  kcalPer100ml?: number | null;
+  quantity: number;
 }
 
 export interface PantryItem {

@@ -85,7 +85,7 @@ describe("Open Food Facts page", () => {
     fireEvent.click(screen.getByRole("button", { name: "Look up barcode" }));
 
     await waitFor(() => {
-      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=90331701");
+      expect(getMock).toHaveBeenCalledWith("/local-dataset/products/lookup?barcode=90331701");
     });
 
     expect(screen.getByText("Fanta Zero")).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("Open Food Facts page", () => {
     fireEvent.keyDown(screen.getByLabelText("e.g. 3017624010701"), { key: "Enter", code: "Enter" });
 
     await waitFor(() => {
-      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=5000168198514");
+      expect(getMock).toHaveBeenCalledWith("/local-dataset/products/lookup?barcode=5000168198514");
     });
   });
 
@@ -115,14 +115,14 @@ describe("Open Food Facts page", () => {
 
     getMock.mockImplementation((url: string) => {
       if (url === "/households/5") return Promise.resolve({ householdId: 5, name: "Test" });
-      if (url.includes("/products/lookup")) return Promise.resolve({ name: "Auto Product", barcode: "9999" });
+      if (url.includes("/local-dataset/products/lookup")) return Promise.resolve({ name: "Auto Product", barcode: "9999" });
       return Promise.reject(new Error("unexpected: " + url));
     });
 
     render(<OpenFoodFactsPage />);
 
     await waitFor(() => {
-      expect(getMock).toHaveBeenCalledWith("/products/lookup?barcode=9999");
+      expect(getMock).toHaveBeenCalledWith("/local-dataset/products/lookup?barcode=9999");
     });
 
     expect(screen.getByText("Auto Product")).toBeInTheDocument();

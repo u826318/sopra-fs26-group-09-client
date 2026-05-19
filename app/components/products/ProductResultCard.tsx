@@ -138,6 +138,19 @@ function readNutrimentUnit(nutriments: Record<string, unknown>, baseKey: string)
 }
 
 function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
+  const localMicronutrients = product.nutrition?.micronutrients;
+  if (localMicronutrients && Object.keys(localMicronutrients).length > 0) {
+    const basisUnit = product.nutrition?.basisUnit;
+    const basis = basisUnit ? `per 100${basisUnit}` : "per 100";
+
+    return Object.entries(localMicronutrients).map(([key, amount]) => ({
+      displayName: key,
+      value: amount.value,
+      unit: amount.unit,
+      basis,
+    }));
+  }
+
   const nutriments = product.nutriments;
   if (!nutriments) {
     return [];
@@ -165,6 +178,11 @@ function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
   });
 }
 
+function isLocalDatasetProduct(product: Product): boolean {
+  return product.dataSource === "local_dataset";
+}
+
+
 export default function ProductResultCard({
   product,
   pantryContext,
@@ -182,6 +200,7 @@ export default function ProductResultCard({
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const reportedMicronutrients = useMemo(() => getReportedMicronutrients(product), [product]);
   const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback";
+  const isLocalDataset = isLocalDatasetProduct(product);
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
     [pantryContext],
@@ -287,7 +306,7 @@ export default function ProductResultCard({
           <div className={styles.headerBlock}>
             <div className={styles.headerRow}>
               <div className={styles.eyebrow}>Top match</div>
-              {isLocalFallback ? (
+              {isLocalDataset || isLocalFallback ? (
                 <span className={styles.sourceBadge}>From Local Dataset</span>
               ) : (
                 <span className={styles.sourceBadgeSecondary}>Open Food Facts API</span>
@@ -312,7 +331,7 @@ export default function ProductResultCard({
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Data source</div>
               <div className={styles.metaValue}>
-                {isLocalFallback ? "Local fallback" : "Open Food Facts"}
+                {isLocalDataset ? "Local dataset" : isLocalFallback ? "Local fallback" : "Open Food Facts"}
               </div>
             </div>
           </div>
@@ -323,7 +342,7 @@ export default function ProductResultCard({
                 <div>
                   <div className={styles.micronutrientTitle}>Reported micronutrients</div>
                   <div className={styles.micronutrientSubtext}>
-                    Open Food Facts values shown only when reported for this product.
+                    {isLocalDataset ? "Local dataset values standardized per 100g/ml." : "Open Food Facts values shown only when reported for this product."}
                   </div>
                 </div>
                 <span className={styles.micronutrientCount}>

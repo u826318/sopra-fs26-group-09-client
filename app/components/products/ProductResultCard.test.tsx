@@ -109,7 +109,7 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Amount in g"), {
+    fireEvent.change(screen.getByLabelText("Amount in package"), {
       target: { value: "2" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
@@ -117,12 +117,7 @@ describe("ProductResultCard", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/10/pantry", {
         barcode: "123456789",
-        name: "Plant Based Caprese",
-        amount: 2,
-        amountUnit: "g",
-        kcalPerPackage: null,
-        kcalPer100g: 220,
-        kcalPer100ml: null,
+        quantity: 2,
       });
     });
 
@@ -157,12 +152,7 @@ describe("ProductResultCard", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/12/pantry", {
         barcode: "123456789",
-        name: "Plant Based Caprese",
-        amount: 180,
-        amountUnit: "g",
-        kcalPerPackage: null,
-        kcalPer100g: 220,
-        kcalPer100ml: null,
+        quantity: 1,
       });
     });
 
@@ -182,7 +172,7 @@ describe("ProductResultCard", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Amount in g"), {
+    fireEvent.change(screen.getByLabelText("Amount in package"), {
       target: { value: "0" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
