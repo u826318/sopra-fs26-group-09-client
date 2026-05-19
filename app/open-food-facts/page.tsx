@@ -255,7 +255,7 @@ function OpenFoodFactsPortalContent() {
           Product Lookup Portal
         </Title>
         <Paragraph className={styles.pageSubtitle}>
-          Search Open Food Facts by barcode and add matching products straight into your pantry flow.
+          Search the local product dataset by barcode and add matching products straight into your pantry flow.
         </Paragraph>
       </header>
 

@@ -1,5 +1,5 @@
 import type { AmountUnit, PantryItemCreateRequest } from "@/types/pantry";
-import type { Product } from "@/types/product";
+import type { LocalDatasetNutrientAmount, Product } from "@/types/product";
 
 type QuantityUnit = "kg" | "g" | "l" | "ml";
 
@@ -56,6 +56,11 @@ function parseUnitAmount(value: string): ParsedUnitAmount | null {
   };
 }
 
+function normalizeUnit(unit: string | null | undefined): string | null {
+  const normalized = unit?.trim().toLowerCase();
+  return normalized || null;
+}
+
 function toAmountBasis(amount: number, unit: QuantityUnit): ParsedPackageAmount {
   switch (unit) {
     case "kg":
@@ -69,7 +74,7 @@ function toAmountBasis(amount: number, unit: QuantityUnit): ParsedPackageAmount 
   }
 }
 
-function parsePackageAmount(quantity: string | null): ParsedPackageAmount | null {
+function parsePackageAmount(quantity: string | null | undefined): ParsedPackageAmount | null {
   if (!quantity) {
     return null;
   }
@@ -95,18 +100,88 @@ function parsePackageAmount(quantity: string | null): ParsedPackageAmount | null
   return singleAmount ? toAmountBasis(singleAmount.amount, singleAmount.unit) : null;
 }
 
-export function estimateKcalPerPackage(product: Product): number | null {
-  const nutriments = product.nutriments ?? {};
-  const amountInfo = parsePackageAmount(product.quantity);
+function packageAmountFromLocalDataset(product: Product): ParsedPackageAmount | null {
+  const packageQuantity = parseNumber(product.packageQuantity);
+  const packageUnit = normalizeUnit(product.packageQuantityUnit);
 
-  if (amountInfo) {
+  if (packageQuantity !== null && packageQuantity > 0) {
+    if (packageUnit === "g" || packageUnit === "kg" || packageUnit === "ml" || packageUnit === "l") {
+      return toAmountBasis(packageQuantity, packageUnit);
+    }
+  }
+
+  return parsePackageAmount(product.productQuantity ?? product.quantity);
+}
+
+function isMassUnit(unit: string | null): boolean {
+  return unit === "g" || unit === "kg";
+}
+
+function isVolumeUnit(unit: string | null): boolean {
+  return unit === "ml" || unit === "l";
+}
+
+function scaleBasisValueToPer100(value: number, basisAmount: number | null | undefined): number | null {
+  const basis = parseNumber(basisAmount ?? 100);
+  if (basis === null || basis <= 0) {
+    return null;
+  }
+
+  return value * (100 / basis);
+}
+
+function getLocalCoreNutrient(product: Product, key: string): LocalDatasetNutrientAmount | null {
+  return product.nutrition?.coreNutrition?.[key] ?? null;
+}
+
+function getLocalCoreNutrientPer100(product: Product, key: string, expectedBasis: "100g" | "100ml"): number | null {
+  const nutrient = getLocalCoreNutrient(product, key);
+  const value = parseNumber(nutrient?.value);
+  if (value === null) {
+    return null;
+  }
+
+  const basisUnit = normalizeUnit(product.nutrition?.basisUnit);
+  const matchesBasis = expectedBasis === "100g" ? isMassUnit(basisUnit) : isVolumeUnit(basisUnit);
+  if (!matchesBasis) {
+    return null;
+  }
+
+  const scaledValue = scaleBasisValueToPer100(value, product.nutrition?.basisAmount);
+  return scaledValue !== null ? Number(scaledValue.toFixed(6)) : null;
+}
+
+export function estimateKcalPerPackage(product: Product): number | null {
+  const localAmountInfo = packageAmountFromLocalDataset(product);
+
+  if (localAmountInfo) {
+    const localBaseValue =
+      localAmountInfo.basis === "100g"
+        ? getLocalCoreNutrientPer100(product, "energy-kcal", "100g")
+        : getLocalCoreNutrientPer100(product, "energy-kcal", "100ml");
+
+    if (localBaseValue !== null) {
+      const estimatedCalories = (localBaseValue * localAmountInfo.amount) / 100;
+      return Number(estimatedCalories.toFixed(2));
+    }
+  }
+
+  const directCaloriesPerPackage = parseNumber(product.caloriesPerPackage);
+  if (directCaloriesPerPackage !== null) {
+    return Number(directCaloriesPerPackage.toFixed(2));
+  }
+
+  const nutriments = product.nutriments ?? {};
+  const legacyAmountInfo = parsePackageAmount(product.quantity);
+
+  if (legacyAmountInfo) {
     const baseValue =
-      amountInfo.basis === "100g"
+      legacyAmountInfo.basis === "100g"
         ? parseNumber(nutriments["energy-kcal_100g"])
         : parseNumber(nutriments["energy-kcal_100ml"]);
 
     if (baseValue !== null) {
-      const estimatedCalories = (baseValue * amountInfo.amount) / 100;
+      const estimatedCalories = (baseValue * legacyAmountInfo.amount) / 100;
       return Number(estimatedCalories.toFixed(2));
     }
   }
@@ -116,12 +191,12 @@ export function estimateKcalPerPackage(product: Product): number | null {
     return Number(servingValue.toFixed(2));
   }
 
-  const fallback100g = parseNumber(nutriments["energy-kcal_100g"]);
+  const fallback100g = getKcalPer100g(product);
   if (fallback100g !== null) {
     return Number(fallback100g.toFixed(2));
   }
 
-  const fallback100ml = parseNumber(nutriments["energy-kcal_100ml"]);
+  const fallback100ml = getKcalPer100ml(product);
   if (fallback100ml !== null) {
     return Number(fallback100ml.toFixed(2));
   }
@@ -135,9 +210,18 @@ export function formatQuantity(quantity: number, unit: AmountUnit | undefined): 
   return `${quantity}×`;
 }
 
-// Issue #114 — returns only units that have usable nutrition data for this product
-// package is always available as fallback; g/ml only shown when product has the data
+function isLocalDatasetProduct(product: Product): boolean {
+  return product.dataSource === "local_dataset";
+}
+
+// Issue #114 — returns only units that have usable nutrition data for this product.
+// Local dataset add-to-pantry is package-first for now; g/ml can be restored when
+// the revamped consumption-unit flow is wired end to end.
 export function detectAvailableUnits(product: Product): AmountUnit[] {
+  if (isLocalDatasetProduct(product)) {
+    return ["package"];
+  }
+
   const units: AmountUnit[] = ["package"];
   const amountInfo = parsePackageAmount(product.quantity);
   const nutriments = product.nutriments ?? {};
@@ -156,18 +240,20 @@ export function detectAvailableUnits(product: Product): AmountUnit[] {
 // package → 1; g/ml → the parsed package weight/volume so user doesn't have to type it
 export function getDefaultAmount(product: Product, unit: AmountUnit): number {
   if (unit === "package") return 1;
-  const amountInfo = parsePackageAmount(product.quantity);
+  const amountInfo = packageAmountFromLocalDataset(product);
   return amountInfo?.amount ?? 1;
 }
 
-// Issue #114 — extract per-100g kcal value from product nutriments
+// Issue #114 — extract per-100g kcal value from either LocalDatasetProductDTO nutrition or legacy nutriments
 export function getKcalPer100g(product: Product): number | null {
-  return parseNumber((product.nutriments ?? {})["energy-kcal_100g"]);
+  return getLocalCoreNutrientPer100(product, "energy-kcal", "100g")
+    ?? parseNumber((product.nutriments ?? {})["energy-kcal_100g"]);
 }
 
-// Issue #114 — extract per-100ml kcal value from product nutriments
+// Issue #114 — extract per-100ml kcal value from either LocalDatasetProductDTO nutrition or legacy nutriments
 export function getKcalPer100ml(product: Product): number | null {
-  return parseNumber((product.nutriments ?? {})["energy-kcal_100ml"]);
+  return getLocalCoreNutrientPer100(product, "energy-kcal", "100ml")
+    ?? parseNumber((product.nutriments ?? {})["energy-kcal_100ml"]);
 }
 
 // Issue #114 — build payload with amount, amountUnit, and the relevant kcal field for the chosen unit

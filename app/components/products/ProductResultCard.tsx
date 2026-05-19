@@ -52,11 +52,12 @@ type MicronutrientDescriptor = {
   baseKeys: string[];
 };
 
-type ReportedMicronutrient = {
+type ReportedNutrient = {
   displayName: string;
   value: unknown;
   unit: string;
   basis: string;
+  section: "Core nutrition" | "Micronutrients";
 };
 
 const MICRONUTRIENT_DESCRIPTORS: MicronutrientDescriptor[] = [
@@ -99,6 +100,19 @@ const NUTRIMENT_SUFFIXES = [
   { suffix: "", basis: "reported value" },
 ];
 
+const CORE_NUTRIENT_LABELS: Record<string, string> = {
+  "energy-kcal": "Energy",
+  energy: "Energy",
+  protein: "Protein",
+  carbohydrates: "Carbohydrates",
+  sugars: "Sugars",
+  fat: "Fat",
+  "saturated-fat": "Saturated fat",
+  fiber: "Fiber",
+  salt: "Salt",
+  sodium: "Sodium",
+};
+
 function hasNutrimentValue(value: unknown): boolean {
   return value !== null && value !== undefined && value !== "";
 }
@@ -137,7 +151,59 @@ function readNutrimentUnit(nutriments: Record<string, unknown>, baseKey: string)
   return typeof unit === "string" && unit.trim() ? unit.trim() : "";
 }
 
-function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
+function formatNutritionBasis(product: Product): string {
+  const basisAmount = product.nutrition?.basisAmount;
+  const basisUnit = product.nutrition?.basisUnit?.trim();
+
+  if (typeof basisAmount === "number" && Number.isFinite(basisAmount) && basisUnit) {
+    return `per ${formatNutrimentValue(basisAmount)}${basisUnit}`;
+  }
+
+  return "reported value";
+}
+
+function formatNutrientKey(key: string): string {
+  return CORE_NUTRIENT_LABELS[key] ?? key
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getLocalDatasetReportedNutrients(product: Product): ReportedNutrient[] {
+  const nutrition = product.nutrition;
+  if (!nutrition) {
+    return [];
+  }
+
+  const basis = formatNutritionBasis(product);
+  const coreNutrition = nutrition.coreNutrition ?? {};
+  const micronutrients = nutrition.micronutrients ?? {};
+
+  const coreRows = Object.entries(coreNutrition)
+    .filter(([, nutrient]) => hasNutrimentValue(nutrient?.value))
+    .map(([key, nutrient]) => ({
+      displayName: formatNutrientKey(key),
+      value: nutrient?.value,
+      unit: nutrient?.unit?.trim() ?? "",
+      basis,
+      section: "Core nutrition" as const,
+    }));
+
+  const micronutrientRows = Object.entries(micronutrients)
+    .filter(([, nutrient]) => hasNutrimentValue(nutrient?.value))
+    .map(([key, nutrient]) => ({
+      displayName: formatNutrientKey(key),
+      value: nutrient?.value,
+      unit: nutrient?.unit?.trim() ?? "",
+      basis,
+      section: "Micronutrients" as const,
+    }));
+
+  return [...coreRows, ...micronutrientRows];
+}
+
+function getLegacyReportedNutrients(product: Product): ReportedNutrient[] {
   const nutriments = product.nutriments;
   if (!nutriments) {
     return [];
@@ -155,6 +221,7 @@ function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
               value,
               unit: readNutrimentUnit(nutriments, baseKey),
               basis,
+              section: "Micronutrients" as const,
             },
           ];
         }
@@ -163,6 +230,11 @@ function getReportedMicronutrients(product: Product): ReportedMicronutrient[] {
 
     return [];
   });
+}
+
+function getReportedNutrients(product: Product): ReportedNutrient[] {
+  const localDatasetRows = getLocalDatasetReportedNutrients(product);
+  return localDatasetRows.length > 0 ? localDatasetRows : getLegacyReportedNutrients(product);
 }
 
 export default function ProductResultCard({
@@ -180,8 +252,9 @@ export default function ProductResultCard({
   const { message } = App.useApp();
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
-  const reportedMicronutrients = useMemo(() => getReportedMicronutrients(product), [product]);
-  const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback";
+  const reportedNutrients = useMemo(() => getReportedNutrients(product), [product]);
+  const isLocalDataset = product.dataSource === "local_dataset";
+  const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback" || isLocalDataset;
   const effectivePantryContext = useMemo(
     () => pantryContext ?? readPantryContextFromUrl(),
     [pantryContext],
@@ -290,7 +363,7 @@ export default function ProductResultCard({
               {isLocalFallback ? (
                 <span className={styles.sourceBadge}>From Local Dataset</span>
               ) : (
-                <span className={styles.sourceBadgeSecondary}>Open Food Facts API</span>
+                <span className={styles.sourceBadgeSecondary}>External product API</span>
               )}
             </div>
             <div className={styles.productName}>{product.name ?? "Unknown product"}</div>
@@ -312,34 +385,34 @@ export default function ProductResultCard({
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Data source</div>
               <div className={styles.metaValue}>
-                {isLocalFallback ? "Local fallback" : "Open Food Facts"}
+                {isLocalDataset ? "Local dataset" : isLocalFallback ? "Local fallback" : "External product API"}
               </div>
             </div>
           </div>
 
-          {reportedMicronutrients.length > 0 ? (
-            <section className={styles.micronutrientPanel} aria-label="Reported micronutrients">
+          {reportedNutrients.length > 0 ? (
+            <section className={styles.micronutrientPanel} aria-label="Reported nutrition">
               <div className={styles.micronutrientHeader}>
                 <div>
-                  <div className={styles.micronutrientTitle}>Reported micronutrients</div>
+                  <div className={styles.micronutrientTitle}>Reported nutrition</div>
                   <div className={styles.micronutrientSubtext}>
-                    Open Food Facts values shown only when reported for this product.
+                    Values are shown when reported by the local dataset or the product data source.
                   </div>
                 </div>
                 <span className={styles.micronutrientCount}>
-                  {reportedMicronutrients.length} of 29
+                  {reportedNutrients.length} reported
                 </span>
               </div>
 
               <div className={styles.micronutrientGrid}>
-                {reportedMicronutrients.map((nutrient) => (
-                  <div key={`${nutrient.displayName}-${nutrient.basis}`} className={styles.micronutrientCard}>
+                {reportedNutrients.map((nutrient) => (
+                  <div key={`${nutrient.section}-${nutrient.displayName}-${nutrient.basis}`} className={styles.micronutrientCard}>
                     <div className={styles.micronutrientName}>{nutrient.displayName}</div>
                     <div className={styles.micronutrientValue}>
                       {formatNutrimentValue(nutrient.value)}
                       {nutrient.unit ? ` ${nutrient.unit}` : ""}
                     </div>
-                    <div className={styles.micronutrientBasis}>{nutrient.basis}</div>
+                    <div className={styles.micronutrientBasis}>{nutrient.section} · {nutrient.basis}</div>
                   </div>
                 ))}
               </div>
