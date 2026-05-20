@@ -1,4 +1,4 @@
-import type { AmountUnit, PantryItemCreateRequest } from "@/types/pantry";
+import type { AmountUnit, ConsumptionUnit, PantryItemCreateRequest } from "@/types/pantry";
 import type { LocalDatasetNutrientAmount, Product } from "@/types/product";
 
 type QuantityUnit = "kg" | "g" | "l" | "ml";
@@ -205,8 +205,9 @@ export function estimateKcalPerPackage(product: Product): number | null {
 }
 
 // Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
-export function formatQuantity(quantity: number, unit: AmountUnit | undefined): string {
+export function formatQuantity(quantity: number, unit: ConsumptionUnit | undefined): string {
   if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
+  if (unit === "serving") return `${quantity} serving${quantity === 1 ? "" : "s"}`;
   return `${quantity}×`;
 }
 

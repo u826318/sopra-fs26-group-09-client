@@ -1,5 +1,6 @@
 // Issue #114 — amount unit chosen by the user when adding an item to the pantry
 export type AmountUnit = "g" | "ml" | "package";
+export type ConsumptionUnit = AmountUnit | "serving";
 
 export interface PantryItemCreateRequest {
   barcode: string;
@@ -22,6 +23,13 @@ export interface PantryItem {
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
   kcalPer100ml?: number | null;
+  nutritionBasisAmount?: number | null;
+  nutritionBasisUnit?: AmountUnit | null;
+  packageQuantity?: number | null;
+  packageQuantityUnit?: AmountUnit | null;
+  servingQuantity?: number | null;
+  servingQuantityUnit?: AmountUnit | null;
+  availableConsumptionUnits?: ConsumptionUnit[] | null;
   addedAt: string;
 }
 

@@ -58,6 +58,7 @@ import statsStyles from "@/styles/stats.module.css";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import type {
   AmountUnit,
+  ConsumptionUnit,
   ConsumePantryItemResponse,
   PantryItem,
   PantryOverview,
@@ -91,7 +92,7 @@ type ActivityEntry = {
   deltaKcal: number | null;
   quantity: number;
   // Issue #95 — unit stored so display can show "200g" instead of "200×" for g/ml items
-  unit?: AmountUnit;
+  unit?: ConsumptionUnit;
   type: "ADDED" | "CONSUMED";
 };
 
@@ -203,6 +204,7 @@ type UnknownConsumeState = {
   item: PantryItem;
   // Issue #95 — amount chosen in portion modal, carried into calorie-unknown flow
   amount: number;
+  amountUnit: ConsumptionUnit;
   suggestedCalories: number | null;
   mode: UnknownConsumeMode;
   manualCalories: number | null;
@@ -212,6 +214,7 @@ type UnknownConsumeState = {
 type PortionConsumeState = {
   item: PantryItem;
   amount: number;
+  amountUnit: ConsumptionUnit;
   mealPhoto: File | null;
   estimateMessage: string | null;
   estimatedRange: string | null;
@@ -245,6 +248,58 @@ const CALORIE_SUGGESTIONS: Array<{ keywords: string[]; kcal: number }> = [
   { keywords: ["cucumber"], kcal: 50 },
   { keywords: ["potato"], kcal: 1540 },
 ];
+
+function formatConsumptionUnitLabel(unit: ConsumptionUnit): string {
+  if (unit === "package") return "package";
+  if (unit === "serving") return "serving";
+  return unit;
+}
+
+function getAvailableConsumptionUnits(item: PantryItem): ConsumptionUnit[] {
+  const fromBackend = item.availableConsumptionUnits?.filter((unit): unit is ConsumptionUnit =>
+    unit === "package" || unit === "serving" || unit === "g" || unit === "ml",
+  );
+  if (fromBackend && fromBackend.length > 0) {
+    return fromBackend;
+  }
+  return [item.amountUnit];
+}
+
+function getDefaultConsumptionUnit(item: PantryItem): ConsumptionUnit {
+  const units = getAvailableConsumptionUnits(item);
+  if (units.includes("package")) return "package";
+  return units[0] ?? item.amountUnit;
+}
+
+function getDefaultConsumptionAmount(item: PantryItem, unit: ConsumptionUnit): number {
+  if (unit === "package") return Math.min(1, item.amount);
+  if (unit === "serving") return 1;
+  return 100;
+}
+
+function getMaxConsumptionAmount(item: PantryItem, unit: ConsumptionUnit): number | undefined {
+  if (unit === item.amountUnit) return item.amount;
+
+  const packageQuantity = Number(item.packageQuantity ?? 0);
+  if (item.amountUnit === "package" && Number.isFinite(packageQuantity) && packageQuantity > 0) {
+    if ((unit === "g" || unit === "ml") && item.packageQuantityUnit === unit) {
+      return item.amount * packageQuantity;
+    }
+    const servingQuantity = Number(item.servingQuantity ?? 0);
+    if (unit === "serving"
+        && Number.isFinite(servingQuantity)
+        && servingQuantity > 0
+        && item.servingQuantityUnit === item.packageQuantityUnit) {
+      return (item.amount * packageQuantity) / servingQuantity;
+    }
+  }
+
+  return undefined;
+}
+
+function getConsumptionStep(unit: ConsumptionUnit): number {
+  return unit === "package" || unit === "serving" ? 1 : 0.1;
+}
 
 function estimateSuggestedCalories(item: PantryItem): number | null {
   const name = item.name.trim().toLowerCase();
@@ -571,13 +626,14 @@ export default function StatsPage() {
 
   // Issue #95 — amount is user-chosen portion; options carries kcal override for package items
   const executeConsume = useCallback(
-    async (item: PantryItem, amount: number, options?: { kcalPerPackage?: number | null; skipCalorieLogging?: boolean; consumedForUserId?: number }) => {
+    async (item: PantryItem, amount: number, options?: { amountUnit?: ConsumptionUnit; kcalPerPackage?: number | null; skipCalorieLogging?: boolean; consumedForUserId?: number }) => {
       setConsumingItemId(item.id);
       try {
         const res = await api.post<ConsumePantryItemResponse>(
           `/households/${householdId}/pantry/${item.id}/consume`,
           {
             amount,
+            amountUnit: options?.amountUnit ?? item.amountUnit,
             kcalPerPackage: options?.kcalPerPackage ?? null,
             skipCalorieLogging: options?.skipCalorieLogging ?? false,
             ...(options?.consumedForUserId !== undefined
@@ -634,7 +690,7 @@ export default function StatsPage() {
               ...current,
               amount:
                 suggestedAmount !== null
-                  ? Math.min(Math.max(suggestedAmount, 0.01), current.item.amount)
+                  ? Math.min(Math.max(suggestedAmount, 0.01), getMaxConsumptionAmount(current.item, current.amountUnit) ?? suggestedAmount)
                   : current.amount,
               estimatedRange: estimate.estimatedRange ?? null,
               estimateMessage:
@@ -674,10 +730,12 @@ export default function StatsPage() {
         return;
       }
 
-      const defaultAmount = item.amountUnit === "package" ? 1 : item.amount;
+      const defaultUnit = getDefaultConsumptionUnit(item);
+      const defaultAmount = getDefaultConsumptionAmount(item, defaultUnit);
       setPortionConsumeState({
       item,
       amount: defaultAmount,
+      amountUnit: defaultUnit,
       mealPhoto: null,
       estimateMessage: null,
       estimatedRange: null,
@@ -1267,13 +1325,14 @@ export default function StatsPage() {
         onCancel={() => setPortionConsumeState(null)}
         onOk={() => {
           if (!portionConsumeState) return;
-          const { item, amount } = portionConsumeState;
+          const { item, amount, amountUnit } = portionConsumeState;
           if (!Number.isFinite(amount) || amount <= 0) {
             message.error("Amount must be greater than zero.");
             return;
           }
-          if (amount > item.amount) {
-            message.error(`Amount cannot exceed available quantity (${item.amount} ${item.amountUnit}).`);
+          const maxAmount = getMaxConsumptionAmount(item, amountUnit);
+          if (maxAmount !== undefined && amount > maxAmount) {
+            message.error(`Amount cannot exceed available quantity (${maxAmount.toFixed(2)} ${amountUnit}).`);
             return;
           }
           // Issue #121
@@ -1282,19 +1341,20 @@ export default function StatsPage() {
               ? selectedConsumerId
               : undefined;
           // For package items without calorie data, open the calorie-unknown flow
-          if (item.amountUnit === "package" && !isKnownCalories(item.kcalPerPackage)) {
+          if (amountUnit === "package" && !isKnownCalories(item.kcalPerPackage)) {
             const suggestedCalories = estimateSuggestedCalories(item);
             setPortionConsumeState(null);
             setUnknownConsumeState({
               item,
               amount,
+              amountUnit,
               suggestedCalories,
               mode: suggestedCalories !== null ? "suggested" : "manual",
               manualCalories: suggestedCalories,
             });
             return;
           }
-          void executeConsume(item, amount, { consumedForUserId });
+          void executeConsume(item, amount, { amountUnit, consumedForUserId });
         }}
         confirmLoading={portionConsumeState ? consumingItemId === portionConsumeState.item.id : false}
         okText="Consume"
@@ -1305,13 +1365,35 @@ export default function StatsPage() {
               {portionConsumeState.item.name}
             </Text>
             <div>
+              <Text style={{ display: "block", marginBottom: 4 }}>Consume by</Text>
+              <Select
+                style={{ width: "100%" }}
+                value={portionConsumeState.amountUnit}
+                options={getAvailableConsumptionUnits(portionConsumeState.item).map((unit) => ({
+                  value: unit,
+                  label: formatConsumptionUnitLabel(unit),
+                }))}
+                onChange={(unit: ConsumptionUnit) =>
+                  setPortionConsumeState((cur) =>
+                    cur
+                      ? {
+                          ...cur,
+                          amountUnit: unit,
+                          amount: getDefaultConsumptionAmount(cur.item, unit),
+                        }
+                      : cur,
+                  )
+                }
+              />
+            </div>
+            <div>
               <Text style={{ display: "block", marginBottom: 4 }}>
-                Amount ({portionConsumeState.item.amountUnit})
+                Amount ({formatConsumptionUnitLabel(portionConsumeState.amountUnit)})
               </Text>
               <InputNumber
                 min={0.01}
-                max={portionConsumeState.item.amount}
-                step={portionConsumeState.item.amountUnit === "package" ? 1 : 0.1}
+                max={getMaxConsumptionAmount(portionConsumeState.item, portionConsumeState.amountUnit)}
+                step={getConsumptionStep(portionConsumeState.amountUnit)}
                 value={portionConsumeState.amount}
                 onChange={(value) =>
                   setPortionConsumeState((cur) =>
@@ -1321,11 +1403,14 @@ export default function StatsPage() {
                   )
                 }
                 style={{ width: "100%" }}
-                suffix={portionConsumeState.item.amountUnit}
+                suffix={portionConsumeState.amountUnit}
               />
             </div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Available: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
+              Inventory: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
+              {getMaxConsumptionAmount(portionConsumeState.item, portionConsumeState.amountUnit) === undefined
+                ? " · nutrition can be logged, but package inventory may not change for this unit"
+                : ""}
             </Text>
             {/* Issue #121 — attribute consumption to a specific member */}
             {members.length > 1 && (
@@ -1401,6 +1486,7 @@ export default function StatsPage() {
 
           if (unknownConsumeState.mode === "suggested") {
             void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
+              amountUnit: unknownConsumeState.amountUnit,
               kcalPerPackage: unknownConsumeState.suggestedCalories,
               consumedForUserId,
             });
@@ -1414,6 +1500,7 @@ export default function StatsPage() {
               return;
             }
             void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
+              amountUnit: unknownConsumeState.amountUnit,
               kcalPerPackage: manualCalories,
               consumedForUserId,
             });
@@ -1421,6 +1508,7 @@ export default function StatsPage() {
           }
 
           void executeConsume(unknownConsumeState.item, unknownConsumeState.amount, {
+            amountUnit: unknownConsumeState.amountUnit,
             skipCalorieLogging: true,
             consumedForUserId,
           });
