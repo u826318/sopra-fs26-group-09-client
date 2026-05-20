@@ -108,8 +108,7 @@ function logsToActivity(logs: ConsumptionLogEntry[]): ActivityEntry[] {
   }));
 }
 
-function computeItemKcal(item: PantryItem): number | null {
-  const amount = Number(item.initialAmount ?? item.amount ?? 0);
+function computeItemKcalForAmount(item: PantryItem, amount: number): number | null {
   if (!Number.isFinite(amount) || amount <= 0) return null;
   if (item.amountUnit === "package") {
     const per = Number(item.kcalPerPackage ?? 0);
@@ -124,6 +123,16 @@ function computeItemKcal(item: PantryItem): number | null {
     return Number.isFinite(per) && per > 0 ? (per * amount) / 100 : null;
   }
   return null;
+}
+
+// Activity feed: kcal at add time (uses initialAmount)
+function computeItemKcal(item: PantryItem): number | null {
+  return computeItemKcalForAmount(item, Number(item.initialAmount ?? item.amount ?? 0));
+}
+
+// Inventory table + energy reservoir: kcal currently remaining
+function computeRemainingKcal(item: PantryItem): number | null {
+  return computeItemKcalForAmount(item, Number(item.amount ?? 0));
 }
 
 function pantryItemsToActivity(items: PantryItem[]): ActivityEntry[] {
@@ -379,7 +388,7 @@ export default function StatsPage() {
 
   const pantryKnownCalories = useMemo(() => {
     return (pantry?.items ?? []).reduce((sum, item) => {
-      const kcal = computeItemKcal(item);
+      const kcal = computeRemainingKcal(item);
       return kcal !== null ? sum + kcal : sum;
     }, 0);
   }, [pantry?.items]);
@@ -814,14 +823,12 @@ export default function StatsPage() {
         ),
       },
       {
-        title: "Calories",
+        title: "Remaining kcal",
         key: "cals",
-        width: 120,
-        render: (_: unknown, record: PantryItem) => {
-          // Issue #114 — unit-aware calorie computation
-          const totalCalories = computeItemKcal(record);
-          return <Text strong>{formatKcalDisplay(totalCalories)}</Text>;
-        },
+        width: 130,
+        render: (_: unknown, record: PantryItem) => (
+          <Text strong>{formatKcalDisplay(computeRemainingKcal(record))}</Text>
+        ),
       },
       {
         title: "Expires",
