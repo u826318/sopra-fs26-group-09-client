@@ -1115,22 +1115,41 @@ export default function StatsPage() {
                           size="small"
                           onClick={() =>
                             router.push(
-                              `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
-                            )
-                          }
-                        >
-                          Scan product barcode
-                        </Button>
-                        <Button
-                          type="primary"
-                          size="small"
-                          onClick={() =>
-                            router.push(
                               `/open-food-facts?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
                             )
                           }
                         >
                           Add from Open Food Facts
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/scan?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Scan product image
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/receipt?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Upload receipt
+                        </Button>
+                        <Button
+                          size="small"
+                          onClick={() =>
+                            router.push(
+                              `/pantry/add/manual?householdId=${householdId}&householdName=${encodeURIComponent(householdName)}`,
+                            )
+                          }
+                        >
+                          Add manually
                         </Button>
                       </Space>
                     }
