@@ -824,6 +824,20 @@ export default function StatsPage() {
         },
       },
       {
+        title: "Expires",
+        key: "expiry",
+        width: 130,
+        render: (_: unknown, record: PantryItem) => {
+          if (!record.expirationDate) return null;
+          const exp = dayjs(record.expirationDate);
+          const daysLeft = exp.startOf("day").diff(dayjs().startOf("day"), "day");
+          if (daysLeft < 0) return <Tag color="error">Expired</Tag>;
+          if (daysLeft === 0) return <Tag color="error">Expires today</Tag>;
+          if (daysLeft <= 3) return <Tag color="warning">Expires in {daysLeft}d</Tag>;
+          return <Tag>{exp.format("MMM D")}</Tag>;
+        },
+      },
+      {
         title: "Status",
         key: "status",
         width: 120,

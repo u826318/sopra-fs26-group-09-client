@@ -10,6 +10,7 @@ export interface PantryItemCreateRequest {
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
   kcalPer100ml?: number | null;
+  expirationDate?: string | null;
 }
 
 export interface PantryItem {
@@ -30,6 +31,7 @@ export interface PantryItem {
   servingQuantity?: number | null;
   servingQuantityUnit?: AmountUnit | null;
   availableConsumptionUnits?: ConsumptionUnit[] | null;
+  expirationDate?: string | null;
   addedAt: string;
 }
 
