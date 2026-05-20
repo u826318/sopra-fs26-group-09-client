@@ -191,16 +191,6 @@ export function estimateKcalPerPackage(product: Product): number | null {
     return Number(servingValue.toFixed(2));
   }
 
-  const fallback100g = getKcalPer100g(product);
-  if (fallback100g !== null) {
-    return Number(fallback100g.toFixed(2));
-  }
-
-  const fallback100ml = getKcalPer100ml(product);
-  if (fallback100ml !== null) {
-    return Number(fallback100ml.toFixed(2));
-  }
-
   return null;
 }
 

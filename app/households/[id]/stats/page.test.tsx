@@ -444,6 +444,7 @@ describe("StatsPage", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", {
         amount: 1,
+        amountUnit: "package",
         kcalPerPackage: null,
         skipCalorieLogging: false,
       });
@@ -494,6 +495,7 @@ describe("StatsPage", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/7/consume", {
         amount: 1,
+        amountUnit: "package",
         kcalPerPackage: 1800,
         skipCalorieLogging: false,
       });
@@ -529,6 +531,7 @@ describe("StatsPage", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/8/consume", {
         amount: 1,
+        amountUnit: "package",
         kcalPerPackage: 77,
         skipCalorieLogging: false,
       });
@@ -565,6 +568,7 @@ describe("StatsPage", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith("/households/1/pantry/1/consume", {
         amount: 2,
+        amountUnit: "package",
         kcalPerPackage: null,
         skipCalorieLogging: false,
       });
