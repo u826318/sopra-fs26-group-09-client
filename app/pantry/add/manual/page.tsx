@@ -10,7 +10,8 @@ import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 import type { HouseholdWithRole } from "@/types/household";
 import type { AmountUnit, PantryItem, PantryItemCreateRequest } from "@/types/pantry";
-import { App, Button, Card, Input, Space, Typography } from "antd";
+import { App, Button, Card, DatePicker, Input, Space, Typography } from "antd";
+import type { Dayjs } from "dayjs";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
@@ -53,6 +54,7 @@ function ManualAddPantryItemContent() {
   const [unit, setUnit] = useState<AmountUnit>("package");
   const [amount, setAmount] = useState<number>(1);
   const [calories, setCalories] = useState<number | "">("");
+  const [expirationDate, setExpirationDate] = useState<Dayjs | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const requestedHouseholdId = useMemo(() => {
@@ -170,6 +172,7 @@ function ManualAddPantryItemContent() {
       kcalPerPackage: unit === "package" ? calories : null,
       kcalPer100g: unit === "g" ? calories : null,
       kcalPer100ml: unit === "ml" ? calories : null,
+      expirationDate: expirationDate ? expirationDate.format("YYYY-MM-DD") : null,
     };
 
     setIsSubmitting(true);
@@ -184,6 +187,7 @@ function ManualAddPantryItemContent() {
       setUnit("package");
       setAmount(1);
       setCalories("");
+      setExpirationDate(null);
       router.push(`/households/${validatedPantryTarget.householdId}/stats`);
     } catch (error) {
       if (isStaleHouseholdError(error)) {
@@ -199,7 +203,7 @@ function ManualAddPantryItemContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [api, amount, barcode, cachedHouseholds, calories, clearSelectedHouseholdId, message, name, router, setHouseholds, unit, validatedPantryTarget]);
+  }, [api, amount, barcode, cachedHouseholds, calories, clearSelectedHouseholdId, expirationDate, message, name, router, setHouseholds, unit, validatedPantryTarget]);
 
   if (validatingPantryTarget || !validatedPantryTarget) {
     return null;
@@ -279,6 +283,17 @@ function ManualAddPantryItemContent() {
                 setCalories(e.target.value === "" ? "" : Number(e.target.value))
               }
               placeholder="e.g. 250"
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span>Expiration date (optional)</span>
+            <DatePicker
+              value={expirationDate}
+              onChange={setExpirationDate}
+              format="YYYY-MM-DD"
+              placeholder="No expiration date"
+              style={{ width: "100%" }}
             />
           </label>
 
