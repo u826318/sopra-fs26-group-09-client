@@ -49,3 +49,24 @@ export interface Product {
   consumptionOptions?: LocalDatasetConsumptionOption[] | null;
   dataSource?: string | null;
 }
+
+
+export type ProductSearchCandidate = {
+  productIndex: number | null;
+  barcode: string | null;
+  name: string | null;
+  brand: string | null;
+  quantity: string | null;
+  score: number | null;
+};
+
+export type ProductSearchResponse = {
+  query: string | null;
+  normalizedQuery: string | null;
+  status: "OK" | "TOO_BROAD" | "NO_MATCH" | "NOT_ENOUGH_INFORMATION" | string | null;
+  message: string | null;
+  totalCandidateCount: number | null;
+  anchorTokens: string[] | null;
+  auxiliaryTokens: string[] | null;
+  candidates: ProductSearchCandidate[] | null;
+};

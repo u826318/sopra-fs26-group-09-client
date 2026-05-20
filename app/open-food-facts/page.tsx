@@ -1,11 +1,11 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApi } from "@/hooks/useApi";
-import type { Product } from "@/types/product";
+import type { Product, ProductSearchCandidate, ProductSearchResponse } from "@/types/product";
 import ProductResultCard from "@/components/products/ProductResultCard";
-import { App, Button, Card, Empty, Input, Space, Typography } from "antd";
+import { App, Button, Card, Empty, Image, Input, Space, Typography } from "antd";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
@@ -34,6 +34,30 @@ type HouseholdLookup = {
   name: string;
 };
 
+type NameProductCardState = {
+  candidate: ProductSearchCandidate;
+  productIndex: number | null;
+  status: "loading" | "loaded" | "error";
+  product?: Product;
+  errorMessage?: string;
+};
+
+function getProductImageUrl(product?: Product): string | null {
+  return product?.imageUrl?.trim() || null;
+}
+
+function getProductDisplayName(product?: Product, candidate?: ProductSearchCandidate): string {
+  return product?.name?.trim() || candidate?.name?.trim() || "Unnamed product";
+}
+
+function getProductBrand(product?: Product, candidate?: ProductSearchCandidate): string {
+  return product?.brand?.trim() || candidate?.brand?.trim() || "Unknown brand";
+}
+
+function getProductBarcode(product?: Product): string {
+  return product?.barcode?.trim() || "Barcode unavailable";
+}
+
 export default function OpenFoodFactsPortalPage() {
   return (
     <Suspense fallback={null}>
@@ -56,6 +80,12 @@ function OpenFoodFactsPortalContent() {
   const [barcode, setBarcode] = useState("");
   const [loading, setLoading] = useState(false);
   const [barcodeResult, setBarcodeResult] = useState<Product | null>(null);
+  const [nameQuery, setNameQuery] = useState("");
+  const [nameSearchLoading, setNameSearchLoading] = useState(false);
+  const [nameSearchResponse, setNameSearchResponse] = useState<ProductSearchResponse | null>(null);
+  const [nameProductCards, setNameProductCards] = useState<NameProductCardState[]>([]);
+  const [nameSelectedProduct, setNameSelectedProduct] = useState<Product | null>(null);
+  const nameResultsScrollRef = useRef<HTMLDivElement | null>(null);
   const [lookupMessage, setLookupMessage] = useState("");
   const [hasAutoLookedUp, setHasAutoLookedUp] = useState(false);
   const [validatedPantryTarget, setValidatedPantryTarget] = useState<PantryTarget | null>(null);
@@ -193,6 +223,7 @@ function OpenFoodFactsPortalContent() {
     setLookupMessage("");
     setLoading(true);
     try {
+      setNameSelectedProduct(null);
       const result = await api.get<Product>(
         `/products/lookup?barcode=${encodeURIComponent(barcodeToLookup)}`,
       );
@@ -206,6 +237,106 @@ function OpenFoodFactsPortalContent() {
       setLoading(false);
     }
   }, [api]);
+
+  const searchByName = useCallback(async () => {
+    const query = nameQuery.trim();
+    if (!query) {
+      message.warning("Please enter a product name first.");
+      return;
+    }
+
+    setLookupMessage("");
+    setBarcodeResult(null);
+    setNameSelectedProduct(null);
+    setNameProductCards([]);
+    setNameSearchLoading(true);
+    try {
+      const result = await api.get<ProductSearchResponse>(
+        `/products/search?q=${encodeURIComponent(query)}&limit=5`,
+      );
+      setNameSearchResponse(result);
+
+      const candidates = (result.candidates ?? []).slice(0, 5);
+      const initialCards: NameProductCardState[] = candidates.map((candidate) => ({
+        candidate,
+        productIndex: candidate.productIndex,
+        status: candidate.productIndex ? "loading" : "error",
+        errorMessage: candidate.productIndex ? undefined : "Cannot find this product",
+      }));
+
+      setNameProductCards(initialCards);
+
+      if (result.status !== "OK" || candidates.length === 0) {
+        return;
+      }
+
+      const loadedCards = await Promise.all(
+        candidates.map(async (candidate): Promise<NameProductCardState> => {
+          if (!candidate.productIndex) {
+            return {
+              candidate,
+              productIndex: null,
+              status: "error",
+              errorMessage: "Cannot find this product",
+            };
+          }
+
+          try {
+            const product = await api.get<Product>(
+              `/products/index/${encodeURIComponent(String(candidate.productIndex))}`,
+            );
+
+            return {
+              candidate,
+              productIndex: candidate.productIndex,
+              status: "loaded",
+              product,
+            };
+          } catch {
+            return {
+              candidate,
+              productIndex: candidate.productIndex,
+              status: "error",
+              errorMessage: "Cannot find this product",
+            };
+          }
+        }),
+      );
+
+      setNameProductCards(loadedCards);
+    } catch {
+      setNameSearchResponse({
+        query,
+        normalizedQuery: query,
+        status: "ERROR",
+        message: "Product name search is currently unavailable.",
+        totalCandidateCount: 0,
+        anchorTokens: [],
+        auxiliaryTokens: [],
+        candidates: [],
+      });
+      setNameProductCards([]);
+    } finally {
+      setNameSearchLoading(false);
+    }
+  }, [api, message, nameQuery]);
+
+  const selectNameProductCard = useCallback((card: NameProductCardState) => {
+    if (card.status !== "loaded" || !card.product) {
+      return;
+    }
+
+    setNameSelectedProduct(card.product);
+    setBarcode(card.product.barcode ?? "");
+    setLookupMessage("");
+  }, []);
+
+  const scrollNameResults = useCallback((direction: "left" | "right") => {
+    nameResultsScrollRef.current?.scrollBy({
+      left: direction === "left" ? -520 : 520,
+      behavior: "smooth",
+    });
+  }, []);
 
   // This useEffect is used by pantry/add/scan. Wait until the household target is validated
   // so an invalid household URL cannot render product results or create an add-to-pantry flow.
@@ -255,7 +386,7 @@ function OpenFoodFactsPortalContent() {
           Product Lookup Portal
         </Title>
         <Paragraph className={styles.pageSubtitle}>
-          Search the local product dataset by barcode and add matching products straight into your pantry flow.
+          Search the local product dataset by barcode or product name and add matching products straight into your pantry flow.
         </Paragraph>
       </header>
 
@@ -322,6 +453,139 @@ function OpenFoodFactsPortalContent() {
         </Space>
       </Card>
 
+      <Card title="Search by product name" className={styles.sectionCard} style={{ marginTop: 24 }}>
+        <Space orientation="vertical" size="large" style={{ width: "100%" }}>
+          <div className={styles.lookupStack}>
+            <label className={styles.lookupLabel}>
+              <span>Product name</span>
+              <Input
+                value={nameQuery}
+                onChange={(event) => {
+                  setNameQuery(event.target.value);
+                  setNameSearchResponse(null);
+                  setNameProductCards([]);
+                  setNameSelectedProduct(null);
+                }}
+                onPressEnter={() => void searchByName()}
+                placeholder="e.g. TIK UDON Noodles"
+              />
+            </label>
+
+            <div className={styles.lookupActions}>
+              <Button
+                type="primary"
+                className={styles.primaryBtn}
+                onClick={() => void searchByName()}
+                loading={nameSearchLoading}
+              >
+                {nameSearchLoading ? "Searching..." : "Search by name"}
+              </Button>
+            </div>
+          </div>
+
+          {nameSelectedProduct ? (
+            <div className={styles.nameSelectedResult}>
+              <div className={styles.nameSelectedLabel}>Selected product</div>
+              <ProductResultCard
+                product={nameSelectedProduct}
+                rawTitle=""
+                exportContext="Product name lookup"
+                pantryContext={pantryTarget ?? undefined}
+              />
+            </div>
+          ) : null}
+
+          {nameSearchResponse ? (
+            <div className={styles.nameSearchResultBox}>
+              <div className={styles.nameSearchMessage}>
+                {nameSearchResponse.message || "Choose one of the matching products."}
+              </div>
+
+              {nameSearchResponse.anchorTokens?.length ? (
+                <div className={styles.nameSearchMeta}>
+                  Anchors: {nameSearchResponse.anchorTokens.join(", ")}
+                  {nameSearchResponse.auxiliaryTokens?.length
+                    ? ` · Auxiliary: ${nameSearchResponse.auxiliaryTokens.join(", ")}`
+                    : ""}
+                </div>
+              ) : null}
+
+              {nameProductCards.length ? (
+                <div className={styles.nameCarouselShell}>
+                  <Button
+                    htmlType="button"
+                    aria-label="Scroll name search results left"
+                    className={styles.nameCarouselNav}
+                    onClick={() => scrollNameResults("left")}
+                  >
+                    ‹
+                  </Button>
+
+                  <div
+                    ref={nameResultsScrollRef}
+                    className={styles.nameProductTrack}
+                    aria-label="Matching local dataset products"
+                  >
+                    {nameProductCards.map((card) => {
+                      const productName = getProductDisplayName(card.product, card.candidate);
+                      const brand = getProductBrand(card.product, card.candidate);
+                      const barcodeText = getProductBarcode(card.product);
+                      const imageUrl = getProductImageUrl(card.product);
+                      const isLoaded = card.status === "loaded" && card.product;
+
+                      return (
+                        <button
+                          key={`${card.productIndex ?? card.candidate.name ?? productName}`}
+                          type="button"
+                          className={`${styles.nameProductCard} ${isLoaded ? "" : styles.nameProductCardDisabled}`}
+                          onClick={() => selectNameProductCard(card)}
+                          disabled={!isLoaded}
+                          aria-label={isLoaded ? `Select ${productName}` : `Cannot find ${productName}`}
+                        >
+                          <div className={styles.nameProductImageFrame}>
+                            {card.status === "loading" ? (
+                              <div className={styles.nameProductPlaceholder}>Loading...</div>
+                            ) : imageUrl ? (
+                              <Image
+                                src={imageUrl}
+                                alt={productName}
+                                className={styles.nameProductImage}
+                                preview={false}
+                              />
+                            ) : card.status === "error" ? (
+                              <div className={styles.nameProductError}>Cannot find this product</div>
+                            ) : (
+                              <div className={styles.nameProductPlaceholder}>No image</div>
+                            )}
+                          </div>
+
+                          <span className={styles.nameProductName}>{productName}</span>
+                          <span className={styles.nameProductDetail}>{brand}</span>
+                          <span className={styles.nameProductBarcode}>{barcodeText}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <Button
+                    htmlType="button"
+                    aria-label="Scroll name search results right"
+                    className={styles.nameCarouselNav}
+                    onClick={() => scrollNameResults("right")}
+                  >
+                    ›
+                  </Button>
+                </div>
+              ) : (
+                <div className={styles.nameSearchMeta}>
+                  No selectable product candidates returned. Try a more specific product name.
+                </div>
+              )}
+            </div>
+          ) : null}
+        </Space>
+      </Card>
+
       <section className={styles.resultSection}>
         {barcodeResult ? (
           <>
@@ -332,7 +596,7 @@ function OpenFoodFactsPortalContent() {
               pantryContext={pantryTarget ?? undefined}
             />
           </>
-        ) : lookupMessage ? null : (
+        ) : lookupMessage || nameSelectedProduct ? null : (
           <div className={styles.emptyState}>
             <Empty description="No product loaded yet." />
           </div>
