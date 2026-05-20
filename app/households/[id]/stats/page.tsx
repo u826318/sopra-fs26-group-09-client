@@ -1181,109 +1181,123 @@ export default function StatsPage() {
 
             {/* Issue #124 — Chart 1: my personal daily calorie intake, last 7 days.
                 Always shown; goal line and color coding only appear when personal goal is set. */}
-            {myLast7Days.length > 0 && (
-              <Card
-                title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>My daily calorie intake</span>}
-                style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
-              >
-                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                  Your personal consumption · last 7 days
-                </Typography.Text>
-                {myPersonalGoal ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0 12px" }}>
-                    <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={FOREST} strokeWidth="2" strokeDasharray="5 3" /></svg>
-                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
-                      Your personal health goal · {Math.round(myPersonalGoal).toLocaleString()} kcal/day (set in your profile)
-                    </Typography.Text>
-                  </div>
-                ) : (
-                  <div style={{ margin: "6px 0 12px" }}>
-                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
-                      No personal goal set —{" "}
-                      {userId && (
-                        <Button type="link" onClick={() => router.push(`/users/${userId}/health-goal`)} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 11 }}>
-                          Set goal to enable comparison →
-                        </Button>
+            <Card
+              title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>My daily calorie intake</span>}
+              style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
+            >
+              {myLast7Days.some((d) => d.caloriesConsumed > 0) ? (
+                <>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Your personal consumption · last 7 days
+                  </Typography.Text>
+                  {myPersonalGoal ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0 12px" }}>
+                      <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={FOREST} strokeWidth="2" strokeDasharray="5 3" /></svg>
+                      <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                        Your personal health goal · {Math.round(myPersonalGoal).toLocaleString()} kcal/day (set in your profile)
+                      </Typography.Text>
+                    </div>
+                  ) : (
+                    <div style={{ margin: "6px 0 12px" }}>
+                      <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                        No personal goal set —{" "}
+                        {userId && (
+                          <Button type="link" onClick={() => router.push(`/users/${userId}/health-goal`)} style={{ color: FOREST, padding: 0, height: "auto", fontSize: 11 }}>
+                            Set goal to enable comparison →
+                          </Button>
+                        )}
+                      </Typography.Text>
+                    </div>
+                  )}
+                  <div style={{ overflowX: "auto" }}>
+                    <BarChart
+                      width={Math.max(myLast7Days.length * 100 + 64, 300)}
+                      height={220}
+                      data={myLast7Days}
+                      margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
+                      barCategoryGap="35%"
+                    >
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
+                      <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
+                      {myPersonalGoal && (
+                        <ReferenceLine y={myPersonalGoal} stroke={FOREST} strokeDasharray="5 3" strokeWidth={2} label={{ value: "goal", position: "insideTopRight", fontSize: 10, fill: FOREST }} />
                       )}
-                    </Typography.Text>
+                      <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
+                        {myLast7Days.map((entry) => (
+                          <Cell key={entry.date} fill={myPersonalGoal && entry.caloriesConsumed > myPersonalGoal ? DANGER : "#7cb87e"} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </div>
-                )}
-                <div style={{ overflowX: "auto" }}>
-                  <BarChart
-                    width={Math.max(myLast7Days.length * 100 + 64, 300)}
-                    height={220}
-                    data={myLast7Days}
-                    margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
-                    barCategoryGap="35%"
-                  >
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
-                    <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
-                    {myPersonalGoal && (
-                      <ReferenceLine y={myPersonalGoal} stroke={FOREST} strokeDasharray="5 3" strokeWidth={2} label={{ value: "goal", position: "insideTopRight", fontSize: 10, fill: FOREST }} />
-                    )}
-                    <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
-                      {myLast7Days.map((entry) => (
-                        <Cell key={entry.date} fill={myPersonalGoal && entry.caloriesConsumed > myPersonalGoal ? DANGER : "#7cb87e"} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </div>
-                {myPersonalGoal && (
-                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
-                    <span><span style={{ color: DANGER }}>■</span> Exceeds your personal goal</span>
-                    <span><span style={{ color: "#7cb87e" }}>■</span> Within your personal goal</span>
-                  </div>
-                )}
-              </Card>
-            )}
+                  {myPersonalGoal && (
+                    <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
+                      <span><span style={{ color: DANGER }}>■</span> Exceeds your personal goal</span>
+                      <span><span style={{ color: "#7cb87e" }}>■</span> Within your personal goal</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={<Typography.Text type="secondary" style={{ fontSize: 13 }}>No consumption recorded in the last 7 days</Typography.Text>}
+                />
+              )}
+            </Card>
 
             {/* Issue #124 — Chart 3: household daily total, last 7 days with target reference line */}
-            {householdLast7Days.length > 0 && (
-              <Card
-                title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>Household daily calorie consumption</span>}
-                style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
-              >
-                <Typography.Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: dailyGoal ? 4 : 12 }}>
-                  Total kcal consumed by all members combined · last 7 days
-                </Typography.Text>
-                {dailyGoal && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                    <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={DANGER} strokeWidth="2" strokeDasharray="5 3" /></svg>
-                    <Typography.Text style={{ fontSize: 11, color: MUTED }}>
-                      Household daily target · {Math.round(dailyGoal).toLocaleString()} kcal/day (set by admin)
-                    </Typography.Text>
+            <Card
+              title={<span style={{ fontSize: 16, fontWeight: 700, color: "#1f2d1f" }}>Household daily calorie consumption</span>}
+              style={{ borderRadius: 16, borderColor: "#d9e2cf" }}
+            >
+              {householdLast7Days.some((d) => d.caloriesConsumed > 0) ? (
+                <>
+                  <Typography.Text type="secondary" style={{ fontSize: 12, display: "block", marginBottom: dailyGoal ? 4 : 12 }}>
+                    Total kcal consumed by all members combined · last 7 days
+                  </Typography.Text>
+                  {dailyGoal && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                      <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke={DANGER} strokeWidth="2" strokeDasharray="5 3" /></svg>
+                      <Typography.Text style={{ fontSize: 11, color: MUTED }}>
+                        Household daily target · {Math.round(dailyGoal).toLocaleString()} kcal/day (set by admin)
+                      </Typography.Text>
+                    </div>
+                  )}
+                  <div style={{ overflowX: "auto" }}>
+                    <BarChart
+                      width={Math.max(householdLast7Days.length * 100 + 64, 300)}
+                      height={220}
+                      data={householdLast7Days}
+                      margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
+                      barCategoryGap="35%"
+                    >
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
+                      <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
+                      <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
+                      {dailyGoal && (
+                        <ReferenceLine y={dailyGoal} stroke={DANGER} strokeDasharray="5 3" strokeWidth={2} label={{ value: "target", position: "insideTopRight", fontSize: 10, fill: DANGER }} />
+                      )}
+                      <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
+                        {householdLast7Days.map((entry) => (
+                          <Cell key={entry.date} fill={dailyGoal && entry.caloriesConsumed > dailyGoal ? DANGER : FOREST} />
+                        ))}
+                      </Bar>
+                    </BarChart>
                   </div>
-                )}
-                <div style={{ overflowX: "auto" }}>
-                  <BarChart
-                    width={Math.max(householdLast7Days.length * 100 + 64, 300)}
-                    height={220}
-                    data={householdLast7Days}
-                    margin={{ top: 10, right: 40, left: 0, bottom: 0 }}
-                    barCategoryGap="35%"
-                  >
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d: string) => d.slice(5)} />
-                    <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${v}`} width={48} />
-                    <Tooltip formatter={(v: unknown) => `${Math.round(Number(v))} kcal`} labelFormatter={(l: unknown) => `Date: ${String(l)}`} />
-                    {dailyGoal && (
-                      <ReferenceLine y={dailyGoal} stroke={DANGER} strokeDasharray="5 3" strokeWidth={2} label={{ value: "target", position: "insideTopRight", fontSize: 10, fill: DANGER }} />
-                    )}
-                    <Bar dataKey="caloriesConsumed" maxBarSize={56} radius={[4, 4, 0, 0]}>
-                      {householdLast7Days.map((entry) => (
-                        <Cell key={entry.date} fill={dailyGoal && entry.caloriesConsumed > dailyGoal ? DANGER : FOREST} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </div>
-                {dailyGoal && (
-                  <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
-                    <span><span style={{ color: DANGER }}>■</span> Exceeds household target</span>
-                    <span><span style={{ color: FOREST }}>■</span> Within target</span>
-                  </div>
-                )}
-              </Card>
-            )}
+                  {dailyGoal && (
+                    <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: MUTED }}>
+                      <span><span style={{ color: DANGER }}>■</span> Exceeds household target</span>
+                      <span><span style={{ color: FOREST }}>■</span> Within target</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description={<Typography.Text type="secondary" style={{ fontSize: 13 }}>No consumption recorded in the last 7 days</Typography.Text>}
+                />
+              )}
+            </Card>
 
             {/* Issue #124 — Chart 2: member average daily intake, placed last; horizontal scroll for large households */}
             {stats?.memberBreakdown && stats.memberBreakdown.length > 0 && (
