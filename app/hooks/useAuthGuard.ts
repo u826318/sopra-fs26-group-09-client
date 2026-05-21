@@ -12,6 +12,7 @@ export function useAuthGuard(): { isAuthenticated: boolean } {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     let token: string | null = null;
     try {
       token = JSON.parse(sessionStorage.getItem("token") ?? "null") as string | null;
@@ -26,15 +27,20 @@ export function useAuthGuard(): { isAuthenticated: boolean } {
     }
 
     apiService.get("/users/me")
-      .then(() => setIsAuthenticated(true))
+      .then(() => { if (!cancelled) setIsAuthenticated(true); })
       .catch((error: unknown) => {
+        if (cancelled) return;
         if ((error as { status?: number })?.status === 401) {
           sessionStorage.removeItem("token");
           sessionStorage.removeItem("username");
           message.warning("Your session has expired. Please log in again.", 2);
+          router.replace("/login");
+        } else {
+          setIsAuthenticated(true);
         }
-        router.replace("/login");
       });
+
+    return () => { cancelled = true; };
   }, [router, message, apiService]);
 
   return { isAuthenticated };

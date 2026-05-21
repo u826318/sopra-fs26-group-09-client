@@ -139,12 +139,19 @@ export default function HouseholdPantryPage() {
 
         setHasValidHouseholdRoute(true);
       } catch (error) {
-        const notMember = error instanceof Error && error.message.includes("User is not a member");
+        const status = (error as { status?: number })?.status;
+        const notMember = status === 403 || (error instanceof Error && error.message.includes("User is not a member"));
         if (notMember) {
           setHouseholds(cachedHouseholds.filter((h) => h.householdId !== householdId));
           clearSelectedHouseholdId();
+          rejectInvalidHouseholdRoute("You are not a member of this household.");
+          return;
         }
-        rejectInvalidHouseholdRoute(notMember ? "You are not a member of this household." : "Household ID does not exist.");
+        if (status === 404) {
+          rejectInvalidHouseholdRoute("Household ID does not exist.");
+          return;
+        }
+        rejectInvalidHouseholdRoute("Failed to load household. Please try again.");
       }
     };
 
