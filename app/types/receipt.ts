@@ -1,4 +1,4 @@
-import type { Product } from "@/types/product";
+import type { Product, ProductSearchResponse } from "@/types/product";
 
 export interface ReceiptLineItem {
   description: string | null;
@@ -17,6 +17,7 @@ export interface ReceiptMatchedItem extends ReceiptLineItem {
   normalizedDescription?: string | null;
   matchedProduct: Product | null;
   candidateProducts?: ReceiptProductCandidate[] | null;
+  productSearch?: ProductSearchResponse | null;
   suggestedPantryItem?: ReceiptPantryItemSuggestion | null;
 }
 

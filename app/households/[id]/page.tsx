@@ -8,6 +8,12 @@ import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import type { HouseholdWithRole } from "@/types/household";
 import type { PantryItem, PantryOverview } from "@/types/pantry";
+import {
+  PACKAGE_QUANTITY_UNAVAILABLE_NOTE,
+  formatAmountDisplay,
+  getPantryItemCalorieBasisDisplay,
+  shouldShowPackageQuantityUnavailableNote,
+} from "@/utils/pantry";
 import type { ApplicationError } from "@/types/error";
 import {
   App,
@@ -251,19 +257,31 @@ export default function HouseholdPantryPage() {
       ),
     },
     {
-      title: "kcal / package",
-      dataIndex: "kcalPerPackage",
-      key: "kcalPerPackage",
-      render: (value: number) => (
-        <Text style={{ color: "#314231" }}>{formatCaloriesDisplay(value)}</Text>
-      ),
+      title: "Energy basis",
+      key: "energyBasis",
+      render: (_value: unknown, record) => {
+        const energy = getPantryItemCalorieBasisDisplay(record);
+        const showPackageNote = shouldShowPackageQuantityUnavailableNote(record);
+        return (
+          <Space orientation="vertical" size={0}>
+            <Text style={{ color: "#314231" }}>
+              {energy ? `${formatCaloriesDisplay(energy.value)} ${energy.label}` : "—"}
+            </Text>
+            {showPackageNote ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {PACKAGE_QUANTITY_UNAVAILABLE_NOTE}
+              </Text>
+            ) : null}
+          </Space>
+        );
+      },
     },
     {
       title: "Amount",
       dataIndex: "amount",
       key: "amount",
       render: (_value: number, record) => (
-        <Text style={{ color: "#314231" }}>{formatNumber(Number(record.amount ?? 0))} {record.amountUnit}</Text>
+        <Text style={{ color: "#314231" }}>{formatAmountDisplay(Number(record.amount ?? 0))} {record.amountUnit}</Text>
       ),
     },
     {

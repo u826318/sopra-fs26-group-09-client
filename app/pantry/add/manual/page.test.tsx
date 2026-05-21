@@ -78,6 +78,7 @@ describe("ManualAddPantryItemPage", () => {
     expect(screen.getByLabelText("Unit")).toBeInTheDocument();
     expect(screen.getByLabelText("Amount in package")).toBeInTheDocument();
     expect(screen.getByLabelText("Calories per package (kcal)")).toBeInTheDocument();
+    expect(screen.getByText("Optional micronutrients")).toBeInTheDocument();
   });
 
   it("shows 'Calories per 100g (kcal)' label when unit is g", async () => {
@@ -141,10 +142,33 @@ describe("ManualAddPantryItemPage", () => {
         kcalPerPackage: 250,
         kcalPer100g: null,
         kcalPer100ml: null,
+        manualEntry: true,
       });
     });
     expect(successMock).toHaveBeenCalledWith("Item added to Test Home.");
     expect(pushMock).toHaveBeenCalledWith("/households/7/stats");
+  });
+
+
+  it("posts optional micronutrients when manually entered", async () => {
+    postMock.mockResolvedValueOnce({ id: 3 });
+    render(<ManualAddPantryItemPage />);
+    await waitFor(() => expect(screen.getByLabelText("e.g. Whole Milk")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText("e.g. Whole Milk"), { target: { value: "Milk" } });
+    fireEvent.change(screen.getByLabelText("Calories per package (kcal)"), { target: { value: "250" } });
+    fireEvent.change(screen.getByLabelText("Calcium micronutrient amount"), { target: { value: "120" } });
+    fireEvent.change(screen.getByLabelText("Calcium micronutrient unit"), { target: { value: "mg" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add to pantry" }));
+
+    await waitFor(() => {
+      expect(postMock).toHaveBeenCalledWith("/households/7/pantry", expect.objectContaining({
+        manualEntry: true,
+        micronutrients: {
+          calcium: { value: 120, unit: "mg" },
+        },
+      }));
+    });
   });
 
   it("posts kcalPer100g when unit is g", async () => {
@@ -167,6 +191,7 @@ describe("ManualAddPantryItemPage", () => {
         kcalPerPackage: null,
         kcalPer100g: 380,
         kcalPer100ml: null,
+        manualEntry: true,
       });
     });
   });

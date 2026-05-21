@@ -82,13 +82,13 @@ describe("ProductResultCard", () => {
     expect(screen.getByText("V-Love")).toBeInTheDocument();
     expect(screen.getByText("Barcode")).toBeInTheDocument();
     expect(screen.getByText("123456789")).toBeInTheDocument();
-    expect(screen.getByText("Estimated kcal / package")).toBeInTheDocument();
+    expect(screen.getByText("Energy basis")).toBeInTheDocument();
     expect(screen.getAllByText("396").length).toBeGreaterThan(0);
     expect(screen.queryByText("Export full return as TXT")).not.toBeInTheDocument();
     expect(screen.queryByText("Nutri-Score computation data")).not.toBeInTheDocument();
   });
 
-  it("posts a pantry item successfully when the pantry form is submitted", async () => {
+  it("posts a pantry item successfully without redirecting when the pantry form is submitted", async () => {
     postMock.mockResolvedValueOnce({
       id: 7,
       householdId: 10,
@@ -127,7 +127,7 @@ describe("ProductResultCard", () => {
     });
 
     expect(successMock).toHaveBeenCalledWith("Item successfully added to Test House.");
-    expect(pushMock).toHaveBeenCalledWith("/households/10/stats");
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("uses the householdId from the URL when pantryContext is not passed", async () => {
@@ -167,7 +167,7 @@ describe("ProductResultCard", () => {
     });
 
     expect(successMock).toHaveBeenCalledWith("Item successfully added to URL House.");
-    expect(pushMock).toHaveBeenCalledWith("/households/12/stats");
+    expect(pushMock).not.toHaveBeenCalled();
 
     window.history.pushState({}, "", "/");
   });
