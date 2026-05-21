@@ -10,6 +10,7 @@ import {
   Checkbox,
   Col,
   ConfigProvider,
+  DatePicker,
   Divider,
   Empty,
   Input,
@@ -21,6 +22,7 @@ import {
   Typography,
   theme as antdTheme,
 } from "antd";
+import type { Dayjs } from "dayjs";
 import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
@@ -70,6 +72,7 @@ type EditableReviewItem = {
   quantity: number;
   packageQuantity: string;
   nutriments: Record<string, unknown> | null;
+  expirationDate: Dayjs | null;
 };
 
 type PantryBulkAddItem = {
@@ -80,6 +83,7 @@ type PantryBulkAddItem = {
   kcalPerPackage: number;
   packageQuantity?: string | null;
   nutriments?: Record<string, unknown> | null;
+  expirationDate?: string | null;
 };
 
 function isMatchedItem(item: unknown): item is ReceiptMatchedItem {
@@ -128,6 +132,7 @@ function itemFromSuggestion(
     quantity: suggestion.quantity ?? 1,
     packageQuantity: suggestion.packageQuantity ?? "",
     nutriments: suggestion.nutriments ?? null,
+    expirationDate: null,
   };
 }
 
@@ -205,6 +210,7 @@ function ReceiptReviewPageInner() {
         kcalPerPackage: item.kcalPerPackage,
         packageQuantity: item.packageQuantity || null,
         nutriments: item.nutriments,
+        expirationDate: item.expirationDate ? item.expirationDate.format("YYYY-MM-DD") : null,
       }));
 
     if (items.length === 0) {
@@ -350,6 +356,14 @@ function ReceiptReviewPageInner() {
                       <InputNumber aria-label={`Quantity for item ${index + 1}`} min={1} value={item.quantity} onChange={(value) => updateItem(item.id, { quantity: Number(value ?? 1) })} style={{ ...fieldStyle, width: "100%" }} />
                       <InputNumber aria-label={`Calories for item ${index + 1}`} min={0} value={item.kcalPerPackage} onChange={(value) => updateItem(item.id, { kcalPerPackage: Number(value ?? 0) })} style={{ ...fieldStyle, width: "100%" }} />
                       <Input aria-label={`Package quantity for item ${index + 1}`} placeholder="Package quantity, e.g. 500g" value={item.packageQuantity} onChange={(event) => updateItem(item.id, { packageQuantity: event.target.value })} style={fieldStyle} />
+                      <DatePicker
+                        aria-label={`Expiration date for item ${index + 1}`}
+                        placeholder="Expiration date (optional)"
+                        value={item.expirationDate}
+                        onChange={(date) => updateItem(item.id, { expirationDate: date })}
+                        format="YYYY-MM-DD"
+                        style={{ ...fieldStyle, width: "100%" }}
+                      />
                     </Space>
                   </Col>
                 </Row>

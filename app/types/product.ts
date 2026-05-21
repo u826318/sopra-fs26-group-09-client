@@ -29,6 +29,7 @@ export interface Product {
   nutriScore?: string | null;
   localFallback?: boolean | null;
   caloriesPerPackage?: number | null;
+  caloriesPerServing?: number | null;
   stores?: string[] | null;
   storeTags?: string[] | null;
   purchasePlaces?: string[] | null;

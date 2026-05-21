@@ -59,7 +59,10 @@ jest.mock("antd", () => {
   const App = {
     useApp: () => ({ message: { error: errorMock, warning: warningMock, success: successMock } }),
   };
-  return { App, Button, Card, Input, Space, Typography };
+  const DatePicker = ({ placeholder, onChange }: any) => (
+    <input type="date" placeholder={placeholder} onChange={(e) => onChange?.(e.target.value ? { format: () => e.target.value } : null)} />
+  );
+  return { App, Button, Card, DatePicker, Input, Space, Typography };
 });
 
 describe("ManualAddPantryItemPage", () => {
@@ -143,6 +146,7 @@ describe("ManualAddPantryItemPage", () => {
         kcalPer100g: null,
         kcalPer100ml: null,
         manualEntry: true,
+        expirationDate: null,
       });
     });
     expect(successMock).toHaveBeenCalledWith("Item added to Test Home.");
@@ -192,6 +196,7 @@ describe("ManualAddPantryItemPage", () => {
         kcalPer100g: 380,
         kcalPer100ml: null,
         manualEntry: true,
+        expirationDate: null,
       });
     });
   });

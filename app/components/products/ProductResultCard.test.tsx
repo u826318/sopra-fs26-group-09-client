@@ -38,12 +38,15 @@ jest.mock("@/hooks/useSessionStorage", () => ({
 jest.mock("antd", () => {
   const Image = ({ alt }: any) => <img alt={alt} />;
   const Card = ({ children }: any) => <div>{children}</div>;
+  const DatePicker = ({ placeholder, onChange }: any) => (
+    <input type="date" placeholder={placeholder} onChange={(e) => onChange?.(e.target.value ? { format: () => e.target.value } : null)} />
+  );
   const App = {
     useApp: () => ({
       message: { warning: warningMock, error: errorMock, success: successMock, info: jest.fn() },
     }),
   };
-  return { Card, Image, App };
+  return { Card, Image, App, DatePicker };
 });
 
 describe("ProductResultCard", () => {
@@ -123,6 +126,8 @@ describe("ProductResultCard", () => {
         kcalPerPackage: null,
         kcalPer100g: 220,
         kcalPer100ml: null,
+        kcalPerServing: null,
+        expirationDate: null,
       });
     });
 
@@ -163,6 +168,8 @@ describe("ProductResultCard", () => {
         kcalPerPackage: null,
         kcalPer100g: 220,
         kcalPer100ml: null,
+        kcalPerServing: null,
+        expirationDate: null,
       });
     });
 

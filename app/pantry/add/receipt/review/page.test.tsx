@@ -148,6 +148,9 @@ jest.mock("antd", () => {
     Space,
     Tag,
     Typography,
+    DatePicker: ({ placeholder, onChange }: any) => (
+      <input type="date" placeholder={placeholder} onChange={(e) => onChange?.(e.target.value ? { format: () => e.target.value } : null)} />
+    ),
     theme: { defaultAlgorithm: {} },
   };
 });

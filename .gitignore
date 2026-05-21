@@ -139,6 +139,7 @@ yarn-error.log*
 # misc
 .DS_Store
 *.pem
+.history/
 
 *:Zone.Identifier
 *Zone.Identifier.codex

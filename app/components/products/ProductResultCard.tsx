@@ -19,7 +19,8 @@ import {
   shouldShowProductPackageQuantityUnavailableNote,
 } from "@/utils/pantry";
 import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
-import { App, Card, Image } from "antd";
+import { App, Card, DatePicker, Image } from "antd";
+import type { Dayjs } from "dayjs";
 import styles from "@/styles/productResultCard.module.css";
 
 type PantryContext = {
@@ -274,6 +275,7 @@ export default function ProductResultCard({
   const VALID_UNITS: AmountUnit[] = availableUnits;
   const [selectedUnit, setSelectedUnit] = useState<AmountUnit>(() => availableUnits[0]);
   const [amount, setAmount] = useState<number>(() => getDefaultAmount(product, availableUnits[0]));
+  const [expirationDate, setExpirationDate] = useState<Dayjs | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Issue #114 — switching unit resets amount to the sensible default for that unit
@@ -326,7 +328,10 @@ export default function ProductResultCard({
     setIsSubmitting(true);
 
     try {
-      const payload = buildPantryItemPayload(product, amount, selectedUnit);
+      const payload = {
+        ...buildPantryItemPayload(product, amount, selectedUnit),
+        expirationDate: expirationDate ? expirationDate.format("YYYY-MM-DD") : null,
+      };
       await api.post<PantryItem>(
         `/households/${effectivePantryContext.householdId}/pantry`,
         payload,
@@ -481,6 +486,17 @@ export default function ProductResultCard({
                   <div className={styles.metaValue}>{liveKcal}</div>
                 </div>
               )}
+
+              <label className={styles.quantityField}>
+                <span className={styles.quantityLabel}>Expiration date (optional)</span>
+                <DatePicker
+                  value={expirationDate}
+                  onChange={setExpirationDate}
+                  format="YYYY-MM-DD"
+                  placeholder="No expiration date"
+                  style={{ width: "100%" }}
+                />
+              </label>
 
               <button
                 type="button"

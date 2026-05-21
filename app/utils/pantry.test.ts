@@ -43,7 +43,7 @@ describe("pantry helpers", () => {
     expect(kcal).toBe(450);
   });
 
-  it("falls back to serving calories when package size cannot be derived", () => {
+  it("returns null for package calories when quantity is missing, even if serving data exists", () => {
     const kcal = estimateKcalPerPackage({
       barcode: "3",
       name: "Snack",
@@ -61,7 +61,7 @@ describe("pantry helpers", () => {
       rawProduct: null,
     });
 
-    expect(kcal).toBe(123);
+    expect(kcal).toBeNull();
   });
 
   it("builds a trimmed pantry payload from the product", () => {
@@ -94,6 +94,7 @@ describe("pantry helpers", () => {
       kcalPerPackage: null,
       kcalPer100g: null,
       kcalPer100ml: null,
+      kcalPerServing: null,
     });
   });
 

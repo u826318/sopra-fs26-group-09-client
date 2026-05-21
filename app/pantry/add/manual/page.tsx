@@ -10,7 +10,8 @@ import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
 import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 import type { HouseholdWithRole } from "@/types/household";
 import type { AmountUnit, ManualMicronutrientKey, MicronutrientUnit, PantryItem, PantryItemCreateRequest } from "@/types/pantry";
-import { App, Button, Card, Input, Space, Typography } from "antd";
+import { App, Button, Card, DatePicker, Input, Space, Typography } from "antd";
+import type { Dayjs } from "dayjs";
 import { ArrowLeftOutlined } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
@@ -127,6 +128,7 @@ function ManualAddPantryItemContent() {
   const [amount, setAmount] = useState<number>(1);
   const [calories, setCalories] = useState<number | "">("");
   const [micronutrients, setMicronutrients] = useState<ManualMicronutrientFormState>(() => createInitialMicronutrientState());
+  const [expirationDate, setExpirationDate] = useState<Dayjs | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const requestedHouseholdId = useMemo(() => {
@@ -269,6 +271,7 @@ function ManualAddPantryItemContent() {
       kcalPer100g: unit === "g" ? calories : null,
       kcalPer100ml: unit === "ml" ? calories : null,
       manualEntry: true,
+      expirationDate: expirationDate ? expirationDate.format("YYYY-MM-DD") : null,
     };
     if (manualMicronutrientPayload) {
       payload.micronutrients = manualMicronutrientPayload;
@@ -287,6 +290,7 @@ function ManualAddPantryItemContent() {
       setAmount(1);
       setCalories("");
       setMicronutrients(createInitialMicronutrientState());
+      setExpirationDate(null);
       router.push(`/households/${validatedPantryTarget.householdId}/stats`);
     } catch (error) {
       if (isStaleHouseholdError(error)) {
@@ -302,7 +306,7 @@ function ManualAddPantryItemContent() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [api, amount, barcode, cachedHouseholds, calories, clearSelectedHouseholdId, message, micronutrients, name, router, setHouseholds, unit, validatedPantryTarget]);
+  }, [api, amount, barcode, cachedHouseholds, calories, clearSelectedHouseholdId, expirationDate, message, micronutrients, name, router, setHouseholds, unit, validatedPantryTarget]);
 
   if (validatingPantryTarget || !validatedPantryTarget) {
     return null;
@@ -382,6 +386,17 @@ function ManualAddPantryItemContent() {
                 setCalories(e.target.value === "" ? "" : Number(e.target.value))
               }
               placeholder="e.g. 250"
+            />
+          </label>
+
+          <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span>Expiration date (optional)</span>
+            <DatePicker
+              value={expirationDate}
+              onChange={setExpirationDate}
+              format="YYYY-MM-DD"
+              placeholder="No expiration date"
+              style={{ width: "100%" }}
             />
           </label>
 
