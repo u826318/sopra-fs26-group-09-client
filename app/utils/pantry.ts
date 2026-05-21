@@ -1,4 +1,4 @@
-import type { AmountUnit, ConsumptionUnit, PantryItemCreateRequest } from "@/types/pantry";
+import type { AmountUnit, ConsumptionUnit, PantryItem, PantryItemCreateRequest } from "@/types/pantry";
 import type { LocalDatasetNutrientAmount, Product } from "@/types/product";
 
 type QuantityUnit = "kg" | "g" | "l" | "ml";
@@ -186,21 +186,103 @@ export function estimateKcalPerPackage(product: Product): number | null {
     }
   }
 
+  const servingValue = parseNumber(nutriments["energy-kcal_serving"]);
+  if (servingValue !== null) {
+    return Number(servingValue.toFixed(2));
+  }
+
   return null;
 }
 
-export function getKcalPerServing(product: Product): number | null {
-  const direct = parseNumber(product.caloriesPerServing);
-  if (direct !== null) return Number(direct.toFixed(2));
-  const fromNutriments = parseNumber((product.nutriments ?? {})["energy-kcal_serving"]);
-  return fromNutriments === null ? null : Number(fromNutriments.toFixed(2));
+
+export type CalorieBasisDisplay = {
+  value: number;
+  basis: "package" | "100g" | "100ml";
+  label: string;
+};
+
+export function formatAmountDisplay(value: number | null | undefined, maximumFractionDigits = 3): string {
+  const numericValue = Number(value ?? 0);
+  if (!Number.isFinite(numericValue)) {
+    return "0";
+  }
+
+  return numericValue.toLocaleString("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits,
+  });
+}
+
+export function hasUsablePackageQuantityInfo(item: Pick<PantryItem, "packageQuantity" | "packageQuantityUnit">): boolean {
+  const packageQuantity = parseNumber(item.packageQuantity);
+  const packageUnit = normalizeUnit(item.packageQuantityUnit);
+  return packageQuantity !== null
+    && packageQuantity > 0
+    && (packageUnit === "g" || packageUnit === "kg" || packageUnit === "ml" || packageUnit === "l");
+}
+
+export function shouldShowProductPackageQuantityUnavailableNote(product: Product): boolean {
+  const basis = getProductCalorieBasisDisplay(product);
+  return Boolean(basis) && basis?.basis !== "package";
+}
+
+export function shouldShowPackageQuantityUnavailableNote(item: PantryItem): boolean {
+  const basis = getPantryItemCalorieBasisDisplay(item);
+  return item.amountUnit === "package" && Boolean(basis) && basis?.basis !== "package";
+}
+
+export const PACKAGE_QUANTITY_UNAVAILABLE_NOTE =
+  "Package quantity unavailable; showing the standardized nutrition basis instead of a package total.";
+
+function positiveDisplayNumber(value: unknown): number | null {
+  const parsedValue = parseNumber(value);
+  return parsedValue !== null && parsedValue > 0 ? Number(parsedValue.toFixed(2)) : null;
+}
+
+export function getProductCalorieBasisDisplay(product: Product): CalorieBasisDisplay | null {
+  const perPackage = positiveDisplayNumber(estimateKcalPerPackage(product));
+  if (perPackage !== null) {
+    return { value: perPackage, basis: "package", label: "kcal / package" };
+  }
+
+  const per100g = positiveDisplayNumber(getKcalPer100g(product));
+  if (per100g !== null) {
+    return { value: per100g, basis: "100g", label: "kcal / 100g" };
+  }
+
+  const per100ml = positiveDisplayNumber(getKcalPer100ml(product));
+  if (per100ml !== null) {
+    return { value: per100ml, basis: "100ml", label: "kcal / 100ml" };
+  }
+
+  return null;
+}
+
+export function getPantryItemCalorieBasisDisplay(item: PantryItem): CalorieBasisDisplay | null {
+  const perPackage = positiveDisplayNumber(item.kcalPerPackage);
+  if (perPackage !== null) {
+    return { value: perPackage, basis: "package", label: "kcal / package" };
+  }
+
+  const per100g = positiveDisplayNumber(item.kcalPer100g);
+  if (per100g !== null) {
+    return { value: per100g, basis: "100g", label: "kcal / 100g" };
+  }
+
+  const per100ml = positiveDisplayNumber(item.kcalPer100ml);
+  if (per100ml !== null) {
+    return { value: per100ml, basis: "100ml", label: "kcal / 100ml" };
+  }
+
+  return null;
 }
 
 // Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
 export function formatQuantity(quantity: number, unit: ConsumptionUnit | undefined): string {
-  if (unit === "g" || unit === "ml") return `${quantity}${unit}`;
-  if (unit === "serving") return `${quantity} serving${quantity === 1 ? "" : "s"}`;
-  return `${quantity}×`;
+  const displayedQuantity = formatAmountDisplay(quantity);
+  if (unit === "g" || unit === "ml") return `${displayedQuantity}${unit}`;
+  if (unit === "serving") return `${displayedQuantity} serving${quantity === 1 ? "" : "s"}`;
+  return `${displayedQuantity}×`;
 }
 
 function isLocalDatasetProduct(product: Product): boolean {
@@ -216,15 +298,14 @@ export function detectAvailableUnits(product: Product): AmountUnit[] {
   }
 
   const units: AmountUnit[] = ["package"];
+  const amountInfo = parsePackageAmount(product.quantity);
+  const nutriments = product.nutriments ?? {};
 
-  if (getKcalPerServing(product) !== null) {
-    units.unshift("serving");
-  }
-  if (getKcalPer100ml(product) !== null) {
-    units.unshift("ml");
-  }
-  if (getKcalPer100g(product) !== null) {
+  if (amountInfo?.basis === "100g" && parseNumber(nutriments["energy-kcal_100g"]) !== null) {
     units.unshift("g");
+  }
+  if (amountInfo?.basis === "100ml" && parseNumber(nutriments["energy-kcal_100ml"]) !== null) {
+    units.unshift("ml");
   }
 
   return units;
@@ -264,6 +345,5 @@ export function buildPantryItemPayload(
     kcalPerPackage: unit === "package" ? estimateKcalPerPackage(product) : null,
     kcalPer100g: unit === "g" ? getKcalPer100g(product) : null,
     kcalPer100ml: unit === "ml" ? getKcalPer100ml(product) : null,
-    kcalPerServing: unit === "serving" ? getKcalPerServing(product) : null,
   };
 }

@@ -64,7 +64,7 @@ export type ProductSearchCandidate = {
 export type ProductSearchResponse = {
   query: string | null;
   normalizedQuery: string | null;
-  status: "OK" | "TOO_BROAD" | "NO_MATCH" | "NOT_ENOUGH_INFORMATION" | string | null;
+  status: "OK" | "TOO_MANY_MATCHES" | "TOO_BROAD" | "NO_MATCH" | "NOT_ENOUGH_INFORMATION" | string | null;
   message: string | null;
   totalCandidateCount: number | null;
   anchorTokens: string[] | null;

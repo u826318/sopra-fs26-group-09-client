@@ -33,9 +33,15 @@ import { useAuthGuard } from "@/hooks/useAuthGuard";
 import useSessionStorage from "@/hooks/useSessionStorage";
 import { usePantryWebSocket } from "@/hooks/usePantryWebSocket";
 import { VirtualPantryAppShell } from "@/components/VirtualPantryAppShell";
-import type { ReceiptAnalysisResult, ReceiptUploadSession } from "@/types/receipt";
+import type {
+  ReceiptAnalysisResult,
+  ReceiptUploadSession,
+} from "@/types/receipt";
 import type { HouseholdWithRole } from "@/types/household";
-import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
+import {
+  isStaleHouseholdError,
+  getStaleHouseholdMessage,
+} from "@/utils/householdStale";
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -103,7 +109,10 @@ function getReceiptUploadErrorMessage(error: unknown): string {
     return "The receipt image is too large. Please upload a JPG or PNG up to 5 MB.";
   }
 
-  if (error.message.includes("503") || error.message.includes("Receipt scanning is currently unavailable")) {
+  if (
+    error.message.includes("503") ||
+    error.message.includes("Receipt scanning is currently unavailable")
+  ) {
     return "Receipt scanning is currently unavailable. Please add items manually or try again later.";
   }
 
@@ -133,14 +142,20 @@ function PantryReceiptUploadPageInner() {
   const searchParams = useSearchParams();
   const api = useApi();
   const { message } = App.useApp();
-  const { set: setReceiptUploadSession } = useSessionStorage<ReceiptUploadSession | null>(
-    "receiptUploadSession",
-    null,
-  );
+  const { set: setReceiptUploadSession } =
+    useSessionStorage<ReceiptUploadSession | null>(
+      "receiptUploadSession",
+      null,
+    );
   const { value: token } = useSessionStorage<string>("token", "");
   const { value: storedUserId } = useSessionStorage<string>("userId", "");
-  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
-  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
+  const { value: cachedHouseholds, set: setHouseholds } = useSessionStorage<
+    HouseholdWithRole[]
+  >("households", []);
+  const { clear: clearSelectedHouseholdId } = useSessionStorage<number | null>(
+    "selectedHouseholdId",
+    null,
+  );
   const currentUserId = storedUserId ? Number(storedUserId) : null;
 
   const [fileList, setFileList] = useState<UploadFile[]>([]);
@@ -148,7 +163,8 @@ function PantryReceiptUploadPageInner() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [receiptResult, setReceiptResult] = useState<ReceiptAnalysisResult | null>(null);
+  const [receiptResult, setReceiptResult] =
+    useState<ReceiptAnalysisResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const pantryTarget = useMemo<PantryTarget | null>(() => {
@@ -167,10 +183,22 @@ function PantryReceiptUploadPageInner() {
     householdId: pantryTarget?.householdId ?? null,
     token,
     onMessage: (msg) => {
-      if (msg.eventType === "HOUSEHOLD_DELETED" || (msg.eventType === "MEMBER_REMOVED" && msg.removedUserId === currentUserId)) {
-        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget?.householdId));
+      if (
+        msg.eventType === "HOUSEHOLD_DELETED" ||
+        (msg.eventType === "MEMBER_REMOVED" &&
+          msg.removedUserId === currentUserId)
+      ) {
+        setHouseholds(
+          cachedHouseholds.filter(
+            (h) => h.householdId !== pantryTarget?.householdId,
+          ),
+        );
         clearSelectedHouseholdId();
-        message.warning(msg.eventType === "HOUSEHOLD_DELETED" ? "This household has been deleted." : "You have been removed from this household.");
+        message.warning(
+          msg.eventType === "HOUSEHOLD_DELETED"
+            ? "This household has been deleted."
+            : "You have been removed from this household.",
+        );
         router.push("/households");
       }
     },
@@ -251,7 +279,9 @@ function PantryReceiptUploadPageInner() {
 
   const handleUploadReceipt = async () => {
     if (!pantryTarget) {
-      setErrorMessage("A valid household target is required before uploading a receipt.");
+      setErrorMessage(
+        "A valid household target is required before uploading a receipt.",
+      );
       return;
     }
     if (!selectedFile) {
@@ -282,9 +312,21 @@ function PantryReceiptUploadPageInner() {
       setReceiptResult(result);
       setReceiptUploadSession(uploadSession);
       setUploadProgress(100);
+      message.success(
+        "Receipt analyzed. Review the extracted product candidates next.",
+      );
+      router.push(
+        `/open-food-facts?householdId=${pantryTarget.householdId}&householdName=${encodeURIComponent(
+          pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`,
+        )}&receipt=1`,
+      );
     } catch (error) {
       if (isStaleHouseholdError(error)) {
-        setHouseholds(cachedHouseholds.filter((h) => h.householdId !== pantryTarget.householdId));
+        setHouseholds(
+          cachedHouseholds.filter(
+            (h) => h.householdId !== pantryTarget.householdId,
+          ),
+        );
         clearSelectedHouseholdId();
         message.warning(getStaleHouseholdMessage(error));
         router.push("/households");
@@ -298,217 +340,373 @@ function PantryReceiptUploadPageInner() {
 
   const extractedItemCount = receiptResult?.items?.length ?? 0;
   const handleReviewItems = () => {
-    router.push("/pantry/add/receipt/review");
+    if (!pantryTarget) {
+      return;
+    }
+
+    router.push(
+      `/open-food-facts?householdId=${pantryTarget.householdId}&householdName=${encodeURIComponent(
+        pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`,
+      )}&receipt=1`,
+    );
   };
 
   return (
     <VirtualPantryAppShell activeNav="pantry">
       <div style={{ paddingBottom: 24 }}>
         <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-            <Space orientation="vertical" size="large" style={{ width: "100%", display: "flex" }}>
-              <Space
-                style={{
-                  width: "100%",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  flexWrap: "wrap",
-                  gap: 16,
-                }}
-              >
-                <div>
-                  <Button
-                    size="middle"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={handleBackToPantry}
-                    style={{ marginBottom: 18, borderRadius: 12, fontWeight: 600 }}
-                  >
-                    Pantry
-                  </Button>
-                  <Tag color="green" style={{ marginBottom: 12, borderRadius: 999, paddingInline: 12, fontWeight: 600 }}>
-                    Receipt upload
-                  </Tag>
-                  <Title level={1} style={{ margin: 0, color: "#18351f", fontSize: 48, lineHeight: 1.05 }}>
-                    Upload receipt photo
-                  </Title>
-                  <Paragraph style={{ marginTop: 12, marginBottom: 0, maxWidth: 760, fontSize: 20, lineHeight: 1.55, color: "#5f6e60" }}>
-                    Choose a clear JPG or PNG receipt image, upload it for OCR
-                    parsing, and prepare extracted items for the review flow.
+          <Space
+            orientation="vertical"
+            size="large"
+            style={{ width: "100%", display: "flex" }}
+          >
+            <Space
+              style={{
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                flexWrap: "wrap",
+                gap: 16,
+              }}
+            >
+              <div>
+                <Button
+                  size="middle"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={handleBackToPantry}
+                  style={{
+                    marginBottom: 18,
+                    borderRadius: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Pantry
+                </Button>
+                <Tag
+                  color="green"
+                  style={{
+                    marginBottom: 12,
+                    borderRadius: 999,
+                    paddingInline: 12,
+                    fontWeight: 600,
+                  }}
+                >
+                  Receipt upload
+                </Tag>
+                <Title
+                  level={1}
+                  style={{
+                    margin: 0,
+                    color: "#18351f",
+                    fontSize: 48,
+                    lineHeight: 1.05,
+                  }}
+                >
+                  Upload receipt photo
+                </Title>
+                <Paragraph
+                  style={{
+                    marginTop: 12,
+                    marginBottom: 0,
+                    maxWidth: 760,
+                    fontSize: 20,
+                    lineHeight: 1.55,
+                    color: "#5f6e60",
+                  }}
+                >
+                  Choose a clear JPG or PNG receipt image, upload it for OCR
+                  parsing, then review local product candidates in the product
+                  lookup portal.
+                </Paragraph>
+                {pantryTarget ? (
+                  <Paragraph style={{ marginTop: 12, marginBottom: 0 }}>
+                    Pantry target:{" "}
+                    <strong>
+                      {pantryTarget.householdName ??
+                        `Household ${pantryTarget.householdId}`}
+                    </strong>
                   </Paragraph>
-                  {pantryTarget ? (
-                    <Paragraph style={{ marginTop: 12, marginBottom: 0 }}>
-                      Pantry target:{" "}
-                      <strong>
-                        {pantryTarget.householdName ?? `Household ${pantryTarget.householdId}`}
-                      </strong>
-                    </Paragraph>
-                  ) : (
-                    <Paragraph style={{ marginTop: 12, marginBottom: 0, color: "#a15c15" }}>
-                      No valid household target was provided.
-                    </Paragraph>
-                  )}
-                </div>
-              </Space>
-
-              <Row gutter={[16, 16]}>
-                <Col xs={24} md={8}>
-                  <Card size="small" style={stepCardStyle} styles={stepCardStyles}>
-                    <Space orientation="vertical" size={8}>
-                      <Text style={{ color: "#1f7a3f", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                        1. Select image
-                      </Text>
-                      <Title level={4} style={{ margin: 0, color: "#18351f" }}>JPG or PNG</Title>
-                      <Text type="secondary">Maximum file size is 5 MB.</Text>
-                    </Space>
-                  </Card>
-                </Col>
-
-                <Col xs={24} md={8}>
-                  <Card size="small" style={stepCardStyle} styles={stepCardStyles}>
-                    <Space orientation="vertical" size={8}>
-                      <Text style={{ color: "#1f7a3f", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                        2. Upload
-                      </Text>
-                      <Title level={4} style={{ margin: 0, color: "#18351f" }}>OCR parsing</Title>
-                      <Text type="secondary">The backend extracts receipt line items.</Text>
-                    </Space>
-                  </Card>
-                </Col>
-
-                <Col xs={24} md={8}>
-                  <Card size="small" style={stepCardStyle} styles={stepCardStyles}>
-                    <Space orientation="vertical" size={8}>
-                      <Text style={{ color: "#1f7a3f", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                        3. Review next
-                      </Text>
-                      <Title level={4} style={{ margin: 0, color: "#18351f" }}>Review items next</Title>
-                      <Text type="secondary">Check extracted items before adding them to pantry.</Text>
-                    </Space>
-                  </Card>
-                </Col>
-              </Row>
-
-              <Row gutter={[16, 16]}>
-                <Col xs={24} lg={14}>
-                  <Card
-                    title={<span style={{ fontSize: 24, fontWeight: 700, color: "#1f2d1f" }}>Choose receipt image</span>}
-                    style={sectionCardStyle}
-                    styles={sectionCardStyles}
+                ) : (
+                  <Paragraph
+                    style={{ marginTop: 12, marginBottom: 0, color: "#a15c15" }}
                   >
-                    <Space orientation="vertical" size="large" style={{ width: "100%", display: "flex" }}>
-                      <Space wrap size="middle">
-                        <Upload {...uploadProps}>
-                          <Button size="large" icon={<UploadOutlined />}>Choose receipt file</Button>
-                        </Upload>
-
-                      </Space>
-
-                      <Text type="secondary">
-                        A full, well-lit receipt photo improves OCR accuracy.
-                        Supported formats: JPG and PNG, up to 5 MB.
-                      </Text>
-
-                      {selectedFile ? (
-                        <Alert
-                          type="success"
-                          showIcon
-                          title="Receipt image selected"
-                          description={`${selectedFile.name} · ${formatBytes(selectedFile.size)}`}
-                        />
-                      ) : (
-                        <Alert
-                          type="info"
-                          showIcon
-                          title="No receipt selected yet"
-                          description="Choose a receipt image to prepare it for OCR analysis."
-                        />
-                      )}
-                    </Space>
-                  </Card>
-                </Col>
-
-                <Col xs={24} lg={10}>
-                  <Card
-                    title={<span style={{ fontSize: 24, fontWeight: 700, color: "#1f2d1f" }}>Preview and status</span>}
-                    style={sectionCardStyle}
-                    styles={sectionCardStyles}
-                  >
-                    <Space orientation="vertical" size="middle" style={{ width: "100%", display: "flex" }}>
-                      {previewUrl ? (
-                        <div style={{ background: "#f7f9f1", border: "1px solid #e1e8d6", borderRadius: 20, padding: 16, textAlign: "center" }}>
-                          <Image src={previewUrl} alt="Selected receipt image" width={320} style={{ objectFit: "contain", borderRadius: 12 }} />
-                        </div>
-                      ) : (
-                        <Alert
-                          type="warning"
-                          showIcon
-                          icon={<WarningOutlined />}
-                          title="No image selected"
-                          description="The receipt preview will appear here."
-                        />
-                      )}
-
-                      <Progress
-                        percent={uploadProgress}
-                        status={errorMessage ? "exception" : selectedFile ? "success" : "normal"}
-                      />
-                    </Space>
-                  </Card>
-                </Col>
-              </Row>
-
-              {errorMessage ? (
-                <Alert type="error" showIcon title="Receipt upload issue" description={errorMessage} />
-              ) : null}
-
-              {receiptResult ? (
-                <Alert
-                  type="success"
-                  showIcon
-                  icon={<CheckCircleOutlined />}
-                  title="Receipt uploaded and analyzed"
-                  description={`Extracted ${extractedItemCount} item${extractedItemCount === 1 ? "" : "s"}${receiptResult.merchantName ? ` from ${receiptResult.merchantName}` : ""}.`}
-                  action={
-                    <Button type="primary" icon={<OrderedListOutlined />} onClick={handleReviewItems}>
-                      Review extracted items
-                    </Button>
-                  }
-                />
-              ) : null}
-
-              <section style={{ paddingTop: 4 }}>
-                <Space orientation="vertical" size="middle" style={{ width: "100%", display: "flex" }}>
-                  <Title level={3} style={{ margin: 0, color: "#18351f" }}>
-                    Upload receipt
-                  </Title>
-                  <Paragraph style={{ margin: 0, color: "#5f6e60" }}>
-                    The backend will validate the image, run OCR, and match each
-                    extracted line item against Open Food Facts where possible.
+                    No valid household target was provided.
                   </Paragraph>
-
-                  <Space wrap size="middle">
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<CloudUploadOutlined />}
-                      disabled={!selectedFile || !pantryTarget}
-                      loading={isUploading}
-                      onClick={() => void handleUploadReceipt()}
-                    >
-                      {isUploading ? "Analyzing receipt..." : "Upload and analyze receipt"}
-                    </Button>
-
-                    <Button size="large" icon={<InboxOutlined />} onClick={clearSelection}>
-                      Clear selection
-                    </Button>
-                  </Space>
-
-                  <Text type="secondary">
-                    After upload, the result is kept in this browser session for
-                    the upcoming extracted-items review screen.
-                  </Text>
-                </Space>
-              </section>
+                )}
+              </div>
             </Space>
+
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={8}>
+                <Card
+                  size="small"
+                  style={stepCardStyle}
+                  styles={stepCardStyles}
+                >
+                  <Space orientation="vertical" size={8}>
+                    <Text
+                      style={{
+                        color: "#1f7a3f",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      1. Select image
+                    </Text>
+                    <Title level={4} style={{ margin: 0, color: "#18351f" }}>
+                      JPG or PNG
+                    </Title>
+                    <Text type="secondary">Maximum file size is 5 MB.</Text>
+                  </Space>
+                </Card>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Card
+                  size="small"
+                  style={stepCardStyle}
+                  styles={stepCardStyles}
+                >
+                  <Space orientation="vertical" size={8}>
+                    <Text
+                      style={{
+                        color: "#1f7a3f",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      2. Upload
+                    </Text>
+                    <Title level={4} style={{ margin: 0, color: "#18351f" }}>
+                      OCR parsing
+                    </Title>
+                    <Text type="secondary">
+                      The backend extracts receipt line items.
+                    </Text>
+                  </Space>
+                </Card>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Card
+                  size="small"
+                  style={stepCardStyle}
+                  styles={stepCardStyles}
+                >
+                  <Space orientation="vertical" size={8}>
+                    <Text
+                      style={{
+                        color: "#1f7a3f",
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      3. Review next
+                    </Text>
+                    <Title level={4} style={{ margin: 0, color: "#18351f" }}>
+                      Choose candidates
+                    </Title>
+                    <Text type="secondary">
+                      Pick the right local dataset product for each line.
+                    </Text>
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
+
+            <Row gutter={[16, 16]}>
+              <Col xs={24} lg={14}>
+                <Card
+                  title={
+                    <span
+                      style={{
+                        fontSize: 24,
+                        fontWeight: 700,
+                        color: "#1f2d1f",
+                      }}
+                    >
+                      Choose receipt image
+                    </span>
+                  }
+                  style={sectionCardStyle}
+                  styles={sectionCardStyles}
+                >
+                  <Space
+                    orientation="vertical"
+                    size="large"
+                    style={{ width: "100%", display: "flex" }}
+                  >
+                    <Space wrap size="middle">
+                      <Upload {...uploadProps}>
+                        <Button size="large" icon={<UploadOutlined />}>
+                          Choose receipt file
+                        </Button>
+                      </Upload>
+                    </Space>
+
+                    <Text type="secondary">
+                      A full, well-lit receipt photo improves OCR accuracy.
+                      Supported formats: JPG and PNG, up to 5 MB.
+                    </Text>
+
+                    {selectedFile ? (
+                      <Alert
+                        type="success"
+                        showIcon
+                        title="Receipt image selected"
+                        description={`${selectedFile.name} · ${formatBytes(selectedFile.size)}`}
+                      />
+                    ) : (
+                      <Alert
+                        type="info"
+                        showIcon
+                        title="No receipt selected yet"
+                        description="Choose a receipt image to prepare it for OCR analysis."
+                      />
+                    )}
+                  </Space>
+                </Card>
+              </Col>
+
+              <Col xs={24} lg={10}>
+                <Card
+                  title={
+                    <span
+                      style={{
+                        fontSize: 24,
+                        fontWeight: 700,
+                        color: "#1f2d1f",
+                      }}
+                    >
+                      Preview and status
+                    </span>
+                  }
+                  style={sectionCardStyle}
+                  styles={sectionCardStyles}
+                >
+                  <Space
+                    orientation="vertical"
+                    size="middle"
+                    style={{ width: "100%", display: "flex" }}
+                  >
+                    {previewUrl ? (
+                      <div
+                        style={{
+                          background: "#f7f9f1",
+                          border: "1px solid #e1e8d6",
+                          borderRadius: 20,
+                          padding: 16,
+                          textAlign: "center",
+                        }}
+                      >
+                        <Image
+                          src={previewUrl}
+                          alt="Selected receipt image"
+                          width={320}
+                          style={{ objectFit: "contain", borderRadius: 12 }}
+                        />
+                      </div>
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        icon={<WarningOutlined />}
+                        title="No image selected"
+                        description="The receipt preview will appear here."
+                      />
+                    )}
+
+                    <Progress
+                      percent={uploadProgress}
+                      status={
+                        errorMessage
+                          ? "exception"
+                          : selectedFile
+                            ? "success"
+                            : "normal"
+                      }
+                    />
+                  </Space>
+                </Card>
+              </Col>
+            </Row>
+
+            {errorMessage ? (
+              <Alert
+                type="error"
+                showIcon
+                title="Receipt upload issue"
+                description={errorMessage}
+              />
+            ) : null}
+
+            {receiptResult ? (
+              <Alert
+                type="success"
+                showIcon
+                icon={<CheckCircleOutlined />}
+                title="Receipt uploaded and analyzed"
+                description={`Extracted ${extractedItemCount} item${extractedItemCount === 1 ? "" : "s"}${receiptResult.merchantName ? ` from ${receiptResult.merchantName}` : ""}.`}
+                action={
+                  <Button
+                    type="primary"
+                    icon={<OrderedListOutlined />}
+                    onClick={handleReviewItems}
+                  >
+                    Review product candidates
+                  </Button>
+                }
+              />
+            ) : null}
+
+            <section style={{ paddingTop: 4 }}>
+              <Space
+                orientation="vertical"
+                size="middle"
+                style={{ width: "100%", display: "flex" }}
+              >
+                <Title level={3} style={{ margin: 0, color: "#18351f" }}>
+                  Upload receipt
+                </Title>
+                <Paragraph style={{ margin: 0, color: "#5f6e60" }}>
+                  The backend will validate the image, run OCR, and search the
+                  local product dataset for candidates for each extracted line
+                  item.
+                </Paragraph>
+
+                <Space wrap size="middle">
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<CloudUploadOutlined />}
+                    disabled={!selectedFile || !pantryTarget}
+                    loading={isUploading}
+                    onClick={() => void handleUploadReceipt()}
+                  >
+                    {isUploading
+                      ? "Analyzing receipt..."
+                      : "Upload and analyze receipt"}
+                  </Button>
+
+                  <Button
+                    size="large"
+                    icon={<InboxOutlined />}
+                    onClick={clearSelection}
+                  >
+                    Clear selection
+                  </Button>
+                </Space>
+
+                <Text type="secondary">
+                  After upload, the result is kept in this browser session and
+                  opened in the product lookup portal for candidate review.
+                </Text>
+              </Space>
+            </section>
+          </Space>
         </div>
       </div>
     </VirtualPantryAppShell>

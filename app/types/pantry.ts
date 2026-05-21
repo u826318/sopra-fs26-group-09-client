@@ -1,6 +1,43 @@
 // Issue #114 — amount unit chosen by the user when adding an item to the pantry
-export type AmountUnit = "g" | "ml" | "package" | "serving";
-export type ConsumptionUnit = AmountUnit;
+export type AmountUnit = "g" | "ml" | "package";
+export type ConsumptionUnit = AmountUnit | "serving";
+export type MicronutrientUnit = "µg" | "mg" | "g";
+
+export type ManualMicronutrientKey =
+  | "biotin"
+  | "calcium"
+  | "chloride"
+  | "choline"
+  | "chromium"
+  | "copper"
+  | "fluoride"
+  | "folate"
+  | "iodine"
+  | "iron"
+  | "magnesium"
+  | "manganese"
+  | "molybdenum"
+  | "niacin"
+  | "pantothenicAcid"
+  | "phosphorus"
+  | "potassium"
+  | "riboflavin"
+  | "selenium"
+  | "sodium"
+  | "thiamin"
+  | "vitaminA"
+  | "vitaminB12"
+  | "vitaminB6"
+  | "vitaminC"
+  | "vitaminD"
+  | "vitaminE"
+  | "vitaminK"
+  | "zinc";
+
+export interface PantryItemMicronutrientCreateRequest {
+  value: number;
+  unit: MicronutrientUnit;
+}
 
 export interface PantryItemCreateRequest {
   barcode: string;
@@ -10,8 +47,9 @@ export interface PantryItemCreateRequest {
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
   kcalPer100ml?: number | null;
-  kcalPerServing?: number | null;
+  manualEntry?: boolean;
   expirationDate?: string | null;
+  micronutrients?: Partial<Record<ManualMicronutrientKey, PantryItemMicronutrientCreateRequest>>;
 }
 
 export interface PantryItem {
@@ -25,7 +63,6 @@ export interface PantryItem {
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
   kcalPer100ml?: number | null;
-  kcalPerServing?: number | null;
   nutritionBasisAmount?: number | null;
   nutritionBasisUnit?: AmountUnit | null;
   packageQuantity?: number | null;

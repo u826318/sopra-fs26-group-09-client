@@ -147,6 +147,9 @@ describe("Open Food Facts page", () => {
     expect(screen.getByText("Tiger Kitchen")).toBeInTheDocument();
     expect(screen.getByText("7613312434086")).toBeInTheDocument();
     expect(screen.queryByText(/Index 3207438/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Anchors:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Auxiliary:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose one of the matching local dataset products.")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Select Nouilles Udon" }));
 

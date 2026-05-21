@@ -130,6 +130,13 @@
   overflow-wrap: anywhere;
 }
 
+.metaHint {
+  margin-top: 6px;
+  color: #667566;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .actionPanel {
   display: grid;
   gap: 12px;

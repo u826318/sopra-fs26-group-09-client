@@ -51,7 +51,14 @@ import type { ApplicationError } from "@/types/error";
 import type { HouseholdBudget } from "@/types/budget";
 import type { HouseholdWithRole, HouseholdMember } from "@/types/household";  // Issue #121
 import type { ConsumptionLogEntry } from "@/types/consumption";
-import { formatQuantity } from "@/utils/pantry";
+import {
+  PACKAGE_QUANTITY_UNAVAILABLE_NOTE,
+  formatAmountDisplay,
+  formatQuantity,
+  getPantryItemCalorieBasisDisplay,
+  hasUsablePackageQuantityInfo,
+  shouldShowPackageQuantityUnavailableNote,
+} from "@/utils/pantry";
 import type { HouseholdStats } from "@/types/stats";
 import type { HealthGoal } from "@/types/healthGoal";
 import statsStyles from "@/styles/stats.module.css";
@@ -174,6 +181,22 @@ function isKnownCalories(value: number | null | undefined): value is number {
 
 function formatKcalDisplay(value: number | null | undefined): string {
   return isKnownCalories(value) ? formatKcal(Number(value)) : "—";
+}
+
+function formatAmountWithUnit(value: number | null | undefined, unit: string | null | undefined): string {
+  return `${formatAmountDisplay(value)} ${unit ?? ""}`.trim();
+}
+
+function getPackageQuantityConversionNote(item: PantryItem, unit: ConsumptionUnit): string | null {
+  if (item.amountUnit !== "package" || unit === "package") {
+    return null;
+  }
+
+  if (hasUsablePackageQuantityInfo(item)) {
+    return null;
+  }
+
+  return "Package quantity unavailable; the app cannot convert this portion into packages left.";
 }
 
 function comparisonTagColor(status: string): string {
@@ -818,17 +841,41 @@ export default function StatsPage() {
         width: 110,
         render: (_: unknown, record: PantryItem) => (
           <span>
-            {record.amount} {record.amountUnit}
+            {formatAmountWithUnit(record.amount, record.amountUnit)}
           </span>
         ),
       },
       {
         title: "Remaining kcal",
         key: "cals",
-        width: 130,
-        render: (_: unknown, record: PantryItem) => (
-          <Text strong>{formatKcalDisplay(computeRemainingKcal(record))}</Text>
-        ),
+        width: 160,
+        render: (_: unknown, record: PantryItem) => {
+          // Issue #114 — unit-aware calorie computation. If package-size conversion is unknown,
+          // still show the standardized kcal basis so the row does not look calorie-empty.
+          const totalCalories = computeItemKcal(record);
+          if (totalCalories !== null) {
+            return (
+              <Space direction="vertical" size={0}>
+                <Text strong>{formatKcal(totalCalories)}</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>inventory total</Text>
+              </Space>
+            );
+          }
+
+          const basis = getPantryItemCalorieBasisDisplay(record);
+          return basis ? (
+            <Space direction="vertical" size={0}>
+              <Text strong>{`${basis.value.toLocaleString()} ${basis.label}`}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {shouldShowPackageQuantityUnavailableNote(record)
+                  ? PACKAGE_QUANTITY_UNAVAILABLE_NOTE
+                  : "standardized basis"}
+              </Text>
+            </Space>
+          ) : (
+            <Text strong>{formatKcalDisplay(null)}</Text>
+          );
+        },
       },
       {
         title: "Expires",
@@ -1386,7 +1433,7 @@ export default function StatsPage() {
           }
           const maxAmount = getMaxConsumptionAmount(item, amountUnit);
           if (maxAmount !== undefined && amount > maxAmount) {
-            message.error(`Amount cannot exceed available quantity (${maxAmount.toFixed(2)} ${amountUnit}).`);
+            message.error(`Amount cannot exceed available quantity (${formatAmountDisplay(maxAmount)} ${amountUnit}).`);
             return;
           }
           // Issue #121
@@ -1461,10 +1508,12 @@ export default function StatsPage() {
               />
             </div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              Inventory: {portionConsumeState.item.amount} {portionConsumeState.item.amountUnit}
-              {getMaxConsumptionAmount(portionConsumeState.item, portionConsumeState.amountUnit) === undefined
-                ? " · nutrition can be logged, but package inventory may not change for this unit"
-                : ""}
+              Inventory: {formatAmountWithUnit(portionConsumeState.item.amount, portionConsumeState.item.amountUnit)}
+              {getPackageQuantityConversionNote(portionConsumeState.item, portionConsumeState.amountUnit)
+                ? ` · ${getPackageQuantityConversionNote(portionConsumeState.item, portionConsumeState.amountUnit)}`
+                : getMaxConsumptionAmount(portionConsumeState.item, portionConsumeState.amountUnit) === undefined
+                  ? " · nutrition can be logged, but package inventory may not change for this unit"
+                  : ""}
             </Text>
             {/* Issue #121 — attribute consumption to a specific member */}
             {members.length > 1 && (

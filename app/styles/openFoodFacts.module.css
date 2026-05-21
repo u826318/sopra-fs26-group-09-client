@@ -65,6 +65,31 @@
   color: #1b2a1b !important;
 }
 
+.sectionIntro {
+  margin: 0;
+  color: #5d6a5d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.lookupResultPanel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #c7d8b8;
+  background: linear-gradient(180deg, #fbfff7 0%, #f4f8ee 100%);
+  box-shadow: 0 4px 14px rgba(24, 60, 28, 0.08);
+}
+
+.lookupResultLabel {
+  color: #14532d;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .lookupStack {
   display: grid;
   gap: 16px;
@@ -145,6 +170,17 @@
 .nameSearchMeta {
   color: #5d6a5d;
   font-size: 13px;
+}
+
+.nameSearchEmpty {
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px dashed #cfd9c4;
+  background: #ffffff;
+  color: #5d6a5d;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .candidateList {
@@ -339,4 +375,72 @@
   .nameProductCard {
     flex-basis: 152px;
   }
+}
+
+.receiptLineBlock {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid #d8e2cd;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbf3 100%);
+  box-shadow: 0 4px 14px rgba(24, 60, 28, 0.06);
+}
+
+.receiptLineHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.receiptLineEyebrow {
+  color: #14532d;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.receiptLineTitle {
+  margin: 4px 0 0;
+  color: #1b2a1b;
+  font-size: 28px;
+  line-height: 1.15;
+}
+
+.receiptLineMeta {
+  margin-top: 6px;
+  color: #5d6a5d;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.receiptProductTrack {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding: 2px 2px 12px;
+  scrollbar-width: thin;
+}
+
+.receiptSelectedResult {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid #b7d2a2;
+  background: linear-gradient(180deg, #fbfff7 0%, #f0f7e8 100%);
+}
+
+.receiptManualActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.receiptSearchNotice {
+  margin-top: 2px;
 }

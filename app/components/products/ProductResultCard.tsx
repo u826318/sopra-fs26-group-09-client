@@ -14,6 +14,9 @@ import {
   getKcalPer100g,
   getKcalPer100ml,
   estimateKcalPerPackage,
+  getProductCalorieBasisDisplay,
+  PACKAGE_QUANTITY_UNAVAILABLE_NOTE,
+  shouldShowProductPackageQuantityUnavailableNote,
 } from "@/utils/pantry";
 import { isStaleHouseholdError, getStaleHouseholdMessage } from "@/utils/householdStale";
 import { App, Card, DatePicker, Image } from "antd";
@@ -254,6 +257,11 @@ export default function ProductResultCard({
   const { value: households, set: setHouseholds } = useSessionStorage<HouseholdWithRole[]>("households", []);
   const { value: selectedHouseholdId, clear: clearSelectedHouseholdId } = useSessionStorage<number | null>("selectedHouseholdId", null);
   const reportedNutrients = useMemo(() => getReportedNutrients(product), [product]);
+  const calorieBasisDisplay = useMemo(() => getProductCalorieBasisDisplay(product), [product]);
+  const showPackageQuantityNote = useMemo(
+    () => shouldShowProductPackageQuantityUnavailableNote(product),
+    [product],
+  );
   const isLocalDataset = product.dataSource === "local_dataset";
   const isLocalFallback = product.localFallback === true || product.dataSource === "local_csv_fallback" || isLocalDataset;
   const effectivePantryContext = useMemo(
@@ -329,7 +337,6 @@ export default function ProductResultCard({
         payload,
       );
       message.success(`Item successfully added to ${getPantryTargetLabel(effectivePantryContext)}.`);
-      router.push(`/households/${effectivePantryContext.householdId}/stats`);
     } catch (error) {
       if (isStaleHouseholdError(error)) {
         setHouseholds(households.filter((h) => h.householdId !== effectivePantryContext.householdId));
@@ -384,8 +391,13 @@ export default function ProductResultCard({
               <div className={styles.metaValue}>{product.barcode?.trim() || "—"}</div>
             </div>
             <div className={styles.metaCard}>
-              <div className={styles.metaLabel}>Estimated kcal / package</div>
-              <div className={styles.metaValue}>{estimateKcalPerPackage(product) ?? "—"}</div>
+              <div className={styles.metaLabel}>Energy basis</div>
+              <div className={styles.metaValue}>
+                {calorieBasisDisplay ? `${calorieBasisDisplay.value} ${calorieBasisDisplay.label}` : "—"}
+              </div>
+              {showPackageQuantityNote ? (
+                <div className={styles.metaHint}>{PACKAGE_QUANTITY_UNAVAILABLE_NOTE}</div>
+              ) : null}
             </div>
             <div className={styles.metaCard}>
               <div className={styles.metaLabel}>Data source</div>
@@ -427,7 +439,7 @@ export default function ProductResultCard({
           <div className={styles.actionPanel}>
             <div className={styles.actionHeading}>Add this item to pantry</div>
             <div className={styles.actionSubtext}>
-              Review the product details, choose the number of packages, then save the item to the current household pantry.
+              Review the product details, choose an amount, then save the item to the current household pantry.
             </div>
 
             {/* Issue #114 — unit selector and amount input; unit options appear only when product has nutrition data for that unit */}
