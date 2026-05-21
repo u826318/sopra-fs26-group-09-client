@@ -149,7 +149,9 @@ describe("Household pantry page", () => {
     window.history.pushState({}, "", "/households/10?name=Test%20House");
   });
 
-  it("shows the pantry item total as the sum of row counts, not the number of entries", async () => {
+  it("shows expiring soon count for items with expiration dates within 3 days", async () => {
+    const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+    const later = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
     const pantryData = {
       items: [
         {
@@ -161,6 +163,7 @@ describe("Household pantry page", () => {
           amount: 2,
           amountUnit: "package",
           addedAt: "2026-04-12T10:00:00Z",
+          expirationDate: soon,
         },
         {
           id: 2,
@@ -171,6 +174,7 @@ describe("Household pantry page", () => {
           amount: 1,
           amountUnit: "package",
           addedAt: "2026-04-13T10:00:00Z",
+          expirationDate: later,
         },
       ],
       totalCalories: 750,
@@ -192,7 +196,7 @@ describe("Household pantry page", () => {
       expect(screen.getByText("Chocolate Bar")).toBeInTheDocument();
       expect(screen.getByText("Granola")).toBeInTheDocument();
       expect(screen.getByText("750 kcal")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument();
+      expect(screen.getByText("Items expiring within the next 3 days.")).toBeInTheDocument();
     });
   });
 

@@ -32,7 +32,7 @@ import {
   CameraOutlined,
   EditOutlined,
   FileImageOutlined,
-  InboxOutlined,
+  WarningOutlined,
   FireOutlined,
 } from "@ant-design/icons";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -225,15 +225,15 @@ export default function HouseholdPantryPage() {
     },
   });
 
-  const totalItemCount = useMemo(() => {
-    if (!overview) {
-      return 0;
-    }
-
-    return overview.items.reduce((sum, item) => {
-      const amount = Number(item.amount);
-      return sum + (Number.isFinite(amount) && amount > 0 ? amount : 0);
-    }, 0);
+  const expiringSoonCount = useMemo(() => {
+    if (!overview) return 0;
+    const now = Date.now();
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return overview.items.filter((item) => {
+      if (!item.expirationDate) return false;
+      const exp = new Date(item.expirationDate).getTime();
+      return !Number.isNaN(exp) && exp <= now + threeDaysMs;
+    }).length;
   }, [overview]);
 
   const uniqueProductsCount = overview?.items.length ?? 0;
@@ -435,19 +435,19 @@ export default function HouseholdPantryPage() {
                     <Space orientation="vertical" size={8}>
                       <Text
                         style={{
-                          color: "#1f7a3f",
+                          color: expiringSoonCount > 0 ? "#b85c00" : "#1f7a3f",
                           fontWeight: 700,
                           letterSpacing: "0.06em",
                           textTransform: "uppercase",
                         }}
                       >
-                        <InboxOutlined /> Inventory size
+                        <WarningOutlined /> Expiring soon
                       </Text>
-                      <Title level={2} style={{ margin: 0, color: "#18351f" }}>
-                        {formatNumber(totalItemCount)}
+                      <Title level={2} style={{ margin: 0, color: expiringSoonCount > 0 ? "#b85c00" : "#18351f" }}>
+                        {expiringSoonCount}
                       </Title>
                       <Text type="secondary">
-                        Item units currently stored in this shared pantry.
+                        Items expiring within the next 3 days.
                       </Text>
                     </Space>
                   </Card>
