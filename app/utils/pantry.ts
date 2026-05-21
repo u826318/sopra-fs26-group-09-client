@@ -186,12 +186,14 @@ export function estimateKcalPerPackage(product: Product): number | null {
     }
   }
 
-  const servingValue = parseNumber(nutriments["energy-kcal_serving"]);
-  if (servingValue !== null) {
-    return Number(servingValue.toFixed(2));
-  }
-
   return null;
+}
+
+export function getKcalPerServing(product: Product): number | null {
+  const direct = parseNumber(product.caloriesPerServing);
+  if (direct !== null) return Number(direct.toFixed(2));
+  const fromNutriments = parseNumber((product.nutriments ?? {})["energy-kcal_serving"]);
+  return fromNutriments === null ? null : Number(fromNutriments.toFixed(2));
 }
 
 // Issue #95 — "package" or unknown keeps × suffix; g/ml use the unit as suffix
@@ -214,14 +216,15 @@ export function detectAvailableUnits(product: Product): AmountUnit[] {
   }
 
   const units: AmountUnit[] = ["package"];
-  const amountInfo = parsePackageAmount(product.quantity);
-  const nutriments = product.nutriments ?? {};
 
-  if (amountInfo?.basis === "100g" && parseNumber(nutriments["energy-kcal_100g"]) !== null) {
-    units.unshift("g");
+  if (getKcalPerServing(product) !== null) {
+    units.unshift("serving");
   }
-  if (amountInfo?.basis === "100ml" && parseNumber(nutriments["energy-kcal_100ml"]) !== null) {
+  if (getKcalPer100ml(product) !== null) {
     units.unshift("ml");
+  }
+  if (getKcalPer100g(product) !== null) {
+    units.unshift("g");
   }
 
   return units;
@@ -261,5 +264,6 @@ export function buildPantryItemPayload(
     kcalPerPackage: unit === "package" ? estimateKcalPerPackage(product) : null,
     kcalPer100g: unit === "g" ? getKcalPer100g(product) : null,
     kcalPer100ml: unit === "ml" ? getKcalPer100ml(product) : null,
+    kcalPerServing: unit === "serving" ? getKcalPerServing(product) : null,
   };
 }

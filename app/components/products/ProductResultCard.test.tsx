@@ -126,6 +126,7 @@ describe("ProductResultCard", () => {
         kcalPerPackage: null,
         kcalPer100g: 220,
         kcalPer100ml: null,
+        kcalPerServing: null,
         expirationDate: null,
       });
     });
@@ -167,6 +168,7 @@ describe("ProductResultCard", () => {
         kcalPerPackage: null,
         kcalPer100g: 220,
         kcalPer100ml: null,
+        kcalPerServing: null,
         expirationDate: null,
       });
     });

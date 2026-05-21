@@ -290,6 +290,9 @@ export default function HouseholdPantryPage() {
           } else if (record.amountUnit === "ml") {
             const per100ml = Number(record.kcalPer100ml ?? 0);
             if (Number.isFinite(per100ml) && per100ml > 0) totalCalories = (per100ml * amount) / 100;
+          } else if (record.amountUnit === "serving") {
+            const perServing = Number(record.kcalPerServing ?? 0);
+            if (Number.isFinite(perServing) && perServing > 0) totalCalories = perServing * amount;
           }
         }
 
