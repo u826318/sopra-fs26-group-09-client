@@ -43,7 +43,7 @@ export interface PantryItemCreateRequest {
   barcode: string;
   name: string;
   amount: number;
-  amountUnit: AmountUnit;
+  amountUnit: ConsumptionUnit;
   kcalPerPackage?: number | null;
   kcalPer100g?: number | null;
   kcalPer100ml?: number | null;
