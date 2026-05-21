@@ -103,6 +103,40 @@ java -jar build/libs/*.jar
 
 ## Illustrations
 
+Virtual Pantry is built around a shared household pantry. After authentication,
+the user can create or join a household and use the household page as the main
+entry point for managing food items. From there, items can be added manually,
+through product lookup, by scanning a product image, or by uploading a receipt.
+The pantry overview shows the current inventory and helps users keep track of
+available quantities, product information, and expiry dates.
+
+The receipt upload flow supports a more realistic shopping scenario. Instead of
+directly importing every OCR result, the application first extracts receipt line
+items and proposes product matches. The review screen then lets the user inspect
+each extracted item, compare candidate products, correct details, remove
+incorrect entries, and decide which items should be added to the pantry. This
+keeps the interface transparent when OCR or product matching is uncertain.
+
+The pantry data is reused throughout the rest of the application. Users can set
+personal health goals and inspect household nutrition statistics based on stored
+pantry and consumption data. The recipe page recommends meals from the current
+pantry, highlights which ingredients are already available, lists missing
+ingredients, and explains how well each recipe fits the household's health goals.
+Recipe recommendations also indicate their source, such as the external recipe
+API or the local fallback catalog.
+
+The following screenshots illustrate the main user flows:
+
+![Household pantry overview](docs/screenshots/01-dashboard.png)
+
+![Add item flow](docs/screenshots/02-add-item.png)
+
+![Receipt review flow](docs/screenshots/03-receipt-review.png)
+
+![Recipe recommendations](docs/screenshots/04-recipes.png)
+
+![Health goal or nutrition statistics](docs/screenshots/05-stats-or-health-goal.png)
+
 ## Roadmap
 
 ## Authors and Acknowledgment
