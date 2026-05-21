@@ -4,6 +4,20 @@
 
 ## Technologies Used
 
+- **Next.js 15** and **React 19** for the web interface, routing, and
+  client-side application pages.
+- **TypeScript** for type-safe frontend development.
+- **Ant Design** for UI components such as forms, tables, cards, modals,
+  upload controls, tags, alerts, and layout elements.
+- **Recharts** for household nutrition and statistics visualizations.
+- **Session Storage / Local Storage** for authenticated session data and
+  temporary client-side workflow state, such as receipt review sessions.
+- **Fetch-based API service layer** for communicating with the Spring Boot
+  backend, including authenticated requests for users, households, pantry
+  items, recipes, receipts, and health goals.
+- **Jest** and **React Testing Library** for frontend unit and component tests.
+- **Vercel** for frontend deployment through the GitHub Actions workflow.
+
 ## High-Level Components
 
 ## Launch & Deployment
